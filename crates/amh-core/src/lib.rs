@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 mod details;
 mod storage;
 mod transition;
-pub use details::{Activation, ConstraintEnforcement, ItemDetails, PrincipleStrength, RequirementRole};
+pub use details::{
+    Activation, ConstraintEnforcement, ItemDetails, PrincipleStrength, RequirementRole,
+};
 pub use storage::{SnapshotStore, StoreError};
 pub use transition::{Change, RecordedChange};
 

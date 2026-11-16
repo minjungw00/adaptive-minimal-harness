@@ -91,11 +91,11 @@ impl ItemDetails {
                     Activation::Always | Activation::ExplicitOnly => true,
                     Activation::OnTags { any } => complete(any, true),
                 };
-                activation_valid
-                    && complete(verification, *strength == PrincipleStrength::Must)
+                activation_valid && complete(verification, *strength == PrincipleStrength::Must)
             }
             Self::Requirement {
-                acceptance_criteria, ..
+                acceptance_criteria,
+                ..
             } => complete(acceptance_criteria, true),
             Self::Constraint {
                 enforcement,
@@ -130,7 +130,9 @@ mod tests {
     fn typed_principle_checks_activation_and_verification() {
         let principle = ItemDetails::Principle {
             strength: PrincipleStrength::Must,
-            activation: Activation::OnTags { any: vec!["code.behavior_change".into()] },
+            activation: Activation::OnTags {
+                any: vec!["code.behavior_change".into()],
+            },
             verification: vec!["RED evidence exists".into()],
         };
         let item = ManagedItem::new_typed(
@@ -139,7 +141,8 @@ mod tests {
             ItemScope::Project,
             "Apply TDD to behavior changes",
             principle,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(item.details.as_ref().unwrap().kind(), ItemKind::Principle);
     }
 
@@ -151,7 +154,9 @@ mod tests {
                 ItemKind::Requirement,
                 ItemScope::Task,
                 "Report",
-                ItemDetails::Decision { rationale: "approved".into() },
+                ItemDetails::Decision {
+                    rationale: "approved".into()
+                },
             ),
             Err(ItemError::DetailsKindMismatch)
         );
@@ -186,7 +191,8 @@ mod tests {
                 role: RequirementRole::Core,
                 acceptance_criteria: vec!["List main cost drivers".into()],
             },
-        ).unwrap();
+        )
+        .unwrap();
         let text = serde_json::to_string(&item).unwrap();
         let restored: ManagedItem = serde_json::from_str(&text).unwrap();
         assert_eq!(restored, item);
@@ -194,7 +200,13 @@ mod tests {
 
     #[test]
     fn historical_items_without_details_are_still_readable() {
-        let item = ManagedItem::new("P-OLD", ItemKind::Principle, ItemScope::Project, "Old policy").unwrap();
+        let item = ManagedItem::new(
+            "P-OLD",
+            ItemKind::Principle,
+            ItemScope::Project,
+            "Old policy",
+        )
+        .unwrap();
         let text = serde_json::to_string(&item).unwrap();
         assert!(!text.contains("details"));
         let restored: ManagedItem = serde_json::from_str(&text).unwrap();
