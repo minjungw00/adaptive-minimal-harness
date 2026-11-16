@@ -279,6 +279,47 @@ mod tests {
     }
 
     #[test]
+    fn typed_requirement_survives_persistence_and_replay() {
+        use crate::{ItemDetails, RequirementRole};
+
+        let fixture = TemporaryStore::new();
+        let requirement = ManagedItem::new_typed(
+            "R-COST",
+            ItemKind::Requirement,
+            ItemScope::Project,
+            "Analyze the cost structure",
+            ItemDetails::Requirement {
+                role: RequirementRole::Core,
+                acceptance_criteria: vec!["Identify significant cost drivers".into()],
+            },
+        )
+        .unwrap();
+        let snapshot = fixture
+            .store
+            .apply_change(0, Change::Add { item: requirement.clone() })
+            .unwrap();
+        let loaded = fixture.store.load().unwrap();
+        assert_eq!(snapshot, loaded);
+        assert_eq!(loaded.get("R-COST"), Some(&requirement));
+    }
+
+    #[test]
+    fn invalid_typed_details_cannot_be_written() {
+        use crate::ItemDetails;
+
+        let fixture = TemporaryStore::new();
+        let mut requirement = item("P-TDD");
+        requirement.details = Some(ItemDetails::Decision {
+            rationale: "Wrong kind for a principle".into(),
+        });
+        assert!(matches!(
+            fixture.store.apply_change(0, Change::Add { item: requirement }),
+            Err(StoreError::Integrity(ItemError::DetailsKindMismatch))
+        ));
+        assert!(!fixture.store.path().exists());
+    }
+
+    #[test]
     fn stale_revision_does_not_overwrite_document() {
         let fixture = TemporaryStore::new();
         fixture
