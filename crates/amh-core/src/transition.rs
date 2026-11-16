@@ -5,7 +5,11 @@ use crate::{ItemError, ItemSnapshot, Lifecycle, ManagedItem};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "operation", rename_all = "SCREAMING_SNAKE_CASE", deny_unknown_fields)]
+#[serde(
+    tag = "operation",
+    rename_all = "SCREAMING_SNAKE_CASE",
+    deny_unknown_fields
+)]
 pub enum Change {
     Add {
         item: ManagedItem,

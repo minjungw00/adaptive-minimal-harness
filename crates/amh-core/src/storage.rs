@@ -79,8 +79,8 @@ impl SnapshotStore {
         if saved.format != FORMAT || saved.format_revision != FORMAT_REVISION {
             return Err(StoreError::InvalidFormat);
         }
-        let rebuilt = ItemSnapshot::replay(saved.snapshot.history())
-            .map_err(StoreError::Integrity)?;
+        let rebuilt =
+            ItemSnapshot::replay(saved.snapshot.history()).map_err(StoreError::Integrity)?;
         if rebuilt != saved.snapshot {
             return Err(StoreError::InconsistentSnapshot);
         }
@@ -139,10 +139,12 @@ impl SnapshotStore {
     }
 
     fn atomic_replace(&self, parent: &Path, bytes: &[u8]) -> Result<(), StoreError> {
-        let name = self
-            .path
-            .file_name()
-            .ok_or_else(|| StoreError::Io(io::Error::new(io::ErrorKind::InvalidInput, "state path must name a file")))?;
+        let name = self.path.file_name().ok_or_else(|| {
+            StoreError::Io(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "state path must name a file",
+            ))
+        })?;
 
         for attempt in 0..16_u8 {
             let nonce = SystemTime::now()
@@ -196,11 +198,8 @@ mod tests {
     impl TemporaryStore {
         fn new() -> Self {
             let id = NEXT_TEST.fetch_add(1, Ordering::Relaxed);
-            let directory = std::env::temp_dir().join(format!(
-                "amh-store-{}-{}",
-                std::process::id(),
-                id
-            ));
+            let directory =
+                std::env::temp_dir().join(format!("amh-store-{}-{}", std::process::id(), id));
             fs::create_dir_all(&directory).unwrap();
             let store = SnapshotStore::new(directory.join("state.json"));
             Self { directory, store }
@@ -214,8 +213,13 @@ mod tests {
     }
 
     fn item(id: &str) -> ManagedItem {
-        ManagedItem::new(id, ItemKind::Principle, ItemScope::Project, "do the right thing")
-            .unwrap()
+        ManagedItem::new(
+            id,
+            ItemKind::Principle,
+            ItemScope::Project,
+            "do the right thing",
+        )
+        .unwrap()
     }
 
     #[test]
@@ -230,11 +234,22 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         fixture
             .store
-            .apply_change(1, Change::Activate { id: "P-ONE".into(), item_revision: 1 })
+            .apply_change(
+                1,
+                Change::Activate {
+                    id: "P-ONE".into(),
+                    item_revision: 1,
+                },
+            )
             .unwrap();
         let loaded = fixture.store.load().unwrap();
         assert_eq!(loaded.revision(), 2);
@@ -248,11 +263,27 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         let before = fs::read(fixture.store.path()).unwrap();
-        let error = fixture.store.apply_change(0, Change::Add { item: item("P-TWO") });
-        assert!(matches!(error, Err(StoreError::Conflict { expected: 0, actual: 1 })));
+        let error = fixture.store.apply_change(
+            0,
+            Change::Add {
+                item: item("P-TWO"),
+            },
+        );
+        assert!(matches!(
+            error,
+            Err(StoreError::Conflict {
+                expected: 0,
+                actual: 1
+            })
+        ));
         assert_eq!(fs::read(fixture.store.path()).unwrap(), before);
     }
 
@@ -261,14 +292,25 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         let before = fs::read(fixture.store.path()).unwrap();
         let error = fixture.store.apply_change(
             1,
-            Change::Pause { id: "P-ONE".into(), item_revision: 1 },
+            Change::Pause {
+                id: "P-ONE".into(),
+                item_revision: 1,
+            },
         );
-        assert!(matches!(error, Err(StoreError::Integrity(ItemError::InvalidLifecycle { .. }))));
+        assert!(matches!(
+            error,
+            Err(StoreError::Integrity(ItemError::InvalidLifecycle { .. }))
+        ));
         assert_eq!(fs::read(fixture.store.path()).unwrap(), before);
     }
 
@@ -277,7 +319,15 @@ mod tests {
         let fixture = TemporaryStore::new();
         fs::write(fixture.store.path(), b"{corrupt").unwrap();
         assert!(matches!(fixture.store.load(), Err(StoreError::Json(_))));
-        assert!(fixture.store.apply_change(0, Change::Add { item: item("P-ONE") }).is_err());
+        assert!(fixture
+            .store
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE")
+                }
+            )
+            .is_err());
         assert_eq!(fs::read(fixture.store.path()).unwrap(), b"{corrupt");
     }
 
@@ -286,13 +336,21 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         let bytes = fs::read(fixture.store.path()).unwrap();
         let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         value["snapshot"]["revision"] = serde_json::json!(999);
         fs::write(fixture.store.path(), serde_json::to_vec(&value).unwrap()).unwrap();
-        assert!(matches!(fixture.store.load(), Err(StoreError::InconsistentSnapshot)));
+        assert!(matches!(
+            fixture.store.load(),
+            Err(StoreError::InconsistentSnapshot)
+        ));
     }
 
     #[test]
@@ -300,13 +358,21 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         let mut value: serde_json::Value =
             serde_json::from_slice(&fs::read(fixture.store.path()).unwrap()).unwrap();
         value["format_revision"] = serde_json::json!(42);
         fs::write(fixture.store.path(), serde_json::to_vec(&value).unwrap()).unwrap();
-        assert!(matches!(fixture.store.load(), Err(StoreError::InvalidFormat)));
+        assert!(matches!(
+            fixture.store.load(),
+            Err(StoreError::InvalidFormat)
+        ));
     }
 
     #[cfg(unix)]
@@ -317,8 +383,19 @@ mod tests {
         let target = fixture.directory.join("outside.json");
         fs::write(&target, b"untouched").unwrap();
         symlink(&target, fixture.store.path()).unwrap();
-        assert!(matches!(fixture.store.load(), Err(StoreError::SymlinkNotAllowed)));
-        assert!(fixture.store.apply_change(0, Change::Add { item: item("P-ONE") }).is_err());
+        assert!(matches!(
+            fixture.store.load(),
+            Err(StoreError::SymlinkNotAllowed)
+        ));
+        assert!(fixture
+            .store
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE")
+                }
+            )
+            .is_err());
         assert_eq!(fs::read(target).unwrap(), b"untouched");
     }
 }
