@@ -1,0 +1,12 @@
+[package]
+name = "amh-cli"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "amh"
+path = "src/main.rs"
+
+[dependencies]
+amh-core = { path = "../amh-core" }
