@@ -28,7 +28,9 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 ## Persistence
 
-Start with human-readable local Markdown/TOML and structured JSON interchange. Use atomic writes, revision leases, and an append-only event history when implementing mutations. Do not require a database, cloud account, Git, or a language runtime for the eventual CLI binary.
+The initial `SnapshotStore` is an **implemented library feature**: replay-checked, format-tagged JSON storing current items and their change history together in one file. It uses advisory file locking, expected revisions, a synchronized temporary file, and same-directory rename. This is not authenticated, cryptographically tamper-evident, or guaranteed durable across power loss on every filesystem. See [storage contract](persistence.md).
+
+A user-editable TOML/Markdown source of truth, separate event store, and consumer-facing CLI persistence commands remain future work. They must not silently create duplicate authoritative sources.
 
 ## Scope control
 

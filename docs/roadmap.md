@@ -3,13 +3,16 @@
 **Planning status only.** No planning version number; product release numbers will be assigned independently.
 
 ## Foundation
-- Rust native CLI and library, workspace tests and CI.
-- Baseline schema and examples for managed items, task contracts, policy selection and deployment observation.
-- Clear supported/unsupported CLI behavior.
+- [x] Rust CLI/library workspace, unit tests, and CI.
+- [x] Minimal typed items, revision-checked transitions, replayable history.
+- [x] Local JSON snapshot persistence as a library API.
+- [x] Draft examples and explicit CLI capability boundaries.
+- [ ] Complete type-specific data model and contract schemas.
+- [ ] User-facing persistence CLI and policy-change authorization boundary.
 
 ## Policy and task contracts
-- Validate and store typed items and revisions.
-- Apply explicit ADD/MODIFY/REPLACE/REMOVE/REPRIORITIZE/PAUSE/REACTIVATE/RETIRE operations with authorization checks.
+- Extend item models with explicit scope references, owner, source, typed payloads, and governance relations.
+- Complete REMOVE and REPRIORITIZE, and introduce a trusted authorization mechanism for policy changes.
 - Resolve policy applicability with explicit conflict diagnostics and no recency-based priority.
 - Compile a minimal context preserving all applicable mandatory conditions.
 

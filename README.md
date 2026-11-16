@@ -20,17 +20,17 @@ TDD, refactoring, Socratic questioning, writing practices, and requirement prese
 
 A native `amh` CLI will eventually initialize a consumer repository, validate managed items, compile task-specific instructions, compare deployment changes, and inspect state. **Those commands must not be assumed to exist until implemented and tested.**
 
-The first deliverable is a Rust workspace, versioned data contracts, executable tests, and a CI baseline. See [architecture](docs/architecture.md) and [roadmap](docs/roadmap.md) as they are introduced.
+The Rust core currently supports **typed item identities, explicit validated transitions, replayable change history, and a local JSON snapshot store**. The store uses an advisory file lock and same-directory temporary-file replacement. These features are available as a **library API only**; the consumer project installer, policy resolver, task compiler, and enforcement interfaces are not implemented.
+
+See [architecture](docs/architecture.md), [persistence and limits](docs/persistence.md), [contracts](docs/contracts.md), and [roadmap](docs/roadmap.md).
 
 ## Development
 
-Once the Rust workspace is available:
-
 ```sh
-cargo test --workspace
+cargo test --workspace --locked
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p amh-cli -- --help
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo run -p amh-cli --locked -- --help
 ```
 
 Commits are separated by **one actual responsibility** and use the repository's **Conventional Commit subject format** `type: description`. Responsibility-level atomic commits are a general working principle; the message format is a repository-level convention.

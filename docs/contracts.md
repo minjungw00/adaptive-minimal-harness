@@ -23,7 +23,9 @@ Goals and requirements express desired outcomes. Principles describe applicable 
 
 Planned operations: `ADD`, `MODIFY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `PAUSE`, `REACTIVATE`, `RETIRE`. Updates carry an expected snapshot revision; changing an important policy or a requirement role requires trusted approval. Later appearance in a conversation is not implicit priority.
 
-The first Rust library deliberately supports **only validated item construction and snapshot insertion**. It does not yet parse the example files or implement the above mutation commands.
+**Implemented in the Rust library:** `ADD`, `MODIFY` (content), `REPLACE` (explicitly links compatible items), `ACTIVATE`, `PAUSE`, `REACTIVATE`, and `RETIRE`. Both snapshot and item revision guards are checked. Successful changes produce replayable events.
+
+**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, external authorization, source/provenance fields, type-specific payload validation, natural-language policy conflict analysis, the example input schema, and CLI mutation commands. `ItemSnapshot` currently uses a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
 
 ## Policy resolution
 
