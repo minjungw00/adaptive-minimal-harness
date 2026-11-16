@@ -5,6 +5,9 @@
 
 use std::collections::BTreeMap;
 
+mod transition;
+pub use transition::{Change, RecordedChange};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ItemKind {
     Goal,
@@ -38,6 +41,7 @@ pub struct ManagedItem {
     pub revision: u64,
     pub lifecycle: Lifecycle,
     pub content: String,
+    pub replaces: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,6 +51,14 @@ pub enum ItemError {
     ZeroRevision,
     DuplicateId(String),
     RevisionMismatch { expected: u64, actual: u64 },
+    ItemRevisionMismatch { id: String, expected: u64, actual: u64 },
+    MissingItem(String),
+    InvalidLifecycle { from: Lifecycle, to: Lifecycle },
+    InvalidNewItem,
+    InvalidReplacement,
+    IncompatibleReplacement,
+    RevisionExhausted,
+    InvalidEventRevision { expected: u64, actual: u64 },
 }
 
 impl ManagedItem {
@@ -63,6 +75,7 @@ impl ManagedItem {
             revision: 1,
             lifecycle: Lifecycle::Draft,
             content: content.into(),
+            replaces: None,
         };
         item.validate()?;
         Ok(item)
@@ -78,17 +91,21 @@ impl ManagedItem {
         if self.revision == 0 {
             return Err(ItemError::ZeroRevision);
         }
+        if self.replaces.as_deref() == Some(self.id.as_str()) {
+            return Err(ItemError::InvalidReplacement);
+        }
         Ok(())
     }
 }
 
 /// A minimal in-memory snapshot to exercise identity and optimistic revisions.
 ///
-/// No authorization, persistence, or mutation beyond insertion is implemented.
-#[derive(Debug, Default)]
+/// No authorization or persistence is implied by this state model.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ItemSnapshot {
     revision: u64,
     items: BTreeMap<String, ManagedItem>,
+    history: Vec<RecordedChange>,
 }
 
 impl ItemSnapshot {
@@ -101,19 +118,15 @@ impl ItemSnapshot {
     }
 
     pub fn insert(&mut self, expected_revision: u64, item: ManagedItem) -> Result<u64, ItemError> {
-        if self.revision != expected_revision {
-            return Err(ItemError::RevisionMismatch {
-                expected: expected_revision,
-                actual: self.revision,
-            });
-        }
-        item.validate()?;
-        if self.items.contains_key(&item.id) {
-            return Err(ItemError::DuplicateId(item.id));
-        }
-        self.items.insert(item.id.clone(), item);
-        self.revision += 1;
-        Ok(self.revision)
+        self.apply_change(expected_revision, Change::Add { item })
+    }
+
+    pub fn items(&self) -> impl Iterator<Item = &ManagedItem> {
+        self.items.values()
+    }
+
+    pub fn history(&self) -> &[RecordedChange] {
+        &self.history
     }
 
     pub fn len(&self) -> usize {
