@@ -23,7 +23,10 @@ pub enum StoreError {
     InvalidFormat,
     Integrity(ItemError),
     InconsistentSnapshot,
-    Conflict { expected: u64, actual: u64 },
+    Conflict {
+        expected: u64,
+        actual: u64,
+    },
     SymlinkNotAllowed,
     TemporaryNameExhausted,
 }

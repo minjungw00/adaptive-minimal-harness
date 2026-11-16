@@ -72,16 +72,13 @@ pub(crate) struct ApprovedChange {
 }
 
 impl ApprovalVerifier {
-    pub fn new(
-        project_id: impl Into<String>,
-        public_key: [u8; 32],
-    ) -> Result<Self, ApprovalError> {
+    pub fn new(project_id: impl Into<String>, public_key: [u8; 32]) -> Result<Self, ApprovalError> {
         let project_id = project_id.into();
         if project_id.trim().is_empty() {
             return Err(ApprovalError::WrongProject);
         }
-        let verifying_key = VerifyingKey::from_bytes(&public_key)
-            .map_err(|_| ApprovalError::InvalidTrustedKey)?;
+        let verifying_key =
+            VerifyingKey::from_bytes(&public_key).map_err(|_| ApprovalError::InvalidTrustedKey)?;
         Ok(Self {
             project_id,
             verifying_key,
@@ -161,7 +158,8 @@ mod tests {
                     ItemKind::Principle,
                     ItemScope::Project,
                     "TDD is required for behavior changes",
-                ).unwrap(),
+                )
+                .unwrap(),
             },
             reason: "Enable a user-approved rule".into(),
             issued_at: now - 1,
@@ -180,7 +178,8 @@ mod tests {
     #[test]
     fn valid_signature_authorizes_only_the_exact_change() {
         let key = signing_key();
-        let verifier = ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
+        let verifier =
+            ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
         let approval = sign(request(100, "project-one"), &key);
         let verified = verifier.verify_at(&approval, 101).unwrap();
         assert_eq!(verified.expected_revision, 0);
@@ -190,15 +189,22 @@ mod tests {
     #[test]
     fn tampering_with_change_or_revision_invalidates_signature() {
         let key = signing_key();
-        let verifier = ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
+        let verifier =
+            ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
         let original = sign(request(100, "project-one"), &key);
         let mut tampered = original.clone();
         tampered.request.expected_revision = 17;
-        assert_eq!(verifier.verify_at(&tampered, 101).err(), Some(ApprovalError::InvalidSignature));
+        assert_eq!(
+            verifier.verify_at(&tampered, 101).err(),
+            Some(ApprovalError::InvalidSignature)
+        );
 
         let mut tampered = original;
         tampered.request.reason = "Another reason".into();
-        assert_eq!(verifier.verify_at(&tampered, 101).err(), Some(ApprovalError::InvalidSignature));
+        assert_eq!(
+            verifier.verify_at(&tampered, 101).err(),
+            Some(ApprovalError::InvalidSignature)
+        );
     }
 
     #[test]
@@ -206,41 +212,67 @@ mod tests {
         let key = signing_key();
         let other = SigningKey::from_bytes(&[43_u8; 32]);
         let approval = sign(request(100, "project-one"), &key);
-        let wrong_project = ApprovalVerifier::new("project-two", key.verifying_key().to_bytes()).unwrap();
-        assert_eq!(wrong_project.verify_at(&approval, 101).err(), Some(ApprovalError::WrongProject));
+        let wrong_project =
+            ApprovalVerifier::new("project-two", key.verifying_key().to_bytes()).unwrap();
+        assert_eq!(
+            wrong_project.verify_at(&approval, 101).err(),
+            Some(ApprovalError::WrongProject)
+        );
 
-        let wrong_key = ApprovalVerifier::new("project-one", other.verifying_key().to_bytes()).unwrap();
-        assert_eq!(wrong_key.verify_at(&approval, 101).err(), Some(ApprovalError::InvalidSignature));
+        let wrong_key =
+            ApprovalVerifier::new("project-one", other.verifying_key().to_bytes()).unwrap();
+        assert_eq!(
+            wrong_key.verify_at(&approval, 101).err(),
+            Some(ApprovalError::InvalidSignature)
+        );
     }
 
     #[test]
     fn rejects_outside_validity_window() {
         let key = signing_key();
-        let verifier = ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
+        let verifier =
+            ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
         let approval = sign(request(100, "project-one"), &key);
-        assert_eq!(verifier.verify_at(&approval, 98).err(), Some(ApprovalError::NotYetValid));
-        assert_eq!(verifier.verify_at(&approval, 161).err(), Some(ApprovalError::Expired));
+        assert_eq!(
+            verifier.verify_at(&approval, 98).err(),
+            Some(ApprovalError::NotYetValid)
+        );
+        assert_eq!(
+            verifier.verify_at(&approval, 161).err(),
+            Some(ApprovalError::Expired)
+        );
     }
 
     #[test]
     fn rejects_invalid_lifetime_and_missing_reason_even_when_signed() {
         let key = signing_key();
-        let verifier = ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
+        let verifier =
+            ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
         let mut data = request(100, "project-one");
         data.expires_at = data.issued_at + MAX_LIFETIME_SECS + 1;
-        assert_eq!(verifier.verify_at(&sign(data, &key), 101).err(), Some(ApprovalError::InvalidWindow));
+        assert_eq!(
+            verifier.verify_at(&sign(data, &key), 101).err(),
+            Some(ApprovalError::InvalidWindow)
+        );
 
         let mut data = request(100, "project-one");
         data.reason = " ".into();
-        assert_eq!(verifier.verify_at(&sign(data, &key), 101).err(), Some(ApprovalError::InvalidReason));
+        assert_eq!(
+            verifier.verify_at(&sign(data, &key), 101).err(),
+            Some(ApprovalError::InvalidReason)
+        );
     }
 
     #[test]
     fn rejects_missing_or_broken_signature() {
         let key = signing_key();
-        let verifier = ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
+        let verifier =
+            ApprovalVerifier::new("project-one", key.verifying_key().to_bytes()).unwrap();
         let mut approval = sign(request(100, "project-one"), &key);
         approval.signature.clear();
-        assert_eq!(verifier.verify_at(&approval, 101).err(), Some(ApprovalError::InvalidSignature));
+        assert_eq!(
+            verifier.verify_at(&approval, 101).err(),
+            Some(ApprovalError::InvalidSignature)
+        );
     }
 }
