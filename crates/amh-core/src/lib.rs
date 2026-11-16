@@ -50,15 +50,28 @@ pub enum ItemError {
     EmptyContent,
     ZeroRevision,
     DuplicateId(String),
-    RevisionMismatch { expected: u64, actual: u64 },
-    ItemRevisionMismatch { id: String, expected: u64, actual: u64 },
+    RevisionMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    ItemRevisionMismatch {
+        id: String,
+        expected: u64,
+        actual: u64,
+    },
     MissingItem(String),
-    InvalidLifecycle { from: Lifecycle, to: Lifecycle },
+    InvalidLifecycle {
+        from: Lifecycle,
+        to: Lifecycle,
+    },
     InvalidNewItem,
     InvalidReplacement,
     IncompatibleReplacement,
     RevisionExhausted,
-    InvalidEventRevision { expected: u64, actual: u64 },
+    InvalidEventRevision {
+        expected: u64,
+        actual: u64,
+    },
 }
 
 impl ManagedItem {
