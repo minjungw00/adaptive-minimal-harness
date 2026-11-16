@@ -5,8 +5,10 @@
 
 use std::collections::BTreeMap;
 
+mod details;
 mod storage;
 mod transition;
+pub use details::{Activation, ConstraintEnforcement, ItemDetails, PrincipleStrength, RequirementRole};
 pub use storage::{SnapshotStore, StoreError};
 pub use transition::{Change, RecordedChange};
 
@@ -47,6 +49,9 @@ pub struct ManagedItem {
     pub revision: u64,
     pub lifecycle: Lifecycle,
     pub content: String,
+    /// Optional for snapshots written before typed details were introduced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<ItemDetails>,
     pub replaces: Option<String>,
 }
 
@@ -74,6 +79,8 @@ pub enum ItemError {
     InvalidReplacement,
     IncompatibleReplacement,
     RevisionExhausted,
+    DetailsKindMismatch,
+    InvalidDetails,
     InvalidEventRevision {
         expected: u64,
         actual: u64,
@@ -94,8 +101,23 @@ impl ManagedItem {
             revision: 1,
             lifecycle: Lifecycle::Draft,
             content: content.into(),
+            details: None,
             replaces: None,
         };
+        item.validate()?;
+        Ok(item)
+    }
+
+    /// Construct a typed item. Legacy items without details remain readable.
+    pub fn new_typed(
+        id: impl Into<String>,
+        kind: ItemKind,
+        scope: ItemScope,
+        content: impl Into<String>,
+        details: ItemDetails,
+    ) -> Result<Self, ItemError> {
+        let mut item = Self::new(id, kind, scope, content)?;
+        item.details = Some(details);
         item.validate()?;
         Ok(item)
     }
@@ -109,6 +131,9 @@ impl ManagedItem {
         }
         if self.revision == 0 {
             return Err(ItemError::ZeroRevision);
+        }
+        if let Some(details) = &self.details {
+            details.validate_for(self.kind)?;
         }
         if self.replaces.as_deref() == Some(self.id.as_str()) {
             return Err(ItemError::InvalidReplacement);
