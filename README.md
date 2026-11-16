@@ -20,16 +20,17 @@ TDD, refactoring, Socratic questioning, writing practices, and requirement prese
 
 A native `amh` CLI will eventually initialize a consumer repository, validate managed items, compile task-specific instructions, compare deployment changes, and inspect state. **Those commands must not be assumed to exist until implemented and tested.**
 
-The Rust core currently supports **typed item identities, explicit validated transitions, replayable change history, and a local JSON snapshot store**. The store uses an advisory file lock and same-directory temporary-file replacement. These features are available as a **library API only**; the consumer project installer, policy resolver, task compiler, and enforcement interfaces are not implemented.
+The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and approval UI are not implemented.
 
-See [architecture](docs/architecture.md), [persistence and limits](docs/persistence.md), [contracts](docs/contracts.md), and [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [persistence and limits](docs/persistence.md), [approval trust boundary](docs/approvals.md), [contracts](docs/contracts.md), and [roadmap](docs/roadmap.md).
 
 ## Development
 
 ```sh
 cargo test --workspace --locked
+cargo test --workspace --all-features --locked
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo run -p amh-cli --locked -- --help
 ```
 

@@ -12,7 +12,7 @@ The underlying Rust types are `ManagedItem`, `Change`, `RecordedChange`, and `It
 
 ## State transitions
 
-Available: ADD, content MODIFY, explicit compatible REPLACE, ACTIVATE, PAUSE, REACTIVATE, RETIRE.
+Available: ADD, content MODIFY, explicit compatible REPLACE, ACTIVATE, PAUSE, REACTIVATE, RETIRE. When provided, kind-specific item details are structurally validated; historical records without details remain readable.
 
 Not available: field-level arbitrary patching, REMOVE, REPRIORITIZE, typed goal/requirement acceptance criteria, policy-resolution semantics, trusted authorization.
 
@@ -32,7 +32,7 @@ The implementation rejects a symlink at the direct state file path and at the lo
 
 ## Failure and durability limitations
 
-- **No auth:** the caller is responsible for authenticating the user and authorizing the requested change. Any process with filesystem permission can edit the file.
+- **Conditional signature check, not end-to-end auth:** With `signed-approvals`, the public store write path requires a verified Ed25519 approval; the underlying reducer and internal store write operation are not public write interfaces. The host must supply the correct trusted verification key, protect its trust configuration, and enforce filesystem permissions. Any process with direct filesystem write permission can bypass the library. See [approval trust contract](approvals.md).
 - **No cryptographic provenance:** event replay detects inconsistency between stored state and event history, not a malicious actor who rewrites both consistently.
 - **No universal power-loss guarantee:** temporary data is synchronized, but parent directory metadata is not yet explicitly synchronized. Crash/power-loss durability is filesystem dependent.
 - **Advisory locks only:** cooperating AMH writers are serialized; unrelated writers can ignore locks.
@@ -41,6 +41,6 @@ The implementation rejects a symlink at the direct state file path and at the lo
 
 ## Verification
 
-CI runs `cargo test --workspace --locked`. Store tests cover round-trip loading, replay consistency, stale writes, invalid transitions, malformed snapshots, unknown format revisions, and symlink rejection on Unix.
+CI runs `cargo test --workspace --locked` and `cargo test --workspace --all-features --locked`. Store tests cover round-trip loading, replay consistency, stale writes, invalid transitions, malformed snapshots, unknown format revisions, and symlink rejection on Unix.
 
 These tests verify **local storage contracts**, not actual agent compliance or semantic correctness of policies.

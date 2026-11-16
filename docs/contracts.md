@@ -25,7 +25,11 @@ Planned operations: `ADD`, `MODIFY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `PAUSE
 
 **Implemented in the Rust library:** `ADD`, `MODIFY` (content), `REPLACE` (explicitly links compatible items), `ACTIVATE`, `PAUSE`, `REACTIVATE`, and `RETIRE`. Both snapshot and item revision guards are checked. Successful changes produce replayable events.
 
-**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, external authorization, source/provenance fields, type-specific payload validation, natural-language policy conflict analysis, the example input schema, and CLI mutation commands. `ItemSnapshot` currently uses a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
+**Typed details:** New code can call `ManagedItem::new_typed` to supply kind-specific information. Structural checks cover goal success criteria, principle activation/strength/verification, requirement role and acceptance criteria, constraint enforcement/checks, and decision rationale. `details` remains optional when loading older snapshots. This does **not** validate the semantic quality of user-written criteria.
+
+**Optional signed approval verification:** The `signed-approvals` feature provides `ApprovalRequest`, `SignedApproval`, `ApprovalVerifier`, and `SnapshotStore::apply_signed`. Signatures bind an exact change, project ID, expected snapshot revision, justification, and short validity window. This is only secure when an external trusted host pins the project's verification key and protects the store; there is no authenticated approval UI yet. See [approval trust contract](approvals.md).
+
+**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, an authenticated host or key provisioning mechanism, source/provenance fields, natural-language policy conflict analysis, the example input schema, and CLI mutation commands. `ItemSnapshot` is still a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
 
 ## Policy resolution
 

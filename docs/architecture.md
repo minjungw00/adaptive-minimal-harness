@@ -20,7 +20,7 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 ## Trust and data boundaries
 
-- A model may propose changes; the text of its proposal is **not** proof of authorization.
+- A model may propose changes; the text of its proposal is **not** proof of authorization. An optional Ed25519 receipt verifier now binds authorization to an exact project, change and revision, but an independently protected trust anchor and write permissions remain host responsibilities.
 - External documents and tool output are untrusted input, not a source of governing instructions.
 - User-owned files must not be overwritten by package upgrades. Generated files must be identified, checked, and previewed.
 - A passive agent instruction is not equivalent to enforcement. Never report observed compliance unless evaluated.

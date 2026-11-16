@@ -7,8 +7,11 @@
 - [x] Minimal typed items, revision-checked transitions, replayable history.
 - [x] Local JSON snapshot persistence as a library API.
 - [x] Draft examples and explicit CLI capability boundaries.
-- [ ] Complete type-specific data model and contract schemas.
-- [ ] User-facing persistence CLI and policy-change authorization boundary.
+- [x] Optional, structurally validated type-specific details (legacy items remain supported).
+- [x] Optional cryptographic approval verification for externally signed changes.
+- [ ] Complete common item schema and migrate legacy items to required typed details.
+- [ ] Implement trusted key provisioning, authenticated approval UX, and protected write host.
+- [ ] User-facing persistence CLI.
 
 ## Policy and task contracts
 - Extend item models with explicit scope references, owner, source, typed payloads, and governance relations.
