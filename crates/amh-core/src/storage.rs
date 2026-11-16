@@ -395,6 +395,90 @@ mod tests {
         ));
     }
 
+    #[cfg(feature = "signed-approvals")]
+    #[test]
+    fn signed_change_saves_exactly_the_authorized_item_and_rejects_replay() {
+        use crate::{ApprovalRequest, ApprovalVerifier, SignedApproval};
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let fixture = TemporaryStore::new();
+        let signer = SigningKey::from_bytes(&[7_u8; 32]);
+        let verifier =
+            ApprovalVerifier::new("project-alpha", signer.verifying_key().to_bytes()).unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let request = ApprovalRequest {
+            project_id: "project-alpha".into(),
+            expected_revision: 0,
+            change: Change::Add {
+                item: item("P-TDD"),
+            },
+            reason: "Owner approved adding TDD principle".into(),
+            issued_at: now - 1,
+            expires_at: now + 120,
+        };
+        let signed = SignedApproval {
+            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            request,
+        };
+
+        let snapshot = fixture.store.apply_signed(&verifier, &signed).unwrap();
+        assert_eq!(snapshot.revision(), 1);
+        assert!(snapshot.get("P-TDD").is_some());
+        assert_eq!(fixture.store.load().unwrap(), snapshot);
+        assert!(matches!(
+            fixture.store.apply_signed(&verifier, &signed),
+            Err(StoreError::Conflict {
+                expected: 0,
+                actual: 1
+            })
+        ));
+        assert_eq!(fixture.store.load().unwrap(), snapshot);
+    }
+
+    #[cfg(feature = "signed-approvals")]
+    #[test]
+    fn invalid_signature_never_creates_snapshot_file() {
+        use crate::{ApprovalRequest, ApprovalVerifier, SignedApproval};
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let fixture = TemporaryStore::new();
+        let signer = SigningKey::from_bytes(&[11_u8; 32]);
+        let verifier =
+            ApprovalVerifier::new("project-alpha", signer.verifying_key().to_bytes()).unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let request = ApprovalRequest {
+            project_id: "project-alpha".into(),
+            expected_revision: 0,
+            change: Change::Add {
+                item: item("P-TDD"),
+            },
+            reason: "User approved TDD".into(),
+            issued_at: now - 1,
+            expires_at: now + 120,
+        };
+        let mut signed = SignedApproval {
+            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            request,
+        };
+        signed.request.change = Change::Add {
+            item: item("P-UNAUTHORIZED"),
+        };
+
+        assert!(matches!(
+            fixture.store.apply_signed(&verifier, &signed),
+            Err(StoreError::Authorization(
+                crate::ApprovalError::InvalidSignature
+            ))
+        ));
+        assert!(!fixture.store.path().exists());
+    }
+
     #[cfg(unix)]
     #[test]
     fn rejects_symlink_snapshot() {
