@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-REPORT",
+  "goal": "Extend the report with customer retention analysis",
+  "task_tags": ["document.revision"],
+  "requirements": [
+    { "id": "R-A", "content": "Cost structure remains the core analytical axis", "role": "core" },
+    { "id": "R-B", "content": "Customer retention supports the core analysis", "role": "support" }
+  ],
+  "done_when": [
+    "Both currently active requirements are satisfied",
+    "Unnecessary change-history contrast is avoided"
+  ],
+  "verification": ["requirement coverage", "semantic review"],
+  "note": "Illustrative fixture only; no current CLI support"
+}

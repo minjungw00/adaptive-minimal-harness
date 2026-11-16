@@ -1,0 +1,13 @@
+{
+  "operation": "ADD",
+  "expected_state_revision": 1,
+  "item": {
+    "id": "R-B",
+    "kind": "requirement",
+    "revision": 1,
+    "scope": "task",
+    "lifecycle": "active",
+    "content": "Include customer retention as a supporting analysis"
+  },
+  "note": "Illustrative fixture only; no current CLI support"
+}
