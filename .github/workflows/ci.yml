@@ -19,6 +19,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Temporary bootstrap aid: the tracked lockfile is refreshed by a later commit.
+      - name: Resolve dependency lockfile
+        run: |
+          cargo generate-lockfile
+          echo "::group::Cargo lockfile (base64)"
+          base64 -w0 Cargo.lock
+          echo
+          echo "::endgroup::"
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run unit tests

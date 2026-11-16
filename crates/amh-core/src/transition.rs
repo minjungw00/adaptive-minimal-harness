@@ -4,7 +4,8 @@
 use crate::{ItemError, ItemSnapshot, Lifecycle, ManagedItem};
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "operation", rename_all = "SCREAMING_SNAKE_CASE", deny_unknown_fields)]
 pub enum Change {
     Add {
         item: ManagedItem,
@@ -37,7 +38,8 @@ pub enum Change {
     },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RecordedChange {
     pub revision: u64,
     pub change: Change,

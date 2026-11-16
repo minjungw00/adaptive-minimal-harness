@@ -5,10 +5,13 @@
 
 use std::collections::BTreeMap;
 
+mod storage;
 mod transition;
+pub use storage::{SnapshotStore, StoreError};
 pub use transition::{Change, RecordedChange};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemKind {
     Goal,
     Principle,
@@ -33,7 +36,8 @@ pub enum Lifecycle {
     Retired,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ManagedItem {
     pub id: String,
     pub kind: ItemKind,
@@ -114,7 +118,8 @@ impl ManagedItem {
 /// A minimal in-memory snapshot to exercise identity and optimistic revisions.
 ///
 /// No authorization or persistence is implied by this state model.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ItemSnapshot {
     revision: u64,
     items: BTreeMap<String, ManagedItem>,
