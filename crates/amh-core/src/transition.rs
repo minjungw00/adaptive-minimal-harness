@@ -1,7 +1,7 @@
 //! Explicit, replayable transitions with optimistic revision guards.
 //! This is an in-memory reducer, NOT a trusted authorization boundary.
 
-use crate::{ItemError, ItemKind, ItemScope, ItemSnapshot, Lifecycle, ManagedItem};
+use crate::{ItemError, ItemSnapshot, Lifecycle, ManagedItem};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -242,6 +242,7 @@ fn apply_to_items(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{ItemKind, ItemScope};
 
     fn sample(id: &str) -> ManagedItem {
         ManagedItem::new(
