@@ -16,6 +16,8 @@ const FORMAT_REVISION: u32 = 1;
 
 #[derive(Debug)]
 pub enum StoreError {
+    #[cfg(feature = "signed-approvals")]
+    Authorization(crate::ApprovalError),
     Io(io::Error),
     Json(serde_json::Error),
     InvalidFormat,
@@ -90,7 +92,7 @@ impl SnapshotStore {
     /// Locks, loads, applies, and commits as one on-disk document.
     ///
     /// A failed precondition or validation leaves the previous document intact.
-    pub fn apply_change(
+    pub(crate) fn apply_change(
         &self,
         expected_revision: u64,
         change: Change,
@@ -136,6 +138,21 @@ impl SnapshotStore {
         self.atomic_replace(parent, &bytes)?;
         drop(lock);
         Ok(snapshot)
+    }
+
+    /// Apply an exactly signed change under a caller-supplied trusted project key.
+    /// The trusted key and project binding MUST originate outside the agent's
+    /// writable workspace; otherwise this is not a security boundary.
+    #[cfg(feature = "signed-approvals")]
+    pub fn apply_signed(
+        &self,
+        verifier: &crate::ApprovalVerifier,
+        approval: &crate::SignedApproval,
+    ) -> Result<ItemSnapshot, StoreError> {
+        let approved = verifier
+            .verify(approval)
+            .map_err(StoreError::Authorization)?;
+        self.apply_change(approved.expected_revision, approved.change)
     }
 
     fn atomic_replace(&self, parent: &Path, bytes: &[u8]) -> Result<(), StoreError> {

@@ -5,9 +5,13 @@
 
 use std::collections::BTreeMap;
 
+#[cfg(feature = "signed-approvals")]
+mod approval;
 mod details;
 mod storage;
 mod transition;
+#[cfg(feature = "signed-approvals")]
+pub use approval::{ApprovalError, ApprovalRequest, ApprovalVerifier, SignedApproval};
 pub use details::{
     Activation, ConstraintEnforcement, ItemDetails, PrincipleStrength, RequirementRole,
 };
