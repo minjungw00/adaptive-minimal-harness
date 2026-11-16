@@ -61,6 +61,8 @@ mod tests {
 
     #[test]
     fn package_version_is_available() {
-        assert!(run(&["--version".to_owned()]).expect("version").starts_with("amh "));
+        assert!(run(&["--version".to_owned()])
+            .expect("version")
+            .starts_with("amh "));
     }
 }

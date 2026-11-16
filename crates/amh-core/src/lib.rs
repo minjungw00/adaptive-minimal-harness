@@ -100,11 +100,7 @@ impl ItemSnapshot {
         self.items.get(id)
     }
 
-    pub fn insert(
-        &mut self,
-        expected_revision: u64,
-        item: ManagedItem,
-    ) -> Result<u64, ItemError> {
+    pub fn insert(&mut self, expected_revision: u64, item: ManagedItem) -> Result<u64, ItemError> {
         if self.revision != expected_revision {
             return Err(ItemError::RevisionMismatch {
                 expected: expected_revision,
@@ -134,8 +130,13 @@ mod tests {
     use super::*;
 
     fn sample(id: &str) -> ManagedItem {
-        ManagedItem::new(id, ItemKind::Principle, ItemScope::Project, "TDD when applicable")
-            .expect("valid fixture")
+        ManagedItem::new(
+            id,
+            ItemKind::Principle,
+            ItemScope::Project,
+            "TDD when applicable",
+        )
+        .expect("valid fixture")
     }
 
     #[test]
