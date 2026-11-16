@@ -296,7 +296,12 @@ mod tests {
         .unwrap();
         let snapshot = fixture
             .store
-            .apply_change(0, Change::Add { item: requirement.clone() })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: requirement.clone(),
+                },
+            )
             .unwrap();
         let loaded = fixture.store.load().unwrap();
         assert_eq!(snapshot, loaded);
@@ -313,7 +318,9 @@ mod tests {
             rationale: "Wrong kind for a principle".into(),
         });
         assert!(matches!(
-            fixture.store.apply_change(0, Change::Add { item: requirement }),
+            fixture
+                .store
+                .apply_change(0, Change::Add { item: requirement }),
             Err(StoreError::Integrity(ItemError::DetailsKindMismatch))
         ));
         assert!(!fixture.store.path().exists());
