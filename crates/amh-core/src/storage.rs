@@ -420,7 +420,10 @@ mod tests {
             expires_at: now + 120,
         };
         let signed = SignedApproval {
-            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            signature: signer
+                .sign(&request.signing_message().unwrap())
+                .to_bytes()
+                .to_vec(),
             request,
         };
 
@@ -463,7 +466,10 @@ mod tests {
             expires_at: now + 120,
         };
         let mut signed = SignedApproval {
-            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            signature: signer
+                .sign(&request.signing_message().unwrap())
+                .to_bytes()
+                .to_vec(),
             request,
         };
         signed.request.change = Change::Add {
