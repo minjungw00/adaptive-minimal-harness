@@ -1,8 +1,9 @@
 id = "inquiry"
-version = "0.1.0"
+version = "0.2.0"
 
 [[policies]]
 owner = "user"
+applicability = "Only when a material goal, assumption, or decision criterion is unclear and focused questions would advance the task. Exclude clear action requests and straightforward factual questions."
 priority = 0
 [policies.item]
 id = "P-SOCRATIC"
@@ -21,6 +22,7 @@ any = ["inquiry.unclear"]
 
 [[policies]]
 owner = "user"
+applicability = "When discovering or clarifying requirements and acceptance criteria for a project or decision."
 priority = 0
 [policies.item]
 id = "P-ELICIT"
@@ -39,6 +41,7 @@ any = ["requirements.discovery"]
 
 [[policies]]
 owner = "user"
+applicability = "When work depends on current, high-stakes, disputed, or uncertain factual claims requiring reliable external evidence. Exclude purely stylistic editing and translation without new factual claims."
 priority = 0
 [policies.item]
 id = "P-RESEARCH"
@@ -57,6 +60,7 @@ any = ["research.verification"]
 
 [[policies]]
 owner = "user"
+applicability = "When drafting or substantively revising a document while preserving accepted requirements and their roles. Exclude code-only changes and mechanical formatting."
 priority = 0
 [policies.item]
 id = "P-WRITING"
@@ -75,6 +79,7 @@ any = ["document.revision"]
 
 [[policies]]
 owner = "user"
+applicability = "When assessing the validity, assumptions, evidence, or consequences of an argument or decision."
 priority = 0
 [policies.item]
 id = "P-ARGUMENT"
@@ -93,6 +98,7 @@ any = ["reasoning.argument"]
 
 [[policies]]
 owner = "user"
+applicability = "When organizing knowledge, notes, or source material and preserving provenance and traceability is relevant."
 priority = 0
 [policies.item]
 id = "P-KNOWLEDGE"

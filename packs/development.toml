@@ -1,8 +1,9 @@
 id = "development"
-version = "0.1.0"
+version = "0.2.0"
 
 [[policies]]
 owner = "user"
+applicability = "When changing testable observable program behavior or fixing a defect. Exclude explanations, documentation-only edits, formatting, and behavior-preserving refactoring."
 priority = 0
 [policies.item]
 id = "P-TDD"
@@ -21,6 +22,7 @@ any = ["code.behavior_change", "code.bug_fix"]
 
 [[policies]]
 owner = "user"
+applicability = "When improving internal code structure while preserving observable behavior. Identify separately requested behavior changes instead of calling them refactoring."
 priority = 0
 [policies.item]
 id = "P-REFACTOR"
@@ -39,6 +41,7 @@ any = ["code.refactor"]
 
 [[policies]]
 owner = "user"
+applicability = "When investigating an unexplained defect or failing behavior and identifying its cause. Exclude requests that only explain already established results."
 priority = 0
 [policies.item]
 id = "P-DEBUG"
@@ -57,6 +60,7 @@ any = ["code.debugging"]
 
 [[policies]]
 owner = "user"
+applicability = "When fixing a defect whose recurrence can be checked by a meaningful automated regression test."
 priority = 0
 [policies.item]
 id = "P-REGRESSION"
@@ -75,6 +79,7 @@ any = ["code.bug_fix"]
 
 [[policies]]
 owner = "user"
+applicability = "When reviewing an implementation, diff, or API for defects and regressions. Exclude work that merely drafts explanatory prose."
 priority = 0
 [policies.item]
 id = "P-REVIEW"
@@ -93,6 +98,7 @@ any = ["code.review"]
 
 [[policies]]
 owner = "user"
+applicability = "When changing an API or externally consumed interface with existing compatibility expectations."
 priority = 0
 [policies.item]
 id = "P-API"
@@ -111,6 +117,7 @@ any = ["code.api_change"]
 
 [[policies]]
 owner = "user"
+applicability = "When evaluating or strengthening the ability of tests to detect behavior defects and mutation testing would provide useful evidence."
 priority = 0
 [policies.item]
 id = "P-MUTATION"

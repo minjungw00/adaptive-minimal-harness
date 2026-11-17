@@ -7,7 +7,7 @@ policy definitions, pack ID/version and content digest in the project registry.
 Development includes TDD, refactoring, debugging, regression testing, code review,
 API compatibility and optional mutation testing. Inquiry includes Socratic dialogue,
 requirements elicitation, research verification, writing, argument evaluation and
-knowledge organization. Each method uses explicit activation tags and a configurable
+knowledge organization. Each method supplies a natural-language applicability condition, explicit activation tags for manual task files, and a configurable
 MUST/SHOULD/MAY strength. Run `amh pack show --name NAME` to inspect every condition.
 
 These are instructions and verification obligations. Installing TDD does not
@@ -18,3 +18,5 @@ Custom packs have `id`, `version`, and a `policies` array matching the `Policy`
 schema. Supply one with `amh pack install --file PACK.toml ...`. Editing installed
 content uses the same version-checked policy operations as any other user policy.
 No new method requires a core enum or dedicated runner.
+
+Pack 0.2.0 adds natural-language discovery conditions. Previously installed definitions remain pinned; they are not overwritten or silently upgraded.
