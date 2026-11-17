@@ -34,6 +34,8 @@
 - [x] Recoverable local update journal with unrelated-edit refusal.
 - [x] Explicit verification-tool execution and local evidence; unobserved compliance remains unknown.
 - [x] Library/CLI regression cases and supported walkthrough inputs.
+- [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
+- [ ] Publish an approved public release for account-free binary downloads after release gates.
 - [ ] Measured real-agent effectiveness, independent semantic evaluation and rule-removal experiments (P1).
 
 The local write path relies on user filesystem permissions. It is not the

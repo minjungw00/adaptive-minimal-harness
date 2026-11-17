@@ -67,8 +67,12 @@ The existing `amh state inspect`, `amh item get`, `amh change preview` and
 
 Native `amh` executables are built and tested for Linux, macOS and Windows by CI.
 Download the artifact for your OS/architecture from the corresponding successful
-workflow run and place the executable on PATH; end users do not need Rust.
-Signed release packaging and a public release channel are not yet available.
+workflow run, unpack the inner `.tar.gz`, and place `amh` (`amh.exe` on Windows)
+on PATH. The package includes examples and documentation; end users do not need Rust.
+Version tags (`v*`) prepare a draft GitHub Release with native packages and SHA-256
+checksums. A maintainer must review release gates and publish it before public,
+account-free release downloads are available. Artifact downloads may require GitHub
+sign-in. Package signatures and a published release are not yet available.
 For a source build, developers need stable Rust with rustfmt and clippy:
 
 ```sh
