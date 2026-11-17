@@ -13,7 +13,8 @@ const GENERATED: &str = ".amh/generated/AGENTS.md";
 const MANIFEST: &str = ".amh/deployment.json";
 const JOURNAL: &str = ".amh/transaction.json";
 pub const LEGACY_AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n";
-pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n";
+pub const TASK_AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n";
+pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
@@ -86,7 +87,7 @@ pub struct Diagnosis {
     pub instruction_files: Vec<String>,
 }
 
-fn root_path(root: &Path) -> Result<PathBuf> {
+pub(crate) fn root_path(root: &Path) -> Result<PathBuf> {
     let root = fs::canonicalize(root).map_err(|e| format!("project root must exist: {e}"))?;
     if !root.is_dir() {
         return Err("project root must be a directory".into());
@@ -122,7 +123,7 @@ pub(crate) fn path(root: &Path, relative: &str) -> Result<PathBuf> {
     Ok(current)
 }
 
-fn read(root: &Path, relative: &str) -> Result<Option<String>> {
+pub(crate) fn read(root: &Path, relative: &str) -> Result<Option<String>> {
     match fs::read_to_string(path(root, relative)?) {
         Ok(value) => Ok(Some(value)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -189,7 +190,9 @@ fn decode_deployment(root: &Path) -> Result<Option<Deployment>> {
 fn bridge_valid(agents: &str) -> bool {
     agents.matches("<!-- AMH:BEGIN -->").count() == 1
         && agents.matches("<!-- AMH:END -->").count() == 1
-        && (agents.contains(AGENT_BRIDGE) || agents.contains(LEGACY_AGENT_BRIDGE))
+        && (agents.contains(AGENT_BRIDGE)
+            || agents.contains(LEGACY_AGENT_BRIDGE)
+            || agents.contains(TASK_AGENT_BRIDGE))
 }
 
 fn check_owned(root: &Path, d: &Deployment) -> Result<()> {
@@ -284,7 +287,11 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                         &root,
                         &mut changes,
                         "AGENTS.md",
-                        Some(agents.replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)),
+                        Some(
+                            agents
+                                .replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)
+                                .replacen(TASK_AGENT_BRIDGE, AGENT_BRIDGE, 1),
+                        ),
                         "shared",
                     )?;
                 } else {
@@ -304,7 +311,7 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                     return Err("existing AMH markers require manual conflict resolution".into());
                 }
                 let registry = Registry::new(project_id.clone(), user_root)?;
-                let initial = "# AMH\n\nNo task has been interpreted. Follow the natural-language agent workflow in the project AGENTS.md, or use `amh sync` for an explicit task.\n".to_string();
+                let initial = "# AMH\n\nNo explicit Task is deployed. Follow the session workflow in the project AGENTS.md; sessions do not use this shared Task file. Use `amh sync` only for an explicit Task.\n".to_string();
                 let deployment = Deployment {
                     format: "amh.deployment.v1".into(),
                     generated_digest: digest(initial.as_bytes()),
@@ -390,7 +397,9 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
             let (agents, created) = if let Some(d) = old {
                 check_owned(&root, &d)?;
                 (
-                    agents.replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1),
+                    agents
+                        .replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)
+                        .replacen(TASK_AGENT_BRIDGE, AGENT_BRIDGE, 1),
                     d.created_agents,
                 )
             } else {
@@ -431,7 +440,8 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                 let agents = read(&root, "AGENTS.md")?
                     .unwrap()
                     .replacen(AGENT_BRIDGE, "", 1)
-                    .replacen(LEGACY_AGENT_BRIDGE, "", 1);
+                    .replacen(LEGACY_AGENT_BRIDGE, "", 1)
+                    .replacen(TASK_AGENT_BRIDGE, "", 1);
                 let remaining = if agents.is_empty() && d.created_agents {
                     None
                 } else {
@@ -456,7 +466,7 @@ fn json<T: Serialize>(value: &T) -> Result<String> {
     serde_json::to_string_pretty(value).map_err(|e| e.to_string())
 }
 
-fn lock(root: &Path) -> Result<File> {
+pub(crate) fn lock(root: &Path) -> Result<File> {
     let p = path(root, ".amh.lock")?;
     let file = OpenOptions::new()
         .create(true)
@@ -469,7 +479,7 @@ fn lock(root: &Path) -> Result<File> {
     Ok(file)
 }
 
-fn write(root: &Path, relative: &str, content: Option<&str>) -> Result<()> {
+pub(crate) fn write(root: &Path, relative: &str, content: Option<&str>) -> Result<()> {
     let p = path(root, relative)?;
     if let Some(content) = content {
         let parent = p.parent().unwrap();
@@ -623,8 +633,8 @@ pub fn doctor(root: &Path) -> Result<Diagnosis> {
     .filter(|p| root.join(p).exists())
     .map(|p| (*p).to_string())
     .collect();
-    let adapter_update_available =
-        read(&root, "AGENTS.md")?.is_some_and(|s| s.contains(LEGACY_AGENT_BRIDGE));
+    let adapter_update_available = read(&root, "AGENTS.md")?
+        .is_some_and(|s| s.contains(LEGACY_AGENT_BRIDGE) || s.contains(TASK_AGENT_BRIDGE));
     Ok(Diagnosis { adapter_update_available, project_id: registry.project_id, revision: registry.events.len() as u64, deployment, observed: "unknown".into(), note: "Deployment inspection is not behavioral evaluation. Other instruction files are inventoried, not semantically reconciled. Live sessions must reload updated instructions.".into(), instruction_files })
 }
 

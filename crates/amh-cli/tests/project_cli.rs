@@ -220,7 +220,7 @@ fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
     assert!(!instructions.contains("P-SOCRATIC"));
     assert_eq!(f.ok(&["doctor"])["deployment"], "current");
     let agents = fs::read_to_string(f.0.join("AGENTS.md")).unwrap();
-    assert!(agents.contains("Do not ask the user for tags"));
+    assert!(agents.contains("Do not ask users for session IDs, tags"));
 }
 #[test]
 fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
@@ -269,4 +269,158 @@ fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
     assert_eq!(result["plan"]["request"]["task"]["goal"], text);
     assert_eq!(f.ok(&["doctor"])["deployment"], "current");
     assert_eq!(f.ok(&["policy", "list"])["revision"], 1); // Interpreting work cannot mutate policy authority.
+}
+
+impl Fixture {
+    fn stdin(&self, args: &[&str], value: &Value) -> Output {
+        use std::io::Write;
+        use std::process::Stdio;
+        let mut child = Command::new(env!("CARGO_BIN_EXE_amh"))
+            .current_dir(&self.0)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&serde_json::to_vec(value).unwrap())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    }
+}
+fn session_analysis(p: &Value) -> Value {
+    json!({"format":"amh.session-analysis.v1","request_digest":p["request_digest"],"mode":"review","reason":"Explicit protocol fixture","evidence":[{"source":"request","quote":p["request"]}],"assessments":p["candidates"].as_array().unwrap().iter().map(|c|json!({"id":c["id"],"item_revision":c["item_revision"],"applicability":"no_match","reason":"Explicit fixture decision","evidence":[{"source":"request","quote":p["request"]}]})).collect::<Vec<_>>()})
+}
+#[test]
+fn session_stdio_handoff_reuses_context_without_protocol_files_or_task_contract() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "conversation", "--apply"]);
+    let opened = f.ok(&["session", "open", "--apply"]);
+    let id = opened["session_id"].as_str().unwrap();
+    let p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        id,
+        "--text",
+        "문장의 오탈자를 고쳐줘.",
+    ]);
+    let r = session_analysis(&p);
+    let out = f.stdin(
+        &["session", "finish", "--input", "-", "--apply"],
+        &json!({"packet":p,"response":r}),
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let state_path = f.0.join(format!(".amh/sessions/{id}/state.json"));
+    let before = fs::read(&state_path).unwrap();
+    let p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        id,
+        "--text",
+        "계속해.",
+        "--known-catalog",
+        out["catalog_digest"].as_str().unwrap(),
+        "--known-state",
+        out["state_digest"].as_str().unwrap(),
+    ]);
+    assert!(p["candidates"].is_null());
+    let r = json!({"format":"amh.session-analysis.v1","request_digest":p["request_digest"],"mode":"reuse","reason":"All current conditions remain appropriate","evidence":[{"source":"request","quote":"계속해."}]});
+    let out = f.stdin(
+        &["session", "finish", "--input", "-", "--apply"],
+        &json!({"packet":p,"response":r}),
+    );
+    assert!(out.status.success());
+    let out: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(out["changed"], false);
+    assert_eq!(before, fs::read(state_path).unwrap());
+    assert!(!f.0.join("packet.json").exists());
+    assert!(!f.0.join("analysis.json").exists());
+    assert_eq!(f.ok(&["doctor"])["deployment"], "uncompiled");
+    assert!(f.ok(&["session", "inspect", "--id", id])["state"]["tasks"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+#[test]
+fn session_previews_apply_over_stdin_and_clarification_returns_a_structured_block() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "conversation", "--apply"]);
+    let preview = f.ok(&["session", "open", "--id", "one"]);
+    assert!(!f.0.join(".amh/sessions").exists());
+    let o = f.stdin(&["session", "apply", "--input", "-"], &preview);
+    assert!(o.status.success());
+    let p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        "one",
+        "--text",
+        "작업을 진행해.",
+    ]);
+    let mut r = session_analysis(&p);
+    r["clarification_questions"] = json!(["어떤 대상을 진행할까요?"]);
+    let before = fs::read(f.0.join(".amh/sessions/one/state.json")).unwrap();
+    let o = f.stdin(
+        &["session", "finish", "--input", "-", "--apply"],
+        &json!({"packet":p,"response":r}),
+    );
+    assert!(!o.status.success());
+    let d: Value = serde_json::from_slice(&o.stderr).unwrap();
+    assert_eq!(d["status"], "clarification_required");
+    assert_eq!(
+        before,
+        fs::read(f.0.join(".amh/sessions/one/state.json")).unwrap()
+    );
+}
+#[test]
+fn session_input_refuses_unknown_commands_and_cross_session_packets() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "conversation", "--apply"]);
+    f.ok(&["session", "open", "--id", "a", "--apply"]);
+    f.ok(&["session", "open", "--id", "b", "--apply"]);
+    let p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        "a",
+        "--text",
+        "Summarize this.",
+    ]);
+    let mut r = session_analysis(&p);
+    r["checks"] = json!([{"argv":["unrequested-command"]}]);
+    assert!(!f
+        .stdin(
+            &["session", "finish", "--input", "-", "--apply"],
+            &json!({"packet":p,"response":r})
+        )
+        .status
+        .success());
+    let mut p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        "a",
+        "--text",
+        "Summarize this.",
+    ]);
+    let r = session_analysis(&p);
+    p["session_id"] = "b".into();
+    assert!(!f
+        .stdin(
+            &["session", "finish", "--input", "-", "--apply"],
+            &json!({"packet":p,"response":r})
+        )
+        .status
+        .success());
 }

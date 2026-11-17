@@ -1,7 +1,7 @@
 use crate::{
     digest,
     workspace::{path, require_current},
-    Result, Task,
+    Check, Result, Task,
 };
 use serde::Serialize;
 use std::{
@@ -41,6 +41,25 @@ pub struct Evidence {
 /// scheduler, retries, or inferred semantic acceptance is provided.
 pub fn verify(root: &Path, task: &Task, execute: bool) -> Result<Evidence> {
     let compiled = require_current(root, task)?;
+    execute_checks(
+        root,
+        &task.id,
+        digest(&serde_json::to_vec(task).map_err(|e| e.to_string())?),
+        compiled.source_digest,
+        &task.checks,
+        execute,
+        || require_current(root, task).is_ok(),
+    )
+}
+pub(crate) fn execute_checks(
+    root: &Path,
+    id: &str,
+    task_digest: String,
+    source_digest: String,
+    checks: &[Check],
+    execute: bool,
+    unchanged: impl Fn() -> bool,
+) -> Result<Evidence> {
     let now = || {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -48,9 +67,9 @@ pub fn verify(root: &Path, task: &Task, execute: bool) -> Result<Evidence> {
     };
     let started = now()?;
     let mut evidence = Evidence {
-        task_id: task.id.clone(),
-        task_digest: digest(&serde_json::to_vec(task).map_err(|e| e.to_string())?),
-        source_digest: compiled.source_digest,
+        task_id: id.into(),
+        task_digest,
+        source_digest,
         started_at: started.as_secs(),
         completed_at: started.as_secs(),
         checks: vec![],
@@ -66,12 +85,12 @@ pub fn verify(root: &Path, task: &Task, execute: bool) -> Result<Evidence> {
         started.as_nanos(),
         std::process::id()
     );
-    if execute && !task.checks.is_empty() {
+    if execute && !checks.is_empty() {
         let parent = path(root, ".amh/evidence")?;
         fs::create_dir_all(&parent).map_err(|e| e.to_string())?;
         fs::create_dir(path(root, &dir)?).map_err(|e| e.to_string())?;
     }
-    for (index, check) in task.checks.iter().enumerate() {
+    for (index, check) in checks.iter().enumerate() {
         let mut result = CheckResult {
             id: check.id.clone(),
             argv: check.argv.clone(),
@@ -127,8 +146,8 @@ pub fn verify(root: &Path, task: &Task, execute: bool) -> Result<Evidence> {
         evidence.checks.push(result);
     }
     evidence.completed_at = now()?.as_secs();
-    evidence.deployment_unchanged = require_current(root, task).is_ok();
-    if execute && !task.checks.is_empty() {
+    evidence.deployment_unchanged = unchanged();
+    if execute && !checks.is_empty() {
         evidence.all_checks_passed = Some(
             evidence.deployment_unchanged && evidence.checks.iter().all(|r| r.status == "passed"),
         );

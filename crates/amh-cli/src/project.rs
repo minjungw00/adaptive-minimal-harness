@@ -18,6 +18,14 @@ pub const HELP: &str = "PROJECT WORKFLOW (user-owned local files; no protected-h
     amh request --text TEXT --agent codex [--root PATH] [--apply] [--budget CHARS]
     amh request --request-file FILE --agent-config CONFIG.json [--root PATH] [--apply]
     amh request finish --packet PACKET.json --analysis RESPONSE.json [--root PATH] [--apply]
+    amh session open [--id ID] [--root PATH] [--apply]
+    amh session inspect --id ID [--root PATH]
+    amh session prepare --id ID --text TEXT [--root PATH] [--known-catalog DIGEST] [--known-state DIGEST] [--refresh] [--task-id ID | --clear-focus]
+    amh session finish --input -|FILE [--root PATH] [--apply]
+    amh session apply --input -|FILE [--root PATH]
+    amh session attach --id ID --task FILE --expected-revision N [--root PATH] [--apply]
+    amh session close --id ID --expected-revision N [--root PATH] [--apply]
+    amh session verify --id ID [--root PATH] [--run]
     amh compile --task TASK.toml [--root PATH] [--budget CHARS]
     amh sync --task TASK.toml [--root PATH] [--budget CHARS] [--apply]
     amh apply --plan PLAN.json [--root PATH]
@@ -112,6 +120,7 @@ pub fn run(args: &[String]) -> Option<Result<String, String>> {
     if ![
         "init",
         "request",
+        "session",
         "policy",
         "pack",
         "compile",
@@ -140,6 +149,9 @@ fn execute(args: &[String]) -> Result<String, String> {
     } else {
         ("", &args[1..])
     };
+    if command == "session" {
+        return execute_session(rest);
+    }
     if command == "request" {
         return execute_request(rest);
     }
@@ -376,5 +388,157 @@ fn execute_request(args: &[String]) -> Result<String, String> {
             return Err("a discovery packet is not a completed interpretation; use the current agent's request finish step or explicitly select an interpreter".into());
         }
         json(&packet)
+    }
+}
+
+fn input_json<T: serde::de::DeserializeOwned>(file: &str) -> Result<T, String> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    if file == "-" {
+        std::io::stdin()
+            .take(2 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+    } else {
+        std::fs::File::open(file)
+            .map_err(|e| e.to_string())?
+            .take(2 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+    }
+    if bytes.len() > 2 * 1024 * 1024 {
+        return Err("session input exceeds 2 MiB".into());
+    }
+    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+}
+fn session_mutation(f: &Flags<'_>, op: amh_project::SessionOperation) -> Result<String, String> {
+    let p = amh_project::plan_session(f.root(), op)?;
+    if !p.output.clarification_questions.is_empty() {
+        return Err(json(&p.output)?);
+    }
+    if f.switches.contains("--apply") {
+        json(&amh_project::apply_session(f.root(), &p)?)
+    } else {
+        json(&p)
+    }
+}
+fn execute_session(args: &[String]) -> Result<String, String> {
+    use amh_project::{SessionFocus, SessionOperation, TurnOptions};
+    let sub = args.first().ok_or("missing session subcommand")?.as_str();
+    let rest = &args[1..];
+    match sub {
+        "open" => {
+            let f = Flags::parse(rest, &["--root", "--id"], &["--apply"])?;
+            let id = match f.values.get("--id") {
+                Some(id) => (*id).to_owned(),
+                None => amh_project::new_session_id()?,
+            };
+            session_mutation(&f, SessionOperation::Open { id })
+        }
+        "inspect" => {
+            let f = Flags::parse(rest, &["--root", "--id"], &[])?;
+            json(&amh_project::inspect_session(
+                f.root(),
+                f.required("--id")?,
+            )?)
+        }
+        "prepare" => {
+            let f = Flags::parse(
+                rest,
+                &[
+                    "--root",
+                    "--id",
+                    "--text",
+                    "--known-catalog",
+                    "--known-state",
+                    "--task-id",
+                ],
+                &["--refresh", "--clear-focus"],
+            )?;
+            if f.values.contains_key("--task-id") && f.switches.contains("--clear-focus") {
+                return Err("choose --task-id or --clear-focus".into());
+            }
+            let focus = if let Some(id) = f.values.get("--task-id") {
+                SessionFocus::Task((*id).into())
+            } else if f.switches.contains("--clear-focus") {
+                SessionFocus::Clear
+            } else {
+                SessionFocus::Keep
+            };
+            json(&amh_project::prepare_turn(
+                f.root(),
+                f.required("--id")?,
+                f.required("--text")?,
+                TurnOptions {
+                    known_catalog: f.values.get("--known-catalog").map(|s| (*s).into()),
+                    known_state: f.values.get("--known-state").map(|s| (*s).into()),
+                    refresh: f.switches.contains("--refresh"),
+                    focus,
+                },
+            )?)
+        }
+        "finish" => {
+            #[derive(serde::Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Handoff {
+                packet: amh_project::SessionPacket,
+                response: amh_project::SessionResponse,
+            }
+            let f = Flags::parse(rest, &["--root", "--input"], &["--apply"])?;
+            let h: Handoff = input_json(f.required("--input")?)?;
+            session_mutation(
+                &f,
+                SessionOperation::Turn {
+                    packet: Box::new(h.packet),
+                    response: Box::new(h.response),
+                },
+            )
+        }
+        "apply" => {
+            let f = Flags::parse(rest, &["--root", "--input"], &[])?;
+            let plan = input_json(f.required("--input")?)?;
+            json(&amh_project::apply_session(f.root(), &plan)?)
+        }
+        "attach" | "close" => {
+            let f = Flags::parse(
+                rest,
+                if sub == "attach" {
+                    &["--root", "--id", "--expected-revision", "--task"]
+                } else {
+                    &["--root", "--id", "--expected-revision"]
+                },
+                &["--apply"],
+            )?;
+            let id = f.required("--id")?.into();
+            let expected_revision = f.number("--expected-revision")?;
+            let op = if sub == "attach" {
+                SessionOperation::Attach {
+                    id,
+                    expected_revision,
+                    file: PathBuf::from(f.required("--task")?),
+                }
+            } else {
+                SessionOperation::Close {
+                    id,
+                    expected_revision,
+                }
+            };
+            session_mutation(&f, op)
+        }
+        "verify" => {
+            let f = Flags::parse(rest, &["--root", "--id"], &["--run"])?;
+            let evidence = amh_project::verify_session(
+                f.root(),
+                f.required("--id")?,
+                f.switches.contains("--run"),
+            )?;
+            let output = json(&evidence)?;
+            if evidence.all_checks_passed == Some(false) {
+                Err(output)
+            } else {
+                Ok(output)
+            }
+        }
+        _ => Err("unknown session subcommand".into()),
     }
 }

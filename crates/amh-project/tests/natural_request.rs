@@ -350,7 +350,7 @@ fn recognized_legacy_bridge_upgrades_without_replacing_user_instructions() {
     apply(&f.0, &p).unwrap();
     let text = fs::read_to_string(&path).unwrap();
     assert!(text.starts_with("User's existing rules"));
-    assert!(text.contains("amh request finish"));
+    assert!(text.contains("amh session finish"));
     assert!(!doctor(&f.0).unwrap().adapter_update_available);
     apply(&f.0, &plan(&f.0, Request::Uninstall).unwrap()).unwrap();
     assert_eq!(fs::read_to_string(path).unwrap(), "User's existing rules");
