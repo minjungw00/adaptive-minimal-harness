@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -11,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('qualitative_eval', ROOT / 'scripts/qualitative_eval.py')
 qe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(qe)
+sys.path.insert(0, str(ROOT / 'scripts'))
+import dialogue_eval as de
 
 
 class SuiteTests(unittest.TestCase):
@@ -169,6 +172,46 @@ class RunTests(unittest.TestCase):
         full = qe.prepare(self.amh, qe.DEFAULT_SUITE, Path(self.tmp.name) / 'all')
         self.assertEqual(len(full['cases']), 36)
         self.assertTrue(all(Path(v['workspace']).is_dir() for v in full['cases'].values()))
+
+    def test_session_stdin_is_captured_as_observed_protocol_input(self):
+        item = self.item('S04')
+        def call(args, data=None):
+            r = subprocess.run([item['tool'], *args], cwd=item['workspace'], input=data, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            return json.loads(r.stdout)
+        call(['session', 'open', '--id', 'one', '--apply'])
+        p = call(['session', 'prepare', '--id', 'one', '--text', 'Explain the current code.'])
+        quote = [{'source': 'request', 'quote': p['request']}]
+        response = {'format': 'amh.session-analysis.v1', 'request_digest': p['request_digest'], 'mode': 'review', 'reason': 'Infrastructure fixture', 'evidence': quote,
+                    'assessments': [{'id': c['id'], 'item_revision': c['item_revision'], 'applicability': 'no_match', 'reason': 'Infrastructure fixture', 'evidence': quote} for c in p['candidates']]}
+        handoff = json.dumps({'packet': p, 'response': response})
+        call(['session', 'finish', '--input', '-', '--apply'], handoff)
+        audit = Path(item['private']) / 'audit'
+        calls = [json.loads(x) for x in (audit / 'calls.jsonl').read_text().splitlines()]
+        self.assertEqual(json.loads((audit / calls[-1]['stdin_file']).read_text()), json.loads(handoff))
+
+    def test_work_trace_captures_command_output_and_actual_file_changes(self):
+        item = self.item()
+        tool = de.make_trace(Path(item['tool']).parent, Path(item['workspace']), Path(item['private']))
+        r = subprocess.run([str(tool), 'exec', sys.executable, '-c', "from pathlib import Path;Path('observed.txt').write_text('observed change');print('actual output')"], input=b'', capture_output=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        audit = Path(item['private']) / 'work-audit'
+        event = json.loads((audit / 'events.jsonl').read_text())
+        self.assertNotIn('observed.txt', event['before'])
+        self.assertEqual(event['after']['observed.txt']['text'], 'observed change')
+        self.assertIn('actual output', (audit / (event['id'] + '.stdout')).read_text())
+        self.assertNotIn('semantic_verdict', event)
+
+    def test_dialogue_freezing_requires_every_turn_before_final_review(self):
+        run = Path(self.tmp.name) / 'dialogue'
+        c = de.prepare(self.amh, ROOT / 'evals/dialogues.json', run)
+        de.collect_turn(run, 'D03', 1)
+        with self.assertRaises(ValueError): de.finalize(run, 'D03')
+        de.collect_turn(run, 'D03', 2)
+        de.collect_turn(run, 'D03', 3)
+        result = de.finalize(run, 'D03')
+        self.assertTrue((result / 'turns/1/observation.json').exists())
+        self.assertEqual(len(qe.read_json(Path(c['cases']['D03']['private']) / 'initial.json')['user_messages']), 3)
 
     def test_prepare_never_overwrites_an_existing_run(self):
         with self.assertRaises(FileExistsError):

@@ -129,10 +129,14 @@ args=sys.argv[1:]
 if '--agent' in args or '--agent-config' in args:
     sys.stderr.write('This environment supports the current-agent path only.\\n')
     raise SystemExit(2)
-r=subprocess.run([real,*args],capture_output=True,timeout=300)
+stdin_data=sys.stdin.buffer.read() if any(args[i:i+2]==['--input','-'] for i in range(len(args)-1)) else None
+r=subprocess.run([real,*args],input=stdin_data,capture_output=True,timeout=300)
 (audit/(id+'.stdout')).write_bytes(r.stdout)
 (audit/(id+'.stderr')).write_bytes(r.stderr)
 record={{'id':id,'argv':args,'cwd':os.getcwd(),'started_ns':started,'finished_ns':time.time_ns(),'exit_code':r.returncode}}
+if stdin_data is not None:
+    (audit/(id+'.stdin')).write_bytes(stdin_data)
+    record['stdin_file']=id+'.stdin'
 with (audit/'calls.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(record,ensure_ascii=False)+'\\n')
 sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr)
 raise SystemExit(r.returncode)
@@ -302,7 +306,8 @@ def export_evidence(run, out):
         for call in observation['amh_calls']:
             a = private / 'result/audit'
             raw.append({**call, 'stdout': (a / (call['id'] + '.stdout')).read_text(encoding='utf-8'),
-                        'stderr': (a / (call['id'] + '.stderr')).read_text(encoding='utf-8')})
+                        'stderr': (a / (call['id'] + '.stderr')).read_text(encoding='utf-8'),
+                        'stdin': (a / call['stdin_file']).read_text(encoding='utf-8') if call.get('stdin_file') else None})
         generated = private / 'result/workspace/.amh/generated/AGENTS.md'
         prepared.append((id, {'initial': read_json(private / 'initial.json'), 'observation': observation,
                               'calls': raw, 'deployed_instructions': generated.read_text(encoding='utf-8') if generated.exists() else None,

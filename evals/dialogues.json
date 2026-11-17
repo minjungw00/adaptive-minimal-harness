@@ -1,0 +1,470 @@
+{
+  "format": "amh.qualitative-suite.v1",
+  "cases": [
+    {
+      "id": "D01",
+      "fixture": "discount",
+      "request": "이 오류를 고쳐줘.",
+      "family": "single_action_multiple_methods",
+      "review_note": "Assess what work the environment implies, not how many methods were named.",
+      "packs": [
+        "development"
+      ],
+      "policies": [
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-API",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior.",
+            "details": {
+              "type": "requirement",
+              "role": "core",
+              "acceptance_criteria": [
+                "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
+              ]
+            }
+          }
+        }
+      ],
+      "checks": [
+        [
+          "{python}",
+          "-m",
+          "unittest",
+          "-v"
+        ]
+      ],
+      "turns": [
+        "이 오류를 고쳐줘.",
+        "수정 이유를 설명해줘.",
+        "README에 사용 예시를 추가해줘.",
+        "이제 이 함수의 입력 검증도 점검해줘."
+      ]
+    },
+    {
+      "id": "D02",
+      "fixture": "report",
+      "request": "이 보고서를 완성해줘.",
+      "family": "single_action_document_methods",
+      "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
+      "packs": [
+        "inquiry"
+      ],
+      "policies": [
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-COST",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Keep the cost structure as the main analytical axis.",
+            "details": {
+              "type": "requirement",
+              "role": "core",
+              "acceptance_criteria": [
+                "Keep the cost structure as the main analytical axis."
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-RETENTION",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
+            "details": {
+              "type": "requirement",
+              "role": "support",
+              "acceptance_criteria": [
+                "Use customer retention as supporting evidence, not a replacement for cost analysis."
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
+          "item": {
+            "id": "P-TRACE",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When deriving conclusions or recommendations from observational evidence.",
+          "item": {
+            "id": "P-INFERENCE",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        }
+      ],
+      "turns": [
+        "이 보고서를 완성해줘.",
+        "고객 유지율은 보조 관점으로 유지하면서 결론만 더 짧게 다듬어줘.",
+        "이제 이 메모도 요약해줘."
+      ],
+      "extra_fixtures": [
+        "notes"
+      ]
+    },
+    {
+      "id": "D03",
+      "fixture": "continuation",
+      "request": "작업을 진행해.",
+      "family": "short_request_known_state",
+      "review_note": "Inspect whether the tool exposes enough existing task context; do not supply a private hint.",
+      "packs": [
+        "inquiry"
+      ],
+      "current_task": {
+        "id": "WORK-1",
+        "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+        "tags": [
+          "document.revision"
+        ],
+        "classification_complete": true,
+        "done_when": [
+          "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+          "The existing greeting behavior is preserved"
+        ],
+        "allowed_paths": [
+          "README.md"
+        ],
+        "outputs": [
+          "README.md"
+        ]
+      },
+      "turns": [
+        "작업을 진행해.",
+        "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마.",
+        "예시에 적힌 출력만 알려줘."
+      ]
+    },
+    {
+      "id": "D04",
+      "fixture": "proposal",
+      "request": "작업을 진행해.",
+      "family": "unfamiliar_custom_method",
+      "review_note": "Multiple actual saved Task contracts, not just goals; clarification is allowed when referent is uncertain.",
+      "packs": [
+        "inquiry"
+      ],
+      "policies": [
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When reviewing a proposal that mixes reversible and irreversible actions. Exclude summaries without a decision request.",
+          "item": {
+            "id": "P-REVERSIBILITY",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Separate reversible experiments from irreversible commitments; propose a useful low-cost learning step without obscuring irreversible risk.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-ANALYZE",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Analyze the proposal only; do not deploy or delete operational data.",
+            "details": {
+              "type": "requirement",
+              "role": "core",
+              "acceptance_criteria": [
+                "Analyze the proposal only; do not deploy or delete operational data."
+              ]
+            }
+          }
+        }
+      ],
+      "turns": [
+        "작업을 진행해.",
+        "먼저 README의 인사 함수 사용 예시를 작성해줘.",
+        "이제 제안서를 검토해줘."
+      ],
+      "extra_fixtures": [
+        "continuation"
+      ],
+      "saved_tasks": [
+        {
+          "id": "T-USAGE",
+          "goal": "Add a greet(\"Ada\") example to README.md without changing greeter.py.",
+          "done_when": [
+            "README includes greet(\"Ada\") and Hello, Ada!"
+          ],
+          "allowed_paths": [
+            "README.md"
+          ],
+          "outputs": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "T-PROPOSAL",
+          "goal": "Review proposal.md and explain the operational tradeoffs without deployment or deletion.",
+          "done_when": [
+            "Provide a reasoned review without executing the proposal."
+          ],
+          "allowed_paths": [],
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "fixture": "proofread",
+      "request": "매출 비교 보고서의 어색한 문장만 교정해줘.",
+      "family": "exclusion_and_keywords",
+      "review_note": "Review scope preservation and unnecessary method loading.",
+      "packs": [
+        "development",
+        "inquiry"
+      ],
+      "policies": [
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When comparing company performance using numeric evidence. Exclude translation and proofreading that preserve facts and analysis.",
+          "item": {
+            "id": "P-COMPARABLE",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Compare compatible periods, definitions and denominators, and disclose missing values.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-PRESERVE",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Preserve all accepted numeric values and analytical conclusions in report.md.",
+            "details": {
+              "type": "requirement",
+              "role": "core",
+              "acceptance_criteria": [
+                "Preserve all accepted numeric values and analytical conclusions in report.md."
+              ]
+            }
+          }
+        }
+      ],
+      "turns": [
+        "매출 비교 보고서의 어색한 문장만 교정해줘.",
+        "이제 이 수치의 비교가 타당한지도 검토해줘.",
+        "검토 내용을 반영하되 새 분석은 추가하지 말고 문장만 다듬어줘."
+      ]
+    },
+    {
+      "id": "D06",
+      "fixture": "report",
+      "request": "이 보고서를 완성해줘.",
+      "family": "single_action_document_methods",
+      "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
+      "packs": [
+        "inquiry"
+      ],
+      "policies": [
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-COST",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Keep the cost structure as the main analytical axis.",
+            "details": {
+              "type": "requirement",
+              "role": "core",
+              "acceptance_criteria": [
+                "Keep the cost structure as the main analytical axis."
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "Accepted project requirement",
+          "priority": 0,
+          "item": {
+            "id": "R-RETENTION",
+            "kind": "requirement",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
+            "details": {
+              "type": "requirement",
+              "role": "support",
+              "acceptance_criteria": [
+                "Use customer retention as supporting evidence, not a replacement for cost analysis."
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
+          "item": {
+            "id": "P-TRACE",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        },
+        {
+          "owner": "user",
+          "source": "User-approved project policy",
+          "priority": 0,
+          "relations": {
+            "conflicts_with": []
+          },
+          "applicability": "When deriving conclusions or recommendations from observational evidence.",
+          "item": {
+            "id": "P-INFERENCE",
+            "kind": "principle",
+            "scope": "project",
+            "revision": 1,
+            "lifecycle": "draft",
+            "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
+            "details": {
+              "type": "principle",
+              "strength": "must",
+              "activation": {
+                "mode": "always"
+              },
+              "verification": [
+                "Provide evidence appropriate to the work"
+              ]
+            }
+          }
+        }
+      ],
+      "turns": [
+        "이 보고서를 완성해줘.",
+        "이 보고서에서 결론 문장만 더 명확하게 다듬어줘.",
+        "앞서 정리한 보고서의 핵심을 설명해줘."
+      ],
+      "pause_before_turn": {
+        "2": [
+          "P-WRITING"
+        ]
+      }
+    }
+  ]
+}
