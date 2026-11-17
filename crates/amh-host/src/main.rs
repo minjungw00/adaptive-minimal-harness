@@ -515,9 +515,7 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
         #[test]
         fn exporting_unknown_project_fails_without_side_effects() {
-            let config = HostConfig {
-                projects: vec![],
-            };
+            let config = HostConfig { projects: vec![] };
             assert!(export_manifest(&config, "unknown").is_err());
             assert!(run(&["export-manifest".into(), "/tmp/state.json".into()]).is_err());
         }
