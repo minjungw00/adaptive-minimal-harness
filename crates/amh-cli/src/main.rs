@@ -96,8 +96,8 @@ fn inspect(path: &str) -> Result<String, String> {
 }
 
 fn inspect_manifest(path: &str) -> Result<String, String> {
-    let bytes = fs::read(path)
-        .map_err(|error| format!("cannot read metadata-only manifest: {error}"))?;
+    let bytes =
+        fs::read(path).map_err(|error| format!("cannot read metadata-only manifest: {error}"))?;
     let manifest: StateManifest = serde_json::from_slice(&bytes)
         .map_err(|error| format!("invalid metadata-only manifest: {error}"))?;
     manifest
