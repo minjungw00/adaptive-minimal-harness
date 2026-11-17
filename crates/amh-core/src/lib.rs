@@ -87,6 +87,7 @@ pub enum ItemError {
     RevisionExhausted,
     DetailsKindMismatch,
     InvalidDetails,
+    UnchangedDetails,
     InvalidEventRevision {
         expected: u64,
         actual: u64,

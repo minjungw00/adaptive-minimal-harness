@@ -1,7 +1,7 @@
 //! Explicit, replayable transitions with optimistic revision guards.
 //! This is an in-memory reducer, NOT a trusted authorization boundary.
 
-use crate::{ItemError, ItemSnapshot, Lifecycle, ManagedItem};
+use crate::{ItemDetails, ItemError, ItemSnapshot, Lifecycle, ManagedItem};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -23,6 +23,12 @@ pub enum Change {
         id: String,
         item_revision: u64,
         replacement: ManagedItem,
+    },
+    /// Explicit, version-checked migration or update of kind-specific data.
+    SetDetails {
+        id: String,
+        item_revision: u64,
+        details: ItemDetails,
     },
     Activate {
         id: String,
@@ -179,6 +185,25 @@ fn apply_to_items(
             }
             bump(item)?;
             item.content = content.clone();
+        }
+        Change::SetDetails {
+            id,
+            item_revision,
+            details,
+        } => {
+            let item = require(items, id, *item_revision)?;
+            if matches!(item.lifecycle, Lifecycle::Superseded | Lifecycle::Retired) {
+                return Err(ItemError::InvalidLifecycle {
+                    from: item.lifecycle,
+                    to: item.lifecycle,
+                });
+            }
+            details.validate_for(item.kind)?;
+            if item.details.as_ref() == Some(details) {
+                return Err(ItemError::UnchangedDetails);
+            }
+            bump(item)?;
+            item.details = Some(details.clone());
         }
         Change::Replace {
             id,
@@ -423,6 +448,57 @@ mod tests {
             Err(ItemError::InvalidLifecycle { .. })
         ));
         assert_eq!(s, before);
+    }
+
+    #[test]
+    fn typed_details_can_be_added_to_legacy_item_without_changing_identity() {
+        use crate::{Activation, PrincipleStrength};
+        let mut snapshot = active();
+        let prior = snapshot.get("P-A").unwrap().clone();
+        let details = ItemDetails::Principle {
+            strength: PrincipleStrength::Must,
+            activation: Activation::ExplicitOnly,
+            verification: vec!["Run the relevant test".into()],
+        };
+        assert_eq!(snapshot.apply_change(2, Change::SetDetails {
+            id: "P-A".into(),
+            item_revision: 2,
+            details: details.clone(),
+        }), Ok(3));
+        let changed = snapshot.get("P-A").unwrap();
+        assert_eq!(changed.details.as_ref(), Some(&details));
+        assert_eq!(changed.content, prior.content);
+        assert_eq!(changed.kind, prior.kind);
+        assert_eq!(changed.lifecycle, prior.lifecycle);
+        assert_eq!(changed.revision, 3);
+        assert_eq!(ItemSnapshot::replay(snapshot.history()), Ok(snapshot));
+    }
+
+    #[test]
+    fn invalid_or_duplicate_details_do_not_mutate_snapshot() {
+        use crate::{Activation, PrincipleStrength};
+        let mut snapshot = active();
+        let before = snapshot.clone();
+        let invalid = ItemDetails::Decision { rationale: "not a principle".into() };
+        assert_eq!(snapshot.apply_change(2, Change::SetDetails {
+            id: "P-A".into(),
+            item_revision: 2,
+            details: invalid,
+        }), Err(ItemError::DetailsKindMismatch));
+        assert_eq!(snapshot, before);
+        let details = ItemDetails::Principle {
+            strength: PrincipleStrength::Should,
+            activation: Activation::Always,
+            verification: vec![],
+        };
+        snapshot.apply_change(2, Change::SetDetails {
+            id: "P-A".into(), item_revision: 2, details: details.clone(),
+        }).unwrap();
+        let again = snapshot.clone();
+        assert_eq!(snapshot.apply_change(3, Change::SetDetails {
+            id: "P-A".into(), item_revision: 3, details,
+        }), Err(ItemError::UnchangedDetails));
+        assert_eq!(snapshot, again);
     }
 
     #[test]
