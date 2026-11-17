@@ -16,6 +16,7 @@ name = "amh-host"
 version = "0.0.0"
 dependencies = [
  "amh-core",
+ "ed25519-dalek",
  "serde",
  "serde_json",
 ]
