@@ -31,3 +31,5 @@ jobs:
         run: |
           cargo run -p amh-cli --locked -- --help
           cargo run -p amh-cli --locked -- --version
+          cargo run -p amh-cli --locked -- state inspect --file "$RUNNER_TEMP/amh-uncreated-state.json"
+          cargo run -p amh-host --locked -- --help
