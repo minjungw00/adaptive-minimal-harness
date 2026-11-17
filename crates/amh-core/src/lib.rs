@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 #[cfg(feature = "signed-approvals")]
 mod approval;
 mod details;
+mod manifest;
 mod storage;
 mod transition;
 #[cfg(feature = "signed-approvals")]
@@ -15,6 +16,7 @@ pub use approval::{ApprovalError, ApprovalRequest, ApprovalVerifier, SignedAppro
 pub use details::{
     Activation, ConstraintEnforcement, ItemDetails, PrincipleStrength, RequirementRole,
 };
+pub use manifest::{ManifestItem, StateManifest};
 pub use storage::{SnapshotStore, StoreError};
 pub use transition::{Change, RecordedChange};
 
