@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn retained_checkpoint_rejects_rollbacks_and_forks() {
         let first = entry("project", 1, None);
-        let checkpoint = validate_complete(&[first.clone()]).unwrap().unwrap();
+        let checkpoint = validate_complete(std::slice::from_ref(&first)).unwrap().unwrap();
         let rollback = AuditSegment {
             format: SEGMENT_FORMAT.into(),
             project_id: "project".into(),

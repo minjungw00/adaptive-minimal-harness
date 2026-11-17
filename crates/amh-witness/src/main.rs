@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -180,6 +180,7 @@ fn process(
         .create(true)
         .read(true)
         .write(true)
+        .truncate(false)
         .mode(0o600)
         .open(lock_path)
         .map_err(|error| format!("cannot open witness lock: {error}"))?;
@@ -238,6 +239,7 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use amh_audit::{
         body_hash, digest, AuditBody, AuditEntry, CHAIN_FORMAT, CHAIN_FORMAT_REVISION,
         SEGMENT_FORMAT,
