@@ -101,7 +101,7 @@ impl AuditGuard {
         if metadata.len() > MAX_JOURNAL_BYTES {
             return Err("audit chain exceeds size limit; operator maintenance required".into());
         }
-        let mut file = File::open(&self.path)
+        let file = File::open(&self.path)
             .map_err(|error| format!("cannot read audit chain: {error}"))?;
         let mut bytes = Vec::new();
         file.take(MAX_JOURNAL_BYTES + 1)
@@ -119,7 +119,10 @@ impl AuditGuard {
 
         let mut entries = Vec::new();
         let mut previous_hash: Option<String> = None;
-        for line in bytes.split(|byte| *byte == b'\n').filter(|line| !line.is_empty()) {
+        for line in bytes.split_terminator(|byte| *byte == b'\n') {
+            if line.is_empty() {
+                return Err("audit chain contains an empty record".into());
+            }
             let entry: AuditEntry = serde_json::from_slice(line)
                 .map_err(|error| format!("corrupt audit entry: {error}"))?;
             let body = &entry.body;
@@ -130,7 +133,7 @@ impl AuditGuard {
             if body.format != FORMAT
                 || body.format_revision != FORMAT_REVISION
                 || body.sequence != expected
-                || body.after_revision != body.before_revision + 1
+                || body.before_revision.checked_add(1) != Some(body.after_revision)
                 || body.after_revision != body.sequence
                 || body.previous_hash != previous_hash
                 || body.project_id.is_empty()
@@ -147,7 +150,8 @@ impl AuditGuard {
                 }
             } else if let Some(previous) = entries.last() {
                 let previous: &AuditEntry = previous;
-                if body.before_revision != previous.body.after_revision
+                if body.project_id != previous.body.project_id
+                    || body.before_revision != previous.body.after_revision
                     || body.before_state_digest.as_deref()
                         != Some(previous.body.after_state_digest.as_str())
                 {
@@ -356,6 +360,52 @@ mod tests {
         let mut newer = state.clone();
         newer.apply_change(1, Change::Retire { id: "P-PRIVATE".into(), item_revision: 1 }).unwrap();
         assert!(guard.verify_state("alpha", Some(&newer)).is_err());
+    }
+
+    #[test]
+    fn two_approved_events_form_a_continuous_audit_chain() {
+        let fixture = Fixture::new();
+        let guard = fixture.guard();
+        let (first, initial_receipt) = event();
+        guard
+            .append_approved("alpha", None, &first, &initial_receipt, "old")
+            .unwrap();
+
+        let mut second = first.clone();
+        let change = Change::Retire {
+            id: "P-PRIVATE".into(),
+            item_revision: 1,
+        };
+        second.apply_change(1, change.clone()).unwrap();
+        let second_receipt = SignedApproval {
+            request: ApprovalRequest {
+                project_id: "alpha".into(),
+                expected_revision: 1,
+                change,
+                reason: "owner retired the old rule".into(),
+                issued_at: 200,
+                expires_at: 260,
+            },
+            signature: vec![29; 64],
+        };
+        guard
+            .append_approved("alpha", Some(&first), &second, &second_receipt, "new")
+            .unwrap();
+        assert_eq!(guard.verify_state("alpha", Some(&second)).unwrap(), 2);
+        assert!(guard.verify_state("alpha", Some(&first)).is_err());
+        assert_eq!(guard.entries().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn deleting_audit_journal_never_turns_existing_state_into_genesis() {
+        let fixture = Fixture::new();
+        let guard = fixture.guard();
+        let (state, receipt) = event();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
+        fs::remove_file(fixture.dir.join("audit.jsonl")).unwrap();
+        assert!(guard.verify_state("alpha", Some(&state)).is_err());
     }
 
     #[test]
