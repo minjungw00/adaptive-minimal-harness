@@ -62,7 +62,19 @@ impl Fixture {
         .unwrap();
     }
     fn packet(&self, id: &str, text: &str) -> SessionPacket {
-        prepare_turn(&self.0, id, text, TurnOptions::default()).unwrap()
+        let state = read_session(&self.0, id).unwrap();
+        let state_digest = digest(&serde_json::to_vec(&state).unwrap());
+        prepare_turn(
+            &self.0,
+            id,
+            text,
+            TurnOptions {
+                known_state: Some(state_digest),
+                known_catalog: Some(state.catalog_digest),
+                ..TurnOptions::default()
+            },
+        )
+        .unwrap()
     }
     fn finish(&self, p: SessionPacket, r: SessionResponse) -> Result<SessionOutput> {
         let plan = plan_session(
@@ -124,16 +136,21 @@ fn quotes(p: &SessionPacket) -> Vec<SourceQuote> {
     }]
 }
 fn response(p: &SessionPacket, selected: &[&str]) -> SessionResponse {
+    // Fixture judgments simulate a caller that already holds the catalogue.
+    let cards = p.candidates.clone().unwrap_or_else(|| {
+        policy_cards(
+            &policies(&p.root).unwrap(),
+            p.focus.as_deref().unwrap_or(""),
+        )
+        .unwrap()
+    });
     SessionResponse {
         format: "amh.session-analysis.v1".into(),
         request_digest: p.request_digest.clone(),
         mode: TurnMode::Review,
         reason: "Explicit protocol fixture judgment".into(),
         evidence: quotes(p),
-        assessments: p
-            .candidates
-            .as_ref()
-            .unwrap()
+        assessments: cards
             .iter()
             .map(|c| SessionAssessment {
                 id: c.id.clone(),
@@ -366,7 +383,7 @@ fn user_quotations_inferences_and_retirement_have_distinct_sources() {
         *origin = NoteOrigin::AgentInference;
     }
     f.finish(p, r).unwrap();
-    let p = f.packet("a", "Keep both.");
+    let p = prepare_turn(&f.0, "a", "Keep both.", TurnOptions::default()).unwrap();
     let src = p.sources.as_ref().unwrap();
     assert_eq!(
         src.iter().find(|s| s.id == "note:summary").unwrap().kind,
@@ -428,7 +445,7 @@ fn attached_tasks_are_information_and_multiple_tasks_do_not_imply_focus() {
         .unwrap();
         f.attach("a", &format!("{id}.json"));
     }
-    let p = f.packet("a", "작업을 진행해.");
+    let p = prepare_turn(&f.0, "a", "작업을 진행해.", TurnOptions::default()).unwrap();
     assert!(p.focus.is_none());
     assert_eq!(p.context.as_ref().unwrap().tasks.len(), 2);
     assert!(p
@@ -736,4 +753,26 @@ fn oversized_context_fails_instead_of_truncating_accepted_conditions() {
     let before = fs::read(f.file("a")).unwrap();
     assert!(f.finish(p, r).is_err());
     assert_eq!(before, fs::read(f.file("a")).unwrap());
+}
+
+#[test]
+fn unacknowledged_conversation_context_requires_full_review_and_full_delivery() {
+    let f = Fixture::new();
+    f.add(policy("P-A"));
+    let mut always = policy("P-ALWAYS");
+    always.applicability = None;
+    f.add(always);
+    f.open("a");
+    let p = f.packet("a", "Do it.");
+    f.finish(p.clone(), response(&p, &["P-A"])).unwrap();
+    let p = prepare_turn(&f.0, "a", "Explain this.", TurnOptions::default()).unwrap();
+    assert!(p.full_review);
+    assert!(p.context.is_some() && p.candidates.is_some());
+    assert!(f.finish(p.clone(), reuse(&p)).is_err());
+    let mut incomplete = response(&p, &["P-A"]);
+    incomplete.assessments.clear();
+    assert!(f.finish(p.clone(), incomplete).is_err());
+    let out = f.finish(p.clone(), response(&p, &["P-A"])).unwrap();
+    assert!(out.instructions.contains("## P-A"));
+    assert!(out.instructions.contains("## P-ALWAYS"));
 }
