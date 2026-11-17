@@ -41,8 +41,7 @@ struct ItemDiff {
 }
 
 fn write_json(value: &impl Serialize) -> Result<String, String> {
-    serde_json::to_string_pretty(value)
-        .map_err(|error| format!("could not encode output: {error}"))
+    serde_json::to_string_pretty(value).map_err(|error| format!("could not encode output: {error}"))
 }
 
 fn parse_flags<'a>(
@@ -100,10 +99,14 @@ fn get_item(path: &str, id: &str) -> Result<String, String> {
 }
 
 fn read_proposal(path: &str) -> Result<ChangeProposal, String> {
-    let data = fs::read(path)
-        .map_err(|error| format!("cannot read proposal {}: {error}", Path::new(path).display()))?;
-    let proposal: ChangeProposal = serde_json::from_slice(&data)
-        .map_err(|error| format!("invalid proposal JSON: {error}"))?;
+    let data = fs::read(path).map_err(|error| {
+        format!(
+            "cannot read proposal {}: {error}",
+            Path::new(path).display()
+        )
+    })?;
+    let proposal: ChangeProposal =
+        serde_json::from_slice(&data).map_err(|error| format!("invalid proposal JSON: {error}"))?;
     if proposal.reason.trim().is_empty() {
         return Err("proposal reason must not be empty".into());
     }
@@ -238,8 +241,13 @@ mod tests {
 
     fn sample_state() -> ItemSnapshot {
         let mut snapshot = ItemSnapshot::default();
-        let item = ManagedItem::new("R-A", ItemKind::Requirement, ItemScope::Project, "Cost analysis")
-            .unwrap();
+        let item = ManagedItem::new(
+            "R-A",
+            ItemKind::Requirement,
+            ItemScope::Project,
+            "Cost analysis",
+        )
+        .unwrap();
         snapshot.insert(0, item).unwrap();
         snapshot
     }
@@ -334,14 +342,22 @@ mod tests {
     #[test]
     fn rejects_duplicate_or_unknown_cli_options() {
         assert!(run(&[
-            "state".into(), "inspect".into(),
-            "--file".into(), "a".into(),
-            "--file".into(), "b".into()
-        ]).is_err());
+            "state".into(),
+            "inspect".into(),
+            "--file".into(),
+            "a".into(),
+            "--file".into(),
+            "b".into()
+        ])
+        .is_err());
         assert!(run(&[
-            "item".into(), "get".into(),
-            "--file".into(), "a".into(),
-            "--who".into(), "b".into()
-        ]).is_err());
+            "item".into(),
+            "get".into(),
+            "--file".into(),
+            "a".into(),
+            "--who".into(),
+            "b".into()
+        ])
+        .is_err());
     }
 }

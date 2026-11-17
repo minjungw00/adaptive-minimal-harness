@@ -460,11 +460,17 @@ mod tests {
             activation: Activation::ExplicitOnly,
             verification: vec!["Run the relevant test".into()],
         };
-        assert_eq!(snapshot.apply_change(2, Change::SetDetails {
-            id: "P-A".into(),
-            item_revision: 2,
-            details: details.clone(),
-        }), Ok(3));
+        assert_eq!(
+            snapshot.apply_change(
+                2,
+                Change::SetDetails {
+                    id: "P-A".into(),
+                    item_revision: 2,
+                    details: details.clone(),
+                }
+            ),
+            Ok(3)
+        );
         let changed = snapshot.get("P-A").unwrap();
         assert_eq!(changed.details.as_ref(), Some(&details));
         assert_eq!(changed.content, prior.content);
@@ -479,25 +485,48 @@ mod tests {
         use crate::{Activation, PrincipleStrength};
         let mut snapshot = active();
         let before = snapshot.clone();
-        let invalid = ItemDetails::Decision { rationale: "not a principle".into() };
-        assert_eq!(snapshot.apply_change(2, Change::SetDetails {
-            id: "P-A".into(),
-            item_revision: 2,
-            details: invalid,
-        }), Err(ItemError::DetailsKindMismatch));
+        let invalid = ItemDetails::Decision {
+            rationale: "not a principle".into(),
+        };
+        assert_eq!(
+            snapshot.apply_change(
+                2,
+                Change::SetDetails {
+                    id: "P-A".into(),
+                    item_revision: 2,
+                    details: invalid,
+                }
+            ),
+            Err(ItemError::DetailsKindMismatch)
+        );
         assert_eq!(snapshot, before);
         let details = ItemDetails::Principle {
             strength: PrincipleStrength::Should,
             activation: Activation::Always,
             verification: vec![],
         };
-        snapshot.apply_change(2, Change::SetDetails {
-            id: "P-A".into(), item_revision: 2, details: details.clone(),
-        }).unwrap();
+        snapshot
+            .apply_change(
+                2,
+                Change::SetDetails {
+                    id: "P-A".into(),
+                    item_revision: 2,
+                    details: details.clone(),
+                },
+            )
+            .unwrap();
         let again = snapshot.clone();
-        assert_eq!(snapshot.apply_change(3, Change::SetDetails {
-            id: "P-A".into(), item_revision: 3, details,
-        }), Err(ItemError::UnchangedDetails));
+        assert_eq!(
+            snapshot.apply_change(
+                3,
+                Change::SetDetails {
+                    id: "P-A".into(),
+                    item_revision: 3,
+                    details,
+                }
+            ),
+            Err(ItemError::UnchangedDetails)
+        );
         assert_eq!(snapshot, again);
     }
 
