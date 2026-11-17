@@ -6,65 +6,20 @@
 //! nor is the two-file update crash-atomic. Any mismatch is fail-closed.
 
 use amh_core::{ItemSnapshot, SignedApproval};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use amh_audit::{
+    body_hash, digest, validate_complete, AuditBody, AuditEntry, AuditSegment,
+    CHAIN_FORMAT as FORMAT, CHAIN_FORMAT_REVISION as FORMAT_REVISION, SEGMENT_FORMAT,
+};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const FORMAT: &str = "amh.audit-chain";
-const FORMAT_REVISION: u32 = 1;
-const MAX_JOURNAL_BYTES: u64 = 64 * 1024 * 1024;
-
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields)]
-struct AuditBody {
-    format: String,
-    format_revision: u32,
-    project_id: String,
-    sequence: u64,
-    previous_hash: Option<String>,
-    before_revision: u64,
-    after_revision: u64,
-    before_state_digest: Option<String>,
-    after_state_digest: String,
-    receipt_digest: String,
-    signing_key_id: String,
-    recorded_at: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AuditEntry {
-    body: AuditBody,
-    hash: String,
-}
-
-fn digest(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    let hash = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for byte in hash {
-        write!(&mut out, "{byte:02x}").expect("format into a String cannot fail");
-    }
-    out
-}
-
 fn state_digest(state: &ItemSnapshot) -> Result<String, String> {
     let bytes = serde_json::to_vec(state)
         .map_err(|error| format!("cannot encode canonical state for audit: {error}"))?;
     Ok(digest(&bytes))
-}
-
-fn body_hash(body: &AuditBody) -> Result<String, String> {
-    let bytes = serde_json::to_vec(body)
-        .map_err(|error| format!("cannot serialize audit entry: {error}"))?;
-    let mut signed = FORMAT.as_bytes().to_vec();
-    signed.push(0);
-    signed.extend(bytes);
-    Ok(digest(&signed))
 }
 
 /// Holds the audit lock across state verification, signed state write,
@@ -118,52 +73,38 @@ impl AuditGuard {
         }
 
         let mut entries = Vec::new();
-        let mut previous_hash: Option<String> = None;
         for line in bytes[..bytes.len() - 1].split(|byte| *byte == b'\n') {
             if line.is_empty() {
                 return Err("audit chain contains an empty record".into());
             }
             let entry: AuditEntry = serde_json::from_slice(line)
                 .map_err(|error| format!("corrupt audit entry: {error}"))?;
-            let body = &entry.body;
-            let expected = u64::try_from(entries.len())
-                .map_err(|_| "audit index overflow")?
-                .checked_add(1)
-                .ok_or("audit index overflow")?;
-            if body.format != FORMAT
-                || body.format_revision != FORMAT_REVISION
-                || body.sequence != expected
-                || body.before_revision.checked_add(1) != Some(body.after_revision)
-                || body.after_revision != body.sequence
-                || body.previous_hash != previous_hash
-                || body.project_id.is_empty()
-                || body.signing_key_id.is_empty()
-                || body.receipt_digest.len() != 64
-                || body.after_state_digest.len() != 64
-                || entry.hash != body_hash(body)?
-            {
-                return Err(format!(
-                    "audit chain integrity check failed at entry {expected}"
-                ));
-            }
-            if expected == 1 {
-                if body.before_revision != 0 || body.before_state_digest.is_some() {
-                    return Err("first audit entry does not represent a fresh state".into());
-                }
-            } else if let Some(previous) = entries.last() {
-                let previous: &AuditEntry = previous;
-                if body.project_id != previous.body.project_id
-                    || body.before_revision != previous.body.after_revision
-                    || body.before_state_digest.as_deref()
-                        != Some(previous.body.after_state_digest.as_str())
-                {
-                    return Err("audit chain state continuity check failed".into());
-                }
-            }
-            previous_hash = Some(entry.hash.clone());
             entries.push(entry);
         }
+        validate_complete(&entries)?;
         Ok(entries)
+    }
+
+    /// Content-free, incremental evidence for an independently retained witness.
+    pub(crate) fn export_segment(
+        &self,
+        project_id: &str,
+        from_sequence: u64,
+    ) -> Result<AuditSegment, String> {
+        let entries = self.entries()?;
+        let head = entries.last().ok_or("audit chain has no committed entries")?;
+        if head.body.project_id != project_id || from_sequence > head.body.sequence {
+            return Err("project mismatch or sequence beyond the audit head".into());
+        }
+        Ok(AuditSegment {
+            format: SEGMENT_FORMAT.into(),
+            project_id: project_id.into(),
+            from_sequence,
+            entries: entries
+                .into_iter()
+                .filter(|entry| entry.body.sequence > from_sequence)
+                .collect(),
+        })
     }
 
     /// Only a fresh state without an audit history or a snapshot matching
