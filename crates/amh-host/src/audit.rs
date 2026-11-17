@@ -22,6 +22,13 @@ fn state_digest(state: &ItemSnapshot) -> Result<String, String> {
     Ok(digest(&bytes))
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct AuditHead {
+    pub(crate) project_id: String,
+    pub(crate) revision: u64,
+    pub(crate) state_digest: String,
+}
+
 /// Holds the audit lock across state verification, signed state write,
 /// and audit append. The caller must verify filesystem ownership and isolation.
 pub(crate) struct AuditGuard {
@@ -83,6 +90,17 @@ impl AuditGuard {
         }
         validate_complete(&entries)?;
         Ok(entries)
+    }
+
+    /// Return an integrity-checked journal head for diagnostic reporting.
+    /// A missing journal is different from a damaged journal.
+    pub(crate) fn checked_head(&self) -> Result<Option<AuditHead>, String> {
+        let entries = self.entries()?;
+        Ok(entries.last().map(|entry| AuditHead {
+            project_id: entry.body.project_id.clone(),
+            revision: entry.body.after_revision,
+            state_digest: entry.body.after_state_digest.clone(),
+        }))
     }
 
     /// Content-free, incremental evidence for an independently retained witness.
