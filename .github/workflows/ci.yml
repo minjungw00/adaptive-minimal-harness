@@ -19,14 +19,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      # Bootstrap aid: capture the lockfile after introducing direct sha2.
-      - name: Refresh lockfile for dependency baseline
-        run: |
-          cargo generate-lockfile
-          echo "::group::Audit Cargo.lock (base64)"
-          base64 -w0 Cargo.lock
-          echo
-          echo "::endgroup::"
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Run unit tests
