@@ -6,7 +6,11 @@
 //! necessary for this to form a real authorization boundary.
 
 #[cfg(target_os = "linux")]
+mod audit;
+
+#[cfg(target_os = "linux")]
 mod linux {
+    use crate::audit::AuditGuard;
     use amh_core::{ApprovalVerifier, SignedApproval, SnapshotStore, StateManifest};
     use serde::Deserialize;
     use std::collections::BTreeSet;
@@ -18,6 +22,7 @@ mod linux {
 
     const TRUST_FILE: &str = "/etc/amh/trust.json";
     const STATE_ROOT: &str = "/var/lib/amh/projects";
+    const AUDIT_ROOT: &str = "/var/lib/amh/audit";
     const MAX_RECEIPT_BYTES: u64 = 256 * 1024;
 
     const HELP: &str = "AMH trusted host (Linux-only, optional)
@@ -31,6 +36,7 @@ USAGE:
 TRUST:
     Root-owned configuration: /etc/amh/trust.json
     Root-owned state files: /var/lib/amh/projects/<project>/state.json
+    Protected audit chain: /var/lib/amh/audit/<project>.jsonl
 
 No command-line or environment override for trusted keys and state paths.
 The host does NOT sign approvals; an external authenticated signer is needed.
@@ -163,6 +169,39 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         Ok(())
     }
 
+    fn audit_path(project_id: &str) -> PathBuf {
+        Path::new(AUDIT_ROOT).join(format!("{project_id}.jsonl"))
+    }
+
+    fn validate_audit_security(project_id: &str) -> Result<(), String> {
+        let path = audit_path(project_id);
+        for item in [path.clone(), path.with_extension("lock")] {
+            check_protected_path(&item, true)?;
+            if let Ok(metadata) = fs::symlink_metadata(&item) {
+                if metadata.mode() & 0o077 != 0 {
+                    return Err(format!("audit file or lock is not private: {}", item.display()));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The journal lock protects verification, write, and audit append as
+    /// one cooperating-host operation. Crash recovery remains fail-closed.
+    fn audited_state(project: &TrustedProject) -> Result<(AuditGuard, Option<amh_core::ItemSnapshot>), String> {
+        validate_state_security(&project.state_file)?;
+        validate_audit_security(&project.project_id)?;
+        let guard = AuditGuard::acquire(&audit_path(&project.project_id))?;
+        let state = if project.state_file.exists() {
+            Some(SnapshotStore::new(&project.state_file).load()
+                .map_err(|e| format!("invalid protected state: {e:?}"))?)
+        } else {
+            None
+        };
+        guard.verify_state(&project.project_id, state.as_ref())?;
+        Ok((guard, state))
+    }
+
     fn validate_config(config: &HostConfig) -> Result<(), String> {
         if config.projects.is_empty() {
             return Err("no trusted projects configured".into());
@@ -293,11 +332,21 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .find(|p| p.project_id == signed.request.project_id)
             .ok_or("no trusted project matches signed receipt")?;
 
-        validate_state_security(&project.state_file)?;
+        let (audit, previous) = audited_state(project)?;
         let (key_id, verifier) = select_verifier(project, &signed)?;
         let state = SnapshotStore::new(&project.state_file)
             .apply_signed(&verifier, &signed)
             .map_err(|e| format!("receipt not applied: {e:?}"))?;
+        // This second durable file cannot be made atomic with the snapshot
+        // using rename alone. On failure, subsequent operations must stop.
+        audit.append_approved(
+            &project.project_id,
+            previous.as_ref(),
+            &state,
+            &signed,
+            &key_id,
+        )?;
+        audit.verify_state(&project.project_id, Some(&state))?;
 
         serde_json::to_string_pretty(&serde_json::json!({
             "status": "applied",
@@ -317,13 +366,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .iter()
             .find(|item| item.project_id == project_id)
             .ok_or("unknown trusted project")?;
-        validate_state_security(&project.state_file)?;
-        if !project.state_file.is_file() {
-            return Err("protected state is not initialized; no manifest was exported".into());
-        }
-        let state = SnapshotStore::new(&project.state_file)
-            .load()
-            .map_err(|error| format!("protected state could not be verified: {error:?}"))?;
+        let (_audit, state) = audited_state(project)?;
+        let state = state
+            .ok_or("protected state is not initialized; no manifest was exported")?;
         let manifest = StateManifest::from_snapshot(project_id, &state);
         serde_json::to_string_pretty(&manifest)
             .map_err(|error| format!("cannot encode state manifest: {error}"))
@@ -336,10 +381,10 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             [arg] if arg == "doctor" => {
                 let config = load_config()?;
                 for project in &config.projects {
-                    validate_state_security(&project.state_file)?;
+                    audited_state(project)?;
                 }
                 Ok(format!(
-                    "Protected configuration valid for {} project(s). No state changed.",
+                    "Protected state and audit chain checked for {} project(s). No state changed.",
                     config.projects.len()
                 ))
             }
