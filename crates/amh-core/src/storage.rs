@@ -4,9 +4,9 @@
 //! It protects cooperating AMH processes against lost updates; it does NOT
 //! authenticate changes or protect against privileged/uncooperative writers.
 
-use crate::{ItemError, ItemSnapshot};
 #[cfg(any(test, feature = "signed-approvals"))]
 use crate::Change;
+use crate::{ItemError, ItemSnapshot};
 use serde::{Deserialize, Serialize};
 use std::fs;
 #[cfg(any(test, feature = "signed-approvals"))]
