@@ -37,3 +37,8 @@ jobs:
           cargo run -p amh-cli --locked -- --version
           cargo run -p amh-cli --locked -- state inspect --file "$RUNNER_TEMP/amh-uncreated-state.json"
           cargo run -p amh-host --locked -- --help
+          printf '%s\n' '{"format":"amh.state-manifest","project_id":"ci","snapshot_revision":0,"items":[],"authority":"informational_only"}' > "$RUNNER_TEMP/manifest.json"
+          cargo run -p amh-cli --locked -- manifest inspect --file "$RUNNER_TEMP/manifest.json" | grep structurally_valid_untrusted
+          printf '%s\n' '{"format":"amh.item-snapshot","format_revision":1,"snapshot":{"revision":0,"items":{},"history":[]}}' > "$RUNNER_TEMP/state.json"
+          printf '%s\n' '{"expected_revision":0,"reason":"Explicit CI fixture","change":{"operation":"ADD","item":{"id":"R-CI","kind":"requirement","scope":"project","revision":1,"lifecycle":"draft","content":"Check request interoperability","replaces":null}}}' > "$RUNNER_TEMP/proposal.json"
+          cargo run -p amh-cli --features approval-request --locked -- change request --file "$RUNNER_TEMP/state.json" --proposal "$RUNNER_TEMP/proposal.json" --project ci --ttl 120 | grep untrusted_unsigned_request
