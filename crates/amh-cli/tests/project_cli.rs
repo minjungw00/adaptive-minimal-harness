@@ -159,3 +159,114 @@ fn unknown_options_and_incomplete_contracts_fail_without_mutation() {
         .success());
     assert_eq!(f.ok(&["doctor"])["deployment"], "uncompiled");
 }
+
+fn natural_analysis(packet: &Value, selected: &[&str]) -> Value {
+    json!({"format":"amh.request-analysis.v1","request_digest":packet["request_digest"],"catalog_digest":packet["catalog_digest"],"done_when":["The user's requested document change is complete"],"assessments":packet["candidates"].as_array().unwrap().iter().map(|p|json!({"id":p["id"],"item_revision":p["item_revision"],"applicability":if selected.contains(&p["id"].as_str().unwrap()){"match"}else{"no_match"},"reason":"This request does or does not satisfy the stated natural-language condition","request_quotes":[packet["request"]]})).collect::<Vec<_>>(),"clarification_questions":[]})
+}
+#[test]
+fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "natural", "--apply"]);
+    f.ok(&[
+        "pack",
+        "install",
+        "--name",
+        "inquiry",
+        "--expected-revision",
+        "0",
+        "--reason",
+        "Use inquiry methods",
+        "--apply",
+    ]);
+    let request = "기존 보고서의 논지를 유지하면서 결론 문단을 더 명확하게 다듬어 주세요.";
+    fs::write(f.0.join("request.txt"), request).unwrap();
+    let packet = f.ok(&["request", "--request-file", "request.txt"]);
+    assert_eq!(packet["request"], request);
+    assert!(!f
+        .run(&["request", "--text", request, "--apply"])
+        .status
+        .success());
+    let analysis = natural_analysis(&packet, &["P-WRITING"]);
+    fs::write(
+        f.0.join("packet.json"),
+        serde_json::to_vec(&packet).unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        f.0.join("analysis.json"),
+        serde_json::to_vec(&analysis).unwrap(),
+    )
+    .unwrap();
+    let preview = f.ok(&[
+        "request",
+        "finish",
+        "--packet",
+        "packet.json",
+        "--analysis",
+        "analysis.json",
+    ]);
+    assert_eq!(preview["request"]["task"]["tags"], json!([]));
+    f.ok(&[
+        "request",
+        "finish",
+        "--packet",
+        "packet.json",
+        "--analysis",
+        "analysis.json",
+        "--apply",
+    ]);
+    let instructions = fs::read_to_string(f.0.join(".amh/generated/AGENTS.md")).unwrap();
+    assert!(instructions.contains("P-WRITING"));
+    assert!(!instructions.contains("P-SOCRATIC"));
+    assert_eq!(f.ok(&["doctor"])["deployment"], "current");
+    let agents = fs::read_to_string(f.0.join("AGENTS.md")).unwrap();
+    assert!(agents.contains("Do not ask the user for tags"));
+}
+#[test]
+fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "one-shot", "--apply"]);
+    f.ok(&[
+        "pack",
+        "install",
+        "--name",
+        "inquiry",
+        "--expected-revision",
+        "0",
+        "--reason",
+        "Use writing policy",
+        "--apply",
+    ]);
+    let text = "보고서의 결론을 간결하고 명확하게 수정하세요.";
+    let packet = f.ok(&["request", "--text", text]);
+    fs::write(
+        f.0.join("reply.json"),
+        serde_json::to_vec(&natural_analysis(&packet, &["P-WRITING"])).unwrap(),
+    )
+    .unwrap();
+    let binary = f.0.join(if cfg!(windows) { "agent.exe" } else { "agent" });
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../amh-project/tests/fixtures/interpreter.rs");
+    assert!(Command::new("rustc")
+        .arg(source)
+        .args(["--edition", "2021"])
+        .arg("-o")
+        .arg(&binary)
+        .status()
+        .unwrap()
+        .success());
+    let config = json!({"adapter":"stdio","argv":[binary,"reply",f.0.join("reply.json"),f.0.join("captured.json")],"timeout_seconds":10});
+    fs::write(f.0.join("agent.json"), serde_json::to_vec(&config).unwrap()).unwrap();
+    let result = f.ok(&[
+        "request",
+        "--text",
+        text,
+        "--agent-config",
+        "agent.json",
+        "--apply",
+    ]);
+    assert_eq!(result["status"], "applied_local_plan");
+    assert_eq!(result["plan"]["request"]["task"]["goal"], text);
+    assert_eq!(f.ok(&["doctor"])["deployment"], "current");
+    assert_eq!(f.ok(&["policy", "list"])["revision"], 1); // Interpreting work cannot mutate policy authority.
+}

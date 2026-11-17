@@ -14,6 +14,10 @@ pub const HELP: &str = "PROJECT WORKFLOW (user-owned local files; no protected-h
     amh pack show --name development|inquiry
     amh pack install --name NAME [--scope user|project] --expected-revision N --reason TEXT [--root PATH] [--apply]
     amh pack install --file PACK.toml [--scope user|project] --expected-revision N --reason TEXT [--root PATH] [--apply]
+    amh request --text TEXT | --request-file FILE [--root PATH] [--task-id ID]
+    amh request --text TEXT --agent codex [--root PATH] [--apply] [--budget CHARS]
+    amh request --request-file FILE --agent-config CONFIG.json [--root PATH] [--apply]
+    amh request finish --packet PACKET.json --analysis RESPONSE.json [--root PATH] [--apply]
     amh compile --task TASK.toml [--root PATH] [--budget CHARS]
     amh sync --task TASK.toml [--root PATH] [--budget CHARS] [--apply]
     amh apply --plan PLAN.json [--root PATH]
@@ -107,6 +111,7 @@ pub fn run(args: &[String]) -> Option<Result<String, String>> {
     let first = args.first()?.as_str();
     if ![
         "init",
+        "request",
         "policy",
         "pack",
         "compile",
@@ -135,6 +140,9 @@ fn execute(args: &[String]) -> Result<String, String> {
     } else {
         ("", &args[1..])
     };
+    if command == "request" {
+        return execute_request(rest);
+    }
     match (command, sub) {
         ("init", _) => {
             let f = Flags::parse(rest, &["--root", "--id", "--user-root"], &["--apply"])?;
@@ -301,5 +309,72 @@ fn execute(args: &[String]) -> Result<String, String> {
             }
         }
         _ => Err("unsupported project command; run amh --help".into()),
+    }
+}
+
+fn execute_request(args: &[String]) -> Result<String, String> {
+    if args.first().is_some_and(|s| s == "finish") {
+        let f = Flags::parse(
+            &args[1..],
+            &["--root", "--packet", "--analysis", "--budget"],
+            &["--apply"],
+        )?;
+        let packet = amh_project::read_document(Path::new(f.required("--packet")?))?;
+        let response = amh_project::read_document(Path::new(f.required("--analysis")?))?;
+        let task = amh_project::interpret_request(f.root(), &packet, response)?;
+        return mutation(
+            &f,
+            Request::Sync {
+                task,
+                budget: f.budget()?,
+            },
+        );
+    }
+    let f = Flags::parse(
+        args,
+        &[
+            "--root",
+            "--text",
+            "--request-file",
+            "--task-id",
+            "--agent",
+            "--agent-config",
+            "--budget",
+        ],
+        &["--apply"],
+    )?;
+    let text = match (f.values.get("--text"), f.values.get("--request-file")) {
+        (Some(text), None) => (*text).to_string(),
+        (None, Some(file)) => std::fs::read_to_string(file).map_err(|e| e.to_string())?,
+        _ => return Err("select exactly one of --text or --request-file".into()),
+    };
+    let packet = amh_project::prepare_request(f.root(), &text, f.values.get("--task-id").copied())?;
+    let config = match (f.values.get("--agent"), f.values.get("--agent-config")) {
+        (None, None) => None,
+        (Some(&"codex"), None) => Some(amh_project::InterpreterConfig::codex()),
+        (None, Some(file)) => Some(amh_project::read_document(Path::new(file))?),
+        _ => return Err("select --agent codex or one explicit --agent-config file".into()),
+    };
+    if let Some(config) = config {
+        let response = amh_project::run_interpreter(&packet, &config)?;
+        let task = amh_project::interpret_request(f.root(), &packet, response)?;
+        mutation(
+            &f,
+            Request::Sync {
+                task,
+                budget: f.budget()?,
+            },
+        )
+    } else {
+        if f.values.contains_key("--budget") {
+            return Err(
+                "pass a compilation budget to request finish or an explicitly selected interpreter"
+                    .into(),
+            );
+        }
+        if f.switches.contains("--apply") {
+            return Err("a discovery packet is not a completed interpretation; use the current agent's request finish step or explicitly select an interpreter".into());
+        }
+        json(&packet)
     }
 }
