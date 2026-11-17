@@ -1,6 +1,6 @@
 # Signed change approval: trust and limitations
 
-**Status:** Optional library feature implemented; secure host integration not yet implemented. Planning documents have no release version.
+**Status:** Optional signature verification library and experimental Linux host implemented. Human-authenticated signing, key provisioning, security review, and portable enforcement remain incomplete. Planning documents have no release version.
 
 ## Purpose
 
@@ -51,7 +51,7 @@ For an actual deployment, the trusted host MUST:
 
 If the same actor can replace the public key, alter the state file directly, and call the library, **the signature check does not enforce approval**.
 
-A trusted host/OS identity boundary, signer UI, key rotation, and revocation are **future work**. Do not interpret existing unit tests as evidence that those features are already delivered.
+An experimental Linux `amh-host` now reads trusted project bindings from the fixed root-owned `/etc/amh/trust.json` and applies receipts only to protected `/var/lib/amh/projects/…/state.json` paths. It has no private signing keys, accepts no caller-supplied public-key or state-path override, and requires separate OS filesystem protection. See [trusted host](trusted-host.md). An authenticated signing UI, key provisioning, rotation, revocation, and production security review remain **future work**.
 
 ## Security tests
 
@@ -59,12 +59,12 @@ With `signed-approvals`, tests check correct signatures, wrong keys, project mis
 
 ## Design follow-up
 
-Before enabling consumer-facing mutation commands, implement:
+Before enabling consumer-facing authenticated mutation commands, complete:
 
-1. Trusted trust-anchor location and project binding outside the untrusted repository.
-2. Authenticated human approval and exact change preview.
-3. Securely stored signing keys and key lifecycle.
-4. OS-level filesystem principal separation or a restricted write service.
-5. CLI error reporting and recovery paths without leaking signing keys.
+1. An authenticated human approval and signing interface with an independently protected signing key.
+2. Key provisioning, rotation, revocation, and an audit trail tied to project identity.
+3. A formally provisioned OS identity or restricted host service and security review of the root-owned host installation.
+4. A safe bridge between protected host state and the consumer project's read-only view.
+5. Cross-platform threat-model testing, failure reporting, and recovery paths.
 
 The signed-check mechanism is a reusable building block, not yet an end-to-end authorization product.
