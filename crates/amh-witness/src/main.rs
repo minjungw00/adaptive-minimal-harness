@@ -37,9 +37,9 @@ fn parse_args(args: &[String]) -> Result<(bool, &Path, &str), String> {
     let id = args[4].as_str();
     if id.is_empty()
         || id.len() > 128
-        || !id
-            .bytes()
-            .all(|value| value.is_ascii_alphanumeric() || matches!(value, b'-' | b'_' | b'.' | b':'))
+        || !id.bytes().all(|value| {
+            value.is_ascii_alphanumeric() || matches!(value, b'-' | b'_' | b'.' | b':')
+        })
     {
         return Err("invalid trusted project ID".into());
     }
@@ -127,7 +127,12 @@ fn write_checkpoint(path: &Path, checkpoint: &AuditCheckpoint) -> Result<(), Str
             .duration_since(UNIX_EPOCH)
             .map_err(|error| error.to_string())?
             .as_nanos();
-        let temp = parent.join(format!(".{basename}.{}.{}.{}.tmp", std::process::id(), now, attempt));
+        let temp = parent.join(format!(
+            ".{basename}.{}.{}.{}.tmp",
+            std::process::id(),
+            now,
+            attempt
+        ));
         let mut file = match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -178,7 +183,8 @@ fn process(
         .mode(0o600)
         .open(lock_path)
         .map_err(|error| format!("cannot open witness lock: {error}"))?;
-    lock.lock().map_err(|error| format!("cannot lock witness: {error}"))?;
+    lock.lock()
+        .map_err(|error| format!("cannot lock witness: {error}"))?;
 
     let previous = read_checkpoint(checkpoint_file, project)?;
     let updated = verification_result(previous.as_ref(), segment, project)?;
@@ -232,7 +238,10 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use amh_audit::{body_hash, digest, AuditBody, AuditEntry, CHAIN_FORMAT, CHAIN_FORMAT_REVISION, SEGMENT_FORMAT};
+    use amh_audit::{
+        body_hash, digest, AuditBody, AuditEntry, CHAIN_FORMAT, CHAIN_FORMAT_REVISION,
+        SEGMENT_FORMAT,
+    };
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
@@ -250,7 +259,10 @@ mod tests {
             ));
             fs::create_dir_all(&directory).unwrap();
             let checkpoint = directory.join("checkpoint.json");
-            Self { directory, checkpoint }
+            Self {
+                directory,
+                checkpoint,
+            }
         }
     }
     impl Drop for Fixture {
@@ -274,7 +286,10 @@ mod tests {
             signing_key_id: "primary".into(),
             recorded_at: sequence,
         };
-        AuditEntry { hash: body_hash(&body).unwrap(), body }
+        AuditEntry {
+            hash: body_hash(&body).unwrap(),
+            body,
+        }
     }
 
     fn segment(from: u64, entries: Vec<AuditEntry>) -> AuditSegment {
@@ -295,13 +310,18 @@ mod tests {
         assert!(!fixture.checkpoint.exists());
         let report = process(&fixture.checkpoint, "alpha", &initial, true).unwrap();
         assert!(report.contains("\"advanced\": true"));
-        let checkpoint = read_checkpoint(&fixture.checkpoint, "alpha").unwrap().unwrap();
+        let checkpoint = read_checkpoint(&fixture.checkpoint, "alpha")
+            .unwrap()
+            .unwrap();
         assert_eq!(checkpoint.sequence, 1);
 
         let updated = segment(1, vec![entry(2, Some(&first))]);
         process(&fixture.checkpoint, "alpha", &updated, true).unwrap();
         assert_eq!(
-            read_checkpoint(&fixture.checkpoint, "alpha").unwrap().unwrap().sequence,
+            read_checkpoint(&fixture.checkpoint, "alpha")
+                .unwrap()
+                .unwrap()
+                .sequence,
             2
         );
     }
@@ -311,10 +331,22 @@ mod tests {
     fn stale_or_forked_segment_keeps_retained_checkpoint_unchanged() {
         let fixture = Fixture::new();
         let first = entry(1, None);
-        process(&fixture.checkpoint, "alpha", &segment(0, vec![first.clone()]), true).unwrap();
+        process(
+            &fixture.checkpoint,
+            "alpha",
+            &segment(0, vec![first.clone()]),
+            true,
+        )
+        .unwrap();
         let original = fs::read(&fixture.checkpoint).unwrap();
 
-        assert!(process(&fixture.checkpoint, "alpha", &segment(0, vec![first.clone()]), true).is_err());
+        assert!(process(
+            &fixture.checkpoint,
+            "alpha",
+            &segment(0, vec![first.clone()]),
+            true
+        )
+        .is_err());
 
         let mut fork = entry(2, Some(&first));
         fork.body.previous_hash = Some(digest(b"wrong prefix"));
@@ -327,7 +359,13 @@ mod tests {
     #[test]
     fn read_only_check_does_not_create_checkpoint() {
         let fixture = Fixture::new();
-        process(&fixture.checkpoint, "alpha", &segment(0, vec![entry(1, None)]), false).unwrap();
+        process(
+            &fixture.checkpoint,
+            "alpha",
+            &segment(0, vec![entry(1, None)]),
+            false,
+        )
+        .unwrap();
         assert!(!fixture.checkpoint.exists());
     }
 
@@ -336,7 +374,13 @@ mod tests {
     fn corrupt_existing_checkpoint_is_not_ignored() {
         let fixture = Fixture::new();
         fs::write(&fixture.checkpoint, b"{broken").unwrap();
-        assert!(process(&fixture.checkpoint, "alpha", &segment(0, vec![entry(1, None)]), true).is_err());
+        assert!(process(
+            &fixture.checkpoint,
+            "alpha",
+            &segment(0, vec![entry(1, None)]),
+            true
+        )
+        .is_err());
         assert_eq!(fs::read(&fixture.checkpoint).unwrap(), b"{broken");
     }
 
@@ -348,8 +392,11 @@ mod tests {
     #[test]
     fn accepts_exact_five_argument_operator_command() {
         let args = vec![
-            "record".into(), "--file".into(), "checkpoint.json".into(),
-            "--project".into(), "alpha".into(),
+            "record".into(),
+            "--file".into(),
+            "checkpoint.json".into(),
+            "--project".into(),
+            "alpha".into(),
         ];
         let (record, path, project) = parse_args(&args).unwrap();
         assert!(record);
@@ -360,8 +407,13 @@ mod tests {
     #[test]
     fn cannot_use_untrusted_path_or_key_override_as_cli_options() {
         let args = vec![
-            "record".into(), "--file".into(), "checkpoint.json".into(),
-            "--project".into(), "alpha".into(), "--key".into(), "untrusted".into(),
+            "record".into(),
+            "--file".into(),
+            "checkpoint.json".into(),
+            "--project".into(),
+            "alpha".into(),
+            "--key".into(),
+            "untrusted".into(),
         ];
         assert!(parse_args(&args).is_err());
     }

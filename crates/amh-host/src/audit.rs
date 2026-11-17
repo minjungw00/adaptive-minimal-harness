@@ -5,11 +5,11 @@
 //! It is NOT proof against an attacker able to replace both protected files,
 //! nor is the two-file update crash-atomic. Any mismatch is fail-closed.
 
-use amh_core::{ItemSnapshot, SignedApproval};
 use amh_audit::{
     body_hash, digest, validate_complete, AuditBody, AuditEntry, AuditSegment,
     CHAIN_FORMAT as FORMAT, CHAIN_FORMAT_REVISION as FORMAT_REVISION, SEGMENT_FORMAT,
 };
+use amh_core::{ItemSnapshot, SignedApproval};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
@@ -110,7 +110,9 @@ impl AuditGuard {
         from_sequence: u64,
     ) -> Result<AuditSegment, String> {
         let entries = self.entries()?;
-        let head = entries.last().ok_or("audit chain has no committed entries")?;
+        let head = entries
+            .last()
+            .ok_or("audit chain has no committed entries")?;
         if head.body.project_id != project_id || from_sequence > head.body.sequence {
             return Err("project mismatch or sequence beyond the audit head".into());
         }

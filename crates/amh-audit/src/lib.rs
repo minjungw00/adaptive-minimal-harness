@@ -106,9 +106,7 @@ pub fn validate_segment(
     }
     if let Some(anchor) = existing {
         validate_checkpoint(anchor)?;
-        if segment.project_id != anchor.project_id
-            || segment.from_sequence != anchor.sequence
-        {
+        if segment.project_id != anchor.project_id || segment.from_sequence != anchor.sequence {
             return Err("audit segment conflicts with retained project or sequence".into());
         }
     } else if segment.from_sequence != 0 {
@@ -143,7 +141,9 @@ pub fn validate_segment(
             || !is_lower_hex_hash(&entry.hash)
             || body_hash(body)? != entry.hash
         {
-            return Err(format!("invalid or forked audit record at sequence {expected}"));
+            return Err(format!(
+                "invalid or forked audit record at sequence {expected}"
+            ));
         }
         prev_sequence = expected;
         prev_hash = Some(entry.hash.clone());

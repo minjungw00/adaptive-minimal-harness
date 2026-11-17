@@ -561,17 +561,14 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
         #[test]
         fn audit_export_rejects_arbitrary_state_path_or_sequence() {
-            assert!(run(&[
-                "export-audit".into(),
-                "alpha".into(),
-                "../untrusted".into(),
-            ]).is_err());
+            assert!(run(&["export-audit".into(), "alpha".into(), "../untrusted".into(),]).is_err());
             assert!(run(&[
                 "export-audit".into(),
                 "alpha".into(),
                 "0".into(),
                 "/tmp/other-state".into(),
-            ]).is_err());
+            ])
+            .is_err());
         }
 
         #[test]
@@ -744,19 +741,40 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 revision: 1,
                 state_digest,
             };
-            assert_eq!(classify_recovery("alpha", Some(&committed), Some(&head)).unwrap(), "healthy");
-            assert_eq!(classify_recovery("alpha", None, Some(&head)).unwrap(), "missing_state");
-            assert_eq!(classify_recovery("alpha", Some(&committed), None).unwrap(), "unaudited_state");
-            assert_eq!(classify_recovery("alpha", None, None).unwrap(), "uninitialized");
+            assert_eq!(
+                classify_recovery("alpha", Some(&committed), Some(&head)).unwrap(),
+                "healthy"
+            );
+            assert_eq!(
+                classify_recovery("alpha", None, Some(&head)).unwrap(),
+                "missing_state"
+            );
+            assert_eq!(
+                classify_recovery("alpha", Some(&committed), None).unwrap(),
+                "unaudited_state"
+            );
+            assert_eq!(
+                classify_recovery("alpha", None, None).unwrap(),
+                "uninitialized"
+            );
             assert_eq!(
                 classify_recovery("alpha", Some(&ItemSnapshot::default()), Some(&head)).unwrap(),
                 "state_behind_audit"
             );
             let mut ahead = committed.clone();
             ahead
-                .apply_change(1, Change::Retire { id: "P-ONE".into(), item_revision: 1 })
+                .apply_change(
+                    1,
+                    Change::Retire {
+                        id: "P-ONE".into(),
+                        item_revision: 1,
+                    },
+                )
                 .unwrap();
-            assert_eq!(classify_recovery("alpha", Some(&ahead), Some(&head)).unwrap(), "state_ahead_of_audit");
+            assert_eq!(
+                classify_recovery("alpha", Some(&ahead), Some(&head)).unwrap(),
+                "state_ahead_of_audit"
+            );
             let bad = AuditHead {
                 state_digest: amh_audit::digest(b"mismatched"),
                 ..head
