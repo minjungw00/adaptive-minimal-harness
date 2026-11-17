@@ -24,11 +24,9 @@ amh pack install --name development --expected-revision 0 --reason 'Use developm
 # Alternatively, explicitly use an existing Codex CLI as the interpreter:
 amh request --text 'Fix the parser bug while preserving API compatibility.' --agent codex --apply
 amh doctor
-amh verify --task /path/to/task.toml       # does not execute commands
-amh verify --task /path/to/task.toml --run # executes the selected verification tools
 ```
 
-The one-shot command prepares the contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`.
+The one-shot command prepares the contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`. After syncing such a file, `verify --task FILE` previews its checks and `verify --task FILE --run` executes them; verification requires that same deployed task.
 
 Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and the
 [complete walkthrough](docs/p0.md). For chat and notes, use the optional
@@ -50,8 +48,8 @@ Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and th
   TDD process adherence, or live-agent compliance.
 
 TDD, refactoring, Socratic dialogue, research and writing are editable policy pack
-entries, not privileged core modes. Packs are opt-in; no model, API key, Docker,
-DB server or background process is required.
+entries, not privileged core modes. Packs are opt-in. AMH adds no mandatory separate model, API key, Docker,
+DB server or background process to the existing agent workflow.
 
 ## Trust levels
 
