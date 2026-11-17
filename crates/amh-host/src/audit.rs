@@ -398,11 +398,7 @@ mod tests {
         let journal = fixture.guard();
         let store = SnapshotStore::new(fixture.dir.join("state.json"));
         let signer = SigningKey::from_bytes(&[31; 32]);
-        let verifier = ApprovalVerifier::new(
-            "alpha",
-            signer.verifying_key().to_bytes(),
-        )
-        .unwrap();
+        let verifier = ApprovalVerifier::new("alpha", signer.verifying_key().to_bytes()).unwrap();
         let change = Change::Add {
             item: ManagedItem::new(
                 "P-REAL",
@@ -412,7 +408,10 @@ mod tests {
             )
             .unwrap(),
         };
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let request = ApprovalRequest {
             project_id: "alpha".into(),
             expected_revision: 0,
@@ -422,7 +421,10 @@ mod tests {
             expires_at: now + 60,
         };
         let signed = SignedApproval {
-            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            signature: signer
+                .sign(&request.signing_message().unwrap())
+                .to_bytes()
+                .to_vec(),
             request,
         };
 
