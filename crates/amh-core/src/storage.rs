@@ -113,12 +113,18 @@ impl SnapshotStore {
                 return Err(StoreError::SymlinkNotAllowed);
             }
         }
-        let lock = OpenOptions::new()
+        let mut lock_options = OpenOptions::new();
+        lock_options
             .create(true)
             .read(true)
             .write(true)
-            .truncate(false)
-            .open(&lock_path)?;
+            .truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            lock_options.mode(0o600);
+        }
+        let lock = lock_options.open(&lock_path)?;
         lock.lock()?;
 
         // Keep lock alive until the write is complete.
@@ -179,7 +185,14 @@ impl SnapshotStore {
                 attempt
             ));
 
-            let mut file = match OpenOptions::new().write(true).create_new(true).open(&temp) {
+            let mut temp_options = OpenOptions::new();
+            temp_options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                temp_options.mode(0o600);
+            }
+            let mut file = match temp_options.open(&temp) {
                 Ok(file) => file,
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
                 Err(error) => return Err(error.into()),
@@ -441,6 +454,30 @@ mod tests {
             fixture.store.load(),
             Err(StoreError::InvalidFormat)
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn new_state_and_lock_files_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture = TemporaryStore::new();
+        fixture
+            .store
+            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .unwrap();
+        let state_mode = fs::metadata(fixture.store.path())
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        let lock_mode = fs::metadata(fixture.store.path().with_extension("lock"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(state_mode, 0o600);
+        assert_eq!(lock_mode, 0o600);
     }
 
     #[cfg(feature = "signed-approvals")]
