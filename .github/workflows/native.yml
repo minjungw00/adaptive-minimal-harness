@@ -1,0 +1,39 @@
+name: Native CLI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Project workflow (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: amh
+          - os: macos-latest
+            binary: amh
+          - os: windows-latest
+            binary: amh.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test native project contracts and CLI
+        run: cargo test -p amh-project -p amh-cli --locked
+      - name: Build standalone executable
+        run: cargo build -p amh-cli --release --locked
+      - name: Check executable
+        run: ./target/release/${{ matrix.binary }} --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amh-${{ runner.os }}-${{ runner.arch }}
+          path: target/release/${{ matrix.binary }}
+          if-no-files-found: error
