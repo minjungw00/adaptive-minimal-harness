@@ -15,6 +15,10 @@ directory. Input documents accept TOML, or JSON when the filename ends in `.json
 | `pack list` / `pack show --name NAME` | Inspect optional built-in packs |
 | `pack install --name NAME --expected-revision N --reason TEXT` | Install and activate a version-pinned built-in pack; optional `--scope user|project` |
 | `pack install --file FILE --expected-revision N --reason TEXT` | Install a custom pack using the same schema; optional `--scope user|project` |
+| `request --text TEXT` or `request --request-file FILE` | Read-only discovery packet for the current agent; no manual tags required |
+| `request finish --packet FILE --analysis FILE [--budget CHARS]` | Validate agent judgments and plan the interpreted task's deployment |
+| `request --text TEXT --agent codex [--budget CHARS]` | Use an explicitly selected existing Codex CLI for interpretation |
+| `request --request-file FILE --agent-config FILE [--budget CHARS]` | Use an explicit JSON stdin/stdout agent adapter |
 | `compile --task FILE [--budget CHARS]` | Read-only resolution diagnostics and rendered task instructions |
 | `sync --task FILE [--budget CHARS]` | Plan AGENTS.md adapter deployment |
 | `apply --plan FILE` | Recompute and apply exactly the reviewed local plan |
@@ -33,7 +37,7 @@ reviewed version. Recovery refuses unrelated user edits. Registry rollback is
 separate: it preserves event history and advances item revisions.
 
 `policy change` supports `ADD`, `MODIFY`, `SET_DETAILS`, `SET_METADATA`, `REPLACE`,
-`REMOVE`, `REPRIORITIZE`, `ACTIVATE`, `PAUSE`, `REACTIVATE`, `RETIRE`, `INSTALL_PACK`,
+`REMOVE`, `REPRIORITIZE`, `SET_APPLICABILITY`, `ACTIVATE`, `PAUSE`, `REACTIVATE`, `RETIRE`, `INSTALL_PACK`,
 and `RESTORE`. See [contracts](contracts.md). Existing-item operations require
 `item_revision`; all registry mutations also require the current registry revision.
 
@@ -49,6 +53,12 @@ direct child; process-tree isolation is not provided. There are no retries.
 A failed/missing/timed-out check returns nonzero while retaining its evidence.
 Checks do not infer completion criteria or policy compliance. Empty check sets
 remain unverified. These are local execution records, not authenticated attestations.
+
+Natural request interpretation and deployment are described in [agent requests](agent-requests.md).
+Request commands accept `--root`; the initial request accepts an optional `--task-id`.
+`--apply` applies only a finished interpretation or explicitly selected backend result;
+a discovery packet alone cannot be applied. The current agent produces intermediate
+JSON files as protocol data. Users do not have to select tags or policies.
 
 ## Legacy/protected snapshot inspection
 

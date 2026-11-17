@@ -10,7 +10,7 @@ An event carries its registry revision, reason and typed change. Replay derives
 current state; no duplicate authoritative current-state file is stored.
 
 `Policy` wraps a core `ManagedItem` with `owner`, optional `source`, explicit
-`priority`, and `relations` (`depends_on`, `supports`, `conflicts_with`, `applies_to`,
+`priority`, optional natural-language `applicability`, and `relations` (`depends_on`, `supports`, `conflicts_with`, `applies_to`,
 `verified_by`). Core typed details are required for new project entries. Owner
 and provenance are declarations, not authentication. Event reason records the
 change rationale. User/project/task scopes compose explicitly; duplicate IDs
@@ -18,7 +18,7 @@ are diagnosed rather than silently overridden. Task-scoped inline items belong
 to their enclosing contract; persisted task-scoped policies require `applies_to`.
 
 Native changes support ADD, MODIFY, SET_DETAILS, SET_METADATA, REPLACE, REMOVE,
-REPRIORITIZE, ACTIVATE, PAUSE, REACTIVATE, RETIRE, INSTALL_PACK and RESTORE. Existing
+REPRIORITIZE, SET_APPLICABILITY, ACTIVATE, PAUSE, REACTIVATE, RETIRE, INSTALL_PACK and RESTORE. Existing
 items require their item revision, and every mutation checks registry revision.
 ADD requires a unique draft at revision 1; MODIFY preserves kind, scope and role.
 REPLACE requires an active original and compatible kind/scope, retaining the
@@ -110,3 +110,17 @@ Unknown observation must remain unknown. A generated `SKILL.md` or `AGENTS.md` d
 The examples are draft contracts and must not be mistaken for currently supported CLI inputs.
 
 Supported native inputs and an end-to-end sequence are in [examples/p0](../examples/p0/) and [P0 workflow](p0.md).
+
+## Agent-interpreted requests
+
+`amh.request-packet.v1` binds the verbatim request, project/root, task ID and current
+policy catalogue. `AgentResponse` (`amh.request-analysis.v1`) returns bound digests,
+`done_when`, per-candidate assessments (`id`, `item_revision`, `applicability`,
+`reason`, `request_quotes`) and `clarification_questions`. Every active conditional
+principle requires exactly one assessment. Unconditional accepted conditions remain
+selected independently. Natural requests produce no manual tags or executable checks.
+
+Task's optional `interpretation` retains the request and response. Compilation and
+plan application revalidate source identity, coverage and grounding. Registry changes
+require new interpretation. The model's natural-language judgments are inspectable
+but are not independent verification or authenticated approval. See [agent requests](agent-requests.md).

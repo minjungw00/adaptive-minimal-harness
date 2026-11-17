@@ -28,7 +28,8 @@
 - [x] Canonical TOML event registry, explicit user-registry import and task-scoped items.
 - [x] Version-checked item/metadata operations, REMOVE, REPRIORITIZE and history-preserving rollback.
 - [x] Optional content-pinned development/inquiry packs and custom pack inputs.
-- [x] Deterministic applicability/dependency/conflict diagnostics, including uncertain mandatory conditions.
+- [x] Agent-assisted natural-language applicability with complete grounded assessments and deterministic dependency/conflict guards.
+- [x] Existing-agent AGENTS.md handoff and explicit one-shot stdio/Codex interpreter adapters.
 - [x] Minimal task compilation with provenance and no silent budget truncation.
 - [x] AGENTS.md adapter, stale deployment detection, preservation and uninstall/reinstall.
 - [x] Recoverable local update journal with unrelated-edit refusal.
@@ -36,7 +37,7 @@
 - [x] Library/CLI regression cases and supported walkthrough inputs.
 - [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
 - [ ] Publish an approved public release for account-free binary downloads after release gates.
-- [ ] Measured real-agent effectiveness, independent semantic evaluation and rule-removal experiments (P1).
+- [ ] Measured downstream real-agent effectiveness, independent semantic evaluation and rule-removal experiments (P1).
 
 The local write path relies on user filesystem permissions. It is not the
 optional signed host and does not claim authenticated policy enforcement.
@@ -44,7 +45,7 @@ optional signed host and does not claim authenticated policy enforcement.
 ## Policy and task contracts
 - Extend semantic analysis and authority/exception handling beyond the implemented explicit native metadata.
 - Evaluate authenticated consumer approval integration; native local REMOVE/REPRIORITIZE are implemented.
-- Evaluate natural-language applicability and semantic conflicts beyond deterministic declared conditions.
+- Measure natural-language selection quality and evaluate semantic conflicts beyond declared relations.
 - Evaluate compiler effectiveness and support additional native agent formats.
 
 ## Safe installation

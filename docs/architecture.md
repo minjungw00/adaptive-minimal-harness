@@ -11,7 +11,7 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 ## Components and implementation status
 
 1. **Item Store (implemented):** current authoritative items, type-specific validation, explicit changes, revision checks.
-2. **Policy Resolver (deterministic P0 implemented):** applicability, authority, exception and conflict diagnostics.
+2. **Policy Resolver (agent-assisted discovery plus deterministic guards implemented):** applicability, authority, exception and conflict diagnostics.
 3. **Task Contract (implemented):** goal, completion criteria, allowed scope, stop conditions, output and verification requirements as necessary.
 4. **Context Compiler (implemented):** minimal target-neutral execution contract, with traceable references to selected items.
 5. **Agent Adapters (AGENTS.md implemented):** target-native instruction/skill files; optional integrations and no required always-on process.
@@ -34,7 +34,7 @@ The native project path uses `amh-project`: a user-owned TOML event log, typed g
 
 ## Scope control
 
-The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, tag/task-based resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Natural-language classification, semantic conflict analysis, automatic live-session reconciliation, authenticated local approval and actual agent behavioral evaluations remain future work.
+The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent evaluation of natural-language classification, semantic conflict analysis, automatic live-session reconciliation, authenticated local approval and actual agent behavioral evaluations remain future work.
 
 ## External signer and read-only consumer bridge
 
@@ -51,3 +51,13 @@ An optional Linux host maintains a root-protected append-only hash chain outside
 The host can export contiguous audit segments without policy contents. An optional, separately administered `amh-witness` CLI maintains a monotonic checkpoint and checks project binding, prior hash, sequence and state digest continuity before advancing. A recovered or forked local journal can be detected when it is checked against a retained external checkpoint. The witness does **not** authenticate the source of new segments or run continuously.
 
 Local `recovery-diagnose` provides read-only classification of uninitialized, unaudited, missing, corrupt, behind, ahead and divergent state. No privileged write-based recovery or automatic journal reset is exposed.
+
+## Natural-language agent integration
+
+The AGENTS.md bridge directs the existing agent to obtain a read-only discovery
+packet, interpret the user's verbatim request against custom and built-in policy
+conditions, submit a schema-conforming response, and continue the original task
+with the validated generated instructions. One-shot stdio and Codex CLI adapters
+are explicit optional interpreter integrations, not a mandatory new runner.
+AMH checks snapshot binding, candidate coverage, quotations, uncertainty and
+structural conflicts; it does not claim that a model judgment is semantic proof.

@@ -5,8 +5,8 @@ requirements, constraints, and decisions. AMH works with existing agents; it doe
 not provide an LLM, agent runner, or mandatory server.
 
 **Status: pre-alpha.** The native project workflow now connects initialization,
-policy management, deterministic selection, task contracts, AGENTS.md deployment,
-and explicit verification. Semantic policy interpretation and measured agent
+policy management, agent-assisted natural-language discovery, task contracts, AGENTS.md deployment,
+and explicit verification. Independent semantic evaluation and measured agent
 compliance remain future work. See the [P0 acceptance boundary](docs/p0.md).
 
 ## Native project workflow
@@ -19,12 +19,16 @@ before `amh apply --plan plan.json`.
 amh init --id my-project > init-plan.json
 amh apply --plan init-plan.json
 amh pack install --name development --expected-revision 0 --reason 'Use development policies' --apply
-amh compile --task /path/to/task.toml
-amh sync --task /path/to/task.toml --apply
+# In an AGENTS.md-compatible agent, now describe the desired work normally.
+# The current agent handles discovery, interpretation, deployment and continuation.
+# Alternatively, explicitly use an existing Codex CLI as the interpreter:
+amh request --text 'Fix the parser bug while preserving API compatibility.' --agent codex --apply
 amh doctor
 amh verify --task /path/to/task.toml       # does not execute commands
 amh verify --task /path/to/task.toml --run # executes the selected verification tools
 ```
+
+The one-shot command prepares the contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`.
 
 Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and the
 [complete walkthrough](docs/p0.md). For chat and notes, use the optional
@@ -32,8 +36,9 @@ Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and th
 
 - **User ownership:** one project-owned TOML event log derives current policy
   state. Optional user policies are imported from an explicitly selected registry.
-- **Adaptive selection:** lifecycle, explicit task classification, scope references,
-  activation conditions and declared conflicts determine selection. Uncertain
+- **Adaptive selection:** the existing agent interprets the request against natural
+  policy conditions; AMH validates complete, grounded, snapshot-bound assessments
+  and applies lifecycle, scope, dependencies and declared conflicts. Uncertain
   mandatory conditions and unresolved dependencies/conflicts block compilation.
 - **Minimal context:** only selected policies and the current task contract are
   rendered. A character budget cannot silently discard an applicable condition.
