@@ -4,11 +4,18 @@
 //! It protects cooperating AMH processes against lost updates; it does NOT
 //! authenticate changes or protect against privileged/uncooperative writers.
 
-use crate::{Change, ItemError, ItemSnapshot};
+use crate::{ItemError, ItemSnapshot};
+#[cfg(any(test, feature = "signed-approvals"))]
+use crate::Change;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+#[cfg(any(test, feature = "signed-approvals"))]
+use std::fs::OpenOptions;
+use std::io;
+#[cfg(any(test, feature = "signed-approvals"))]
+use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(any(test, feature = "signed-approvals"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const FORMAT: &str = "amh.item-snapshot";
@@ -104,6 +111,7 @@ impl SnapshotStore {
         self.apply_checked(expected_revision, change, || Ok(()))
     }
 
+    #[cfg(any(test, feature = "signed-approvals"))]
     fn apply_checked<F>(
         &self,
         expected_revision: u64,
@@ -194,6 +202,7 @@ impl SnapshotStore {
         )
     }
 
+    #[cfg(any(test, feature = "signed-approvals"))]
     fn atomic_replace(&self, parent: &Path, bytes: &[u8]) -> Result<(), StoreError> {
         let name = self.path.file_name().ok_or_else(|| {
             StoreError::Io(io::Error::new(
