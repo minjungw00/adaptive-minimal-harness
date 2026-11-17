@@ -54,6 +54,35 @@ impl StateManifest {
             authority: "informational_only".to_owned(),
         }
     }
+
+    /// Structural validation only. A valid manifest is NOT an authenticated
+    /// state snapshot, signature, or permission to mutate protected state.
+    pub fn validate_shape(&self) -> Result<(), String> {
+        if self.format != MANIFEST_FORMAT || self.authority != "informational_only" {
+            return Err("unsupported or falsely authoritative state manifest".into());
+        }
+        if self.project_id.is_empty()
+            || self.project_id.len() > 128
+            || !self.project_id.bytes().all(|value| {
+                value.is_ascii_alphanumeric() || matches!(value, b'-' | b'_' | b'.' | b':')
+            })
+        {
+            return Err("invalid manifest project identifier".into());
+        }
+
+        let mut previous = None;
+        for item in &self.items {
+            if item.id.trim().is_empty()
+                || item.revision == 0
+                || item.revision > self.snapshot_revision
+                || previous.is_some_and(|id: &str| id >= item.id.as_str())
+            {
+                return Err("invalid, duplicated, or unordered manifest item".into());
+            }
+            previous = Some(item.id.as_str());
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -94,6 +123,27 @@ mod tests {
         assert!(!json.contains("history"));
         assert!(!json.contains("change"));
         assert!(json.contains("informational_only"));
+    }
+
+    #[test]
+    fn malformed_or_duplicate_projection_is_rejected() {
+        let mut manifest = StateManifest::from_snapshot("project-alpha", &ItemSnapshot::default());
+        assert!(manifest.validate_shape().is_ok());
+        manifest.authority = "permission_to_write".into();
+        assert!(manifest.validate_shape().is_err());
+        manifest.authority = "informational_only".into();
+        manifest.items.push(ManifestItem {
+            id: "R-A".into(),
+            kind: ItemKind::Requirement,
+            scope: ItemScope::Project,
+            lifecycle: Lifecycle::Draft,
+            revision: 1,
+            has_typed_details: false,
+        });
+        manifest.snapshot_revision = 1;
+        assert!(manifest.validate_shape().is_ok());
+        manifest.items.push(manifest.items[0].clone());
+        assert!(manifest.validate_shape().is_err());
     }
 
     #[test]
