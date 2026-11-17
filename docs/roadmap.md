@@ -10,8 +10,12 @@
 - [x] Optional, structurally validated type-specific details (legacy items remain supported).
 - [x] Optional cryptographic approval verification for externally signed changes.
 - [ ] Complete common item schema and migrate legacy items to required typed details.
-- [ ] Implement trusted key provisioning, authenticated approval UX, and protected write host.
-- [ ] User-facing persistence CLI.
+- [x] Experimental Linux protected host consuming externally signed receipts.
+- [x] Read-only CLI inspection and change preview.
+- [x] Explicit typed-details migrations without inferred semantics.
+- [ ] Implement trusted key provisioning and authenticated human approval UX.
+- [ ] Secure host review, platform portability, key rotation and revocation.
+- [ ] User-facing state initialization and controlled write integration.
 
 ## Policy and task contracts
 - Extend item models with explicit scope references, owner, source, typed payloads, and governance relations.

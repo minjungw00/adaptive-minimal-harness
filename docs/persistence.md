@@ -12,7 +12,7 @@ The underlying Rust types are `ManagedItem`, `Change`, `RecordedChange`, and `It
 
 ## State transitions
 
-Available: ADD, content MODIFY, explicit compatible REPLACE, ACTIVATE, PAUSE, REACTIVATE, RETIRE. When provided, kind-specific item details are structurally validated; historical records without details remain readable.
+Available: ADD, content MODIFY, explicit compatible REPLACE, ACTIVATE, PAUSE, REACTIVATE, RETIRE, and SET_DETAILS for explicit type-specific updates. When provided, kind-specific item details are structurally validated; historical records without details remain readable.
 
 Not available: field-level arbitrary patching, REMOVE, REPRIORITIZE, typed goal/requirement acceptance criteria, policy-resolution semantics, trusted authorization.
 
@@ -32,9 +32,9 @@ The implementation rejects a symlink at the direct state file path and at the lo
 
 ## Failure and durability limitations
 
-- **Conditional signature check, not end-to-end auth:** With `signed-approvals`, the public store write path requires a verified Ed25519 approval; the underlying reducer and internal store write operation are not public write interfaces. The host must supply the correct trusted verification key, protect its trust configuration, and enforce filesystem permissions. Any process with direct filesystem write permission can bypass the library. See [approval trust contract](approvals.md).
+- **Conditional signature check, not complete user authentication:** With `signed-approvals`, the public store write path requires a verified Ed25519 receipt. The optional Linux host pins trusted project keys and protected state paths in `/etc/amh/trust.json` rather than accepting them from the agent, but an external authenticated signer is still required. Any process with direct filesystem write permission can bypass the library. See [approval trust contract](approvals.md) and [host limitations](trusted-host.md).
 - **No cryptographic provenance:** event replay detects inconsistency between stored state and event history, not a malicious actor who rewrites both consistently.
-- **No universal power-loss guarantee:** temporary data is synchronized, but parent directory metadata is not yet explicitly synchronized. Crash/power-loss durability is filesystem dependent.
+- **No universal power-loss guarantee:** new state and lock files are created owner-only on Unix, and temporary data is synchronized, but parent directory metadata is not yet explicitly synchronized. Crash/power-loss durability is filesystem dependent.
 - **Advisory locks only:** cooperating AMH writers are serialized; unrelated writers can ignore locks.
 - **Atomicity scope:** one state file, not an arbitrary set of files, integrations, or distributed agents.
 - **Schema evolution:** unsupported storage format revisions are rejected rather than silently converted.

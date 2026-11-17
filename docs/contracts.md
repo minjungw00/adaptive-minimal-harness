@@ -29,7 +29,9 @@ Planned operations: `ADD`, `MODIFY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `PAUSE
 
 **Optional signed approval verification:** The `signed-approvals` feature provides `ApprovalRequest`, `SignedApproval`, `ApprovalVerifier`, and `SnapshotStore::apply_signed`. Signatures bind an exact change, project ID, expected snapshot revision, justification, and short validity window. This is only secure when an external trusted host pins the project's verification key and protects the store; there is no authenticated approval UI yet. See [approval trust contract](approvals.md).
 
-**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, an authenticated host or key provisioning mechanism, source/provenance fields, natural-language policy conflict analysis, the example input schema, and CLI mutation commands. `ItemSnapshot` is still a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
+**Implemented since then:** `SET_DETAILS` supports explicit type-specific migration; the CLI can inspect state and simulate changes without writing. A separate, optional Linux trusted-host binary verifies externally signed receipts using a fixed root-owned trust configuration and protected state root.
+
+**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, an authenticated human approval or key provisioning UI, signing-key management, source/provenance fields, natural-language policy conflict analysis, the example input schema, and an unprivileged CLI write path. `ItemSnapshot` is still a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
 
 ## Policy resolution
 

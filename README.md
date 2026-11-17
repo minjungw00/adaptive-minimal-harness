@@ -18,9 +18,17 @@ TDD, refactoring, Socratic questioning, writing practices, and requirement prese
 
 ## Planned use
 
-A native `amh` CLI will eventually initialize a consumer repository, validate managed items, compile task-specific instructions, compare deployment changes, and inspect state. **Those commands must not be assumed to exist until implemented and tested.**
+The native `amh` CLI now supports **read-only state inspection, item retrieval, and change preview**. Project installation, policy compilation, and consumer-facing authenticated approval remain future work. An **optional experimental Linux-only `amh-host`** accepts externally signed receipts and writes only to independently protected state paths. It does not sign approvals or provide a user-authentication UI.
 
-The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and approval UI are not implemented.
+```sh
+amh state inspect --file ./state.json
+amh item get --file ./state.json --id R-COST
+amh change preview --file ./state.json --proposal ./proposal.json
+```
+
+See the [CLI reference](docs/cli.md), [explicit legacy migration](docs/legacy-migration.md) and [trusted host limitations](docs/trusted-host.md).
+
+The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and authenticated approval UI are not implemented.
 
 See [architecture](docs/architecture.md), [persistence and limits](docs/persistence.md), [approval trust boundary](docs/approvals.md), [contracts](docs/contracts.md), and [roadmap](docs/roadmap.md).
 
@@ -32,6 +40,7 @@ cargo test --workspace --all-features --locked
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo run -p amh-cli --locked -- --help
+cargo run -p amh-host --locked -- --help
 ```
 
 Commits are separated by **one actual responsibility** and use the repository's **Conventional Commit subject format** `type: description`. Responsibility-level atomic commits are a general working principle; the message format is a repository-level convention.
