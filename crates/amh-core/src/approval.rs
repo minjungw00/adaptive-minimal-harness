@@ -182,6 +182,26 @@ mod tests {
     }
 
     #[test]
+    fn canonical_signing_message_matches_external_signer_vector() {
+        let request = ApprovalRequest {
+            project_id: "p".into(),
+            expected_revision: 7,
+            change: Change::Pause {
+                id: "P-A".into(),
+                item_revision: 2,
+            },
+            reason: "approved".into(),
+            issued_at: 100,
+            expires_at: 200,
+        };
+        let expected = concat!(
+            "AMH:change-approval:v1\0",
+            r#"{"project_id":"p","expected_revision":7,"change":{"operation":"PAUSE","id":"P-A","item_revision":2},"reason":"approved","issued_at":100,"expires_at":200}"#
+        );
+        assert_eq!(request.signing_message().unwrap(), expected.as_bytes());
+    }
+
+    #[test]
     fn valid_signature_authorizes_only_the_exact_change() {
         let key = signing_key();
         let verifier =
