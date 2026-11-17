@@ -16,6 +16,8 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const MAX_JOURNAL_BYTES: u64 = 64 * 1024 * 1024;
+
 fn state_digest(state: &ItemSnapshot) -> Result<String, String> {
     let bytes = serde_json::to_vec(state)
         .map_err(|error| format!("cannot encode canonical state for audit: {error}"))?;
