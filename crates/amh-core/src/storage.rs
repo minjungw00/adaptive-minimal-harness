@@ -178,7 +178,9 @@ impl SnapshotStore {
             approval.request.expected_revision,
             approval.request.change.clone(),
             || {
-                let approved = verifier.verify(approval).map_err(StoreError::Authorization)?;
+                let approved = verifier
+                    .verify(approval)
+                    .map_err(StoreError::Authorization)?;
                 if approved.expected_revision != approval.request.expected_revision
                     || approved.change != approval.request.change
                 {
