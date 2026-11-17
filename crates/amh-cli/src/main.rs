@@ -52,7 +52,7 @@ fn parse_flags<'a>(
         return Err(format!("expected flags: {}", expected.join(", ")));
     }
     let mut flags = BTreeMap::new();
-    for pair in args.chunks_exact(2) {
+    for pair in args.chunks(2) {
         let flag = pair[0].as_str();
         let value = pair[1].as_str();
         if !expected.contains(&flag) || value.is_empty() || flags.insert(flag, value).is_some() {
