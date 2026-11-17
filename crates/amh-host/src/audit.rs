@@ -390,6 +390,57 @@ mod tests {
     }
 
     #[test]
+    fn real_signed_state_write_is_witnessed_and_rollback_is_rejected() {
+        use amh_core::{ApprovalVerifier, SnapshotStore};
+        use ed25519_dalek::{Signer, SigningKey};
+
+        let fixture = Fixture::new();
+        let journal = fixture.guard();
+        let store = SnapshotStore::new(fixture.dir.join("state.json"));
+        let signer = SigningKey::from_bytes(&[31; 32]);
+        let verifier = ApprovalVerifier::new(
+            "alpha",
+            signer.verifying_key().to_bytes(),
+        )
+        .unwrap();
+        let change = Change::Add {
+            item: ManagedItem::new(
+                "P-REAL",
+                ItemKind::Principle,
+                ItemScope::Project,
+                "Verify before completion",
+            )
+            .unwrap(),
+        };
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let request = ApprovalRequest {
+            project_id: "alpha".into(),
+            expected_revision: 0,
+            change,
+            reason: "User approved the exact principle".into(),
+            issued_at: now - 1,
+            expires_at: now + 60,
+        };
+        let signed = SignedApproval {
+            signature: signer.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+            request,
+        };
+
+        assert_eq!(journal.verify_state("alpha", None).unwrap(), 0);
+        let committed = store.apply_signed(&verifier, &signed).unwrap();
+        journal
+            .append_approved("alpha", None, &committed, &signed, "primary")
+            .unwrap();
+        let recovered = store.load().unwrap();
+        assert_eq!(journal.verify_state("alpha", Some(&recovered)).unwrap(), 1);
+
+        // A valid unexpired receipt cannot justify an older state when its
+        // separate audit witness is still present.
+        fs::remove_file(store.path()).unwrap();
+        assert!(journal.verify_state("alpha", None).is_err());
+    }
+
+    #[test]
     fn two_approved_events_form_a_continuous_audit_chain() {
         let fixture = Fixture::new();
         let guard = fixture.guard();
