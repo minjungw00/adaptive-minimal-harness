@@ -14,5 +14,6 @@ path = "src/main.rs"
 
 [dependencies]
 amh-core = { path = "../amh-core" }
+amh-project = { path = "../amh-project" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

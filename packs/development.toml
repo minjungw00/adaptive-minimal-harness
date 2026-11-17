@@ -1,0 +1,128 @@
+id = "development"
+version = "0.1.0"
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-TDD"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Use Red–Green–Refactor for testable behavior changes. Demonstrate the failing test before implementation, then passing tests."
+[policies.item.details]
+type = "principle"
+strength = "must"
+verification = ["Record the failing-before and passing-after commands and results."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.behavior_change", "code.bug_fix"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-REFACTOR"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Preserve observable behavior while improving structure. Reclassify intended behavior changes before proceeding."
+[policies.item.details]
+type = "principle"
+strength = "must"
+verification = ["Compare relevant behavior before and after the refactor."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.refactor"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-DEBUG"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Reproduce the failure and test a concrete cause before changing code."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Record reproduction and the check that distinguishes the proposed cause."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.debugging"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-REGRESSION"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Add a regression check at the layer where the defect occurred."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Show the check detects the original failure."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.bug_fix"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-REVIEW"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Review correctness and regressions against accepted requirements. Prioritize actionable findings with evidence."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Link findings to a concrete trigger and affected behavior."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.review"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-API"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Preserve supported API compatibility or explicitly document and authorize the breaking change."
+[policies.item.details]
+type = "principle"
+strength = "must"
+verification = ["Check affected callers and compatibility expectations."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.api_change"]
+
+[[policies]]
+owner = "user"
+priority = 0
+[policies.item]
+id = "P-MUTATION"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Use mutation testing when it helps detect weak behavioral assertions."
+[policies.item.details]
+type = "principle"
+strength = "may"
+verification = ["Report executed mutations and meaningful survivors when performed."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["code.test_quality"]
