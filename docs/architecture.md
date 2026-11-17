@@ -16,7 +16,7 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 4. **Context Compiler (implemented):** minimal target-neutral execution contract, with traceable references to selected items.
 5. **Agent Adapters (AGENTS.md implemented):** target-native instruction/skill files; optional integrations and no required always-on process.
 6. **Reconciler (managed files and source drift implemented):** distinguish desired, rendered, deployed, and observed states. A paused policy may remain in a deployed file or live session.
-7. **Verification (explicit tool execution implemented; semantic evaluation planned):** deterministic checks first when applicable, semantic/human review where warranted, evidence tied to snapshots.
+7. **Verification (explicit tool execution and qualitative pilots implemented):** executed checks and independent qualitative review provide different evidence; automatic semantic attestation is not implemented.
 
 ## Trust and data boundaries
 
@@ -34,7 +34,7 @@ The native project path uses `amh-project`: a user-owned TOML event log, typed g
 
 ## Scope control
 
-The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent evaluation of natural-language classification, semantic conflict analysis, automatic live-session reconciliation, authenticated local approval and actual agent behavioral evaluations remain future work.
+The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent qualitative pilots cover selected natural-language and agent behaviors. Broad classification measurement, cross-model/unassisted comparisons, semantic conflict analysis, automatic live-session reconciliation and authenticated local approval remain unimplemented or unmeasured.
 
 ## External signer and read-only consumer bridge
 
