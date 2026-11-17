@@ -1,0 +1,264 @@
+{
+  "request": "작업을 진행해.",
+  "files": {
+    "README.md": {
+      "sha256": "0d29b2c891b123bdf38ed6707607b154d82b94d499f7d0dcc7f4b2f578c6581c",
+      "bytes": 51,
+      "text": "# Greeter\nA small greeting utility.\n\n## Usage\nTODO\n"
+    },
+    "greeter.py": {
+      "sha256": "a55c14346b5c0e11da873793db175efd28d4840a330a5edba18d03d7d7310626",
+      "bytes": 46,
+      "text": "def greet(name):\n    return f\"Hello, {name}!\"\n"
+    }
+  },
+  "policies": {
+    "pack_locks": {
+      "inquiry": "0.2.0:c42460a4ff207dd9e1e2d257f521041483ba953eb6adaf5c3d9a684419f71adf"
+    },
+    "policies": [
+      {
+        "applicability": "When assessing the validity, assumptions, evidence, or consequences of an argument or decision.",
+        "item": {
+          "content": "Identify assumptions, supporting evidence, counterexamples, and consequences relevant to the conclusion.",
+          "details": {
+            "activation": {
+              "any": [
+                "reasoning.argument"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Distinguish verified facts, inference, and recommendations."
+            ]
+          },
+          "id": "P-ARGUMENT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When discovering or clarifying requirements and acceptance criteria for a project or decision.",
+        "item": {
+          "content": "Separate outcomes, constraints, and acceptance criteria. Preserve valid existing requirements when adding new ones.",
+          "details": {
+            "activation": {
+              "any": [
+                "requirements.discovery"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "List unresolved ambiguities and explicit changes."
+            ]
+          },
+          "id": "P-ELICIT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When organizing knowledge, notes, or source material and preserving provenance and traceability is relevant.",
+        "item": {
+          "content": "Keep source provenance and distinguish original material from interpretation.",
+          "details": {
+            "activation": {
+              "any": [
+                "knowledge.organization"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Check references and traceability of important claims."
+            ]
+          },
+          "id": "P-KNOWLEDGE",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When work depends on current, high-stakes, disputed, or uncertain factual claims requiring reliable external evidence. Exclude purely stylistic editing and translation without new factual claims.",
+        "item": {
+          "content": "Verify time-sensitive, high-stakes, disputed, and uncertain claims using reliable sources. State remaining uncertainty.",
+          "details": {
+            "activation": {
+              "any": [
+                "research.verification"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Cite supporting sources and the scope of verification."
+            ]
+          },
+          "id": "P-RESEARCH",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "Only when a material goal, assumption, or decision criterion is unclear and focused questions would advance the task. Exclude clear action requests and straightforward factual questions.",
+        "item": {
+          "content": "Ask focused questions only while goals, assumptions, or decision criteria remain materially unclear. Stop when the task is sufficiently defined.",
+          "details": {
+            "activation": {
+              "any": [
+                "inquiry.unclear"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Explain the decision-relevant uncertainty each question resolves."
+            ]
+          },
+          "id": "P-SOCRATIC",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When drafting or substantively revising a document while preserving accepted requirements and their roles. Exclude code-only changes and mechanical formatting.",
+        "item": {
+          "content": "Preserve currently accepted document requirements and their roles. Express the resulting position directly without unnecessary revision-history contrasts.",
+          "details": {
+            "activation": {
+              "any": [
+                "document.revision"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Check coverage of all active requirements and document quality."
+            ]
+          },
+          "id": "P-WRITING",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      }
+    ],
+    "revision": 1
+  },
+  "current_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "0fc04fc51a6503f07b536caf69b4b3f9e19c2e5cf6094d6ee30c31ad6652bc85",
+    "created_agents": true,
+    "task": {
+      "id": "WORK-1",
+      "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+      "tags": [
+        "document.revision"
+      ],
+      "classification_complete": true,
+      "done_when": [
+        "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+        "The existing greeting behavior is preserved"
+      ],
+      "allowed_paths": [
+        "README.md"
+      ],
+      "stop_when": [],
+      "outputs": [
+        "README.md"
+      ],
+      "explicit_policies": [],
+      "items": [],
+      "checks": []
+    },
+    "task_file": "{RUN_ROOT}/actors/6d5367c0ea5b/workspace/.amh/current-task.json",
+    "budget": null,
+    "source_digest": "4ee5b1d728ab1a5592e1197e42af4a193c819377b9c8026223c8020b0160db76"
+  },
+  "agent_instructions": "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n"
+}

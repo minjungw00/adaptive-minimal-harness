@@ -1,0 +1,111 @@
+{
+  ".amh/sessions/S-75f91e0a0ef43d2f3884b567/state.json": {
+    "format": "amh.session.v1",
+    "id": "S-75f91e0a0ef43d2f3884b567",
+    "project_id": "workspace",
+    "root": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+    "revision": 4,
+    "closed": false,
+    "catalog_digest": "b0d2c593b488777459fbe9a8cb05f0b533d4dacb59202f4b0925ca853c0aa602",
+    "assessments": [
+      {
+        "id": "P-ARGUMENT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This is recall of a pending question, not argument evaluation.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      },
+      {
+        "id": "P-ELICIT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This asks which information was pending, without seeking new project requirements.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      },
+      {
+        "id": "P-KNOWLEDGE",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This is direct recall, not source or knowledge organization.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      },
+      {
+        "id": "P-RESEARCH",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The supplied session context answers the question without external factual claims.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      },
+      {
+        "id": "P-SOCRATIC",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This is a straightforward recall question; a new clarification is unnecessary.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      },
+      {
+        "id": "P-WRITING",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This is not drafting or substantively revising a document.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "어떤 정보를 알려주기를 기다리고 있었지?"
+          }
+        ]
+      }
+    ],
+    "assessment_bindings": {
+      "P-ARGUMENT": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8",
+      "P-ELICIT": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8",
+      "P-KNOWLEDGE": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8",
+      "P-RESEARCH": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8",
+      "P-SOCRATIC": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8",
+      "P-WRITING": "6fb39b27d9ede995755a93785eea9cd2b400691b63a607792c6f5f035ba3cee8"
+    },
+    "selected": [],
+    "notes": [
+      {
+        "id": "readme-greeting-request",
+        "text": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마.",
+        "origin": "user_quote",
+        "source_request": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+      },
+      {
+        "id": "question-e290ece120175b8e13796ff8",
+        "text": "Pending clarification: 어떤 파일이나 대상을 작업하고, 어떤 결과를 원하나요?",
+        "origin": "agent_question",
+        "source_request": "새로운 작업을 도와줘."
+      }
+    ],
+    "tasks": [],
+    "focus": null,
+    "delivery_digest": "67c5280adab7be4f9d205f87d9345e34616022696a9eab91a7f37b7751c4826d"
+  }
+}

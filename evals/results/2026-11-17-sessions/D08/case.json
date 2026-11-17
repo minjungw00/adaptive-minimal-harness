@@ -1,0 +1,116 @@
+{
+  "id": "D08",
+  "fixture": "report",
+  "request": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘.",
+  "family": "single_action_document_methods",
+  "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
+  "packs": [
+    "inquiry"
+  ],
+  "policies": [
+    {
+      "owner": "user",
+      "source": "Accepted project requirement",
+      "priority": 0,
+      "item": {
+        "id": "R-COST",
+        "kind": "requirement",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Keep the cost structure as the main analytical axis.",
+        "details": {
+          "type": "requirement",
+          "role": "core",
+          "acceptance_criteria": [
+            "Keep the cost structure as the main analytical axis."
+          ]
+        }
+      }
+    },
+    {
+      "owner": "user",
+      "source": "Accepted project requirement",
+      "priority": 0,
+      "item": {
+        "id": "R-RETENTION",
+        "kind": "requirement",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
+        "details": {
+          "type": "requirement",
+          "role": "support",
+          "acceptance_criteria": [
+            "Use customer retention as supporting evidence, not a replacement for cost analysis."
+          ]
+        }
+      }
+    },
+    {
+      "owner": "user",
+      "source": "User-approved project policy",
+      "priority": 0,
+      "relations": {
+        "conflicts_with": []
+      },
+      "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
+      "item": {
+        "id": "P-TRACE",
+        "kind": "principle",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
+        "details": {
+          "type": "principle",
+          "strength": "must",
+          "activation": {
+            "mode": "always"
+          },
+          "verification": [
+            "Provide evidence appropriate to the work"
+          ]
+        }
+      }
+    },
+    {
+      "owner": "user",
+      "source": "User-approved project policy",
+      "priority": 0,
+      "relations": {
+        "conflicts_with": []
+      },
+      "applicability": "When deriving conclusions or recommendations from observational evidence.",
+      "item": {
+        "id": "P-INFERENCE",
+        "kind": "principle",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
+        "details": {
+          "type": "principle",
+          "strength": "must",
+          "activation": {
+            "mode": "always"
+          },
+          "verification": [
+            "Provide evidence appropriate to the work"
+          ]
+        }
+      }
+    }
+  ],
+  "turns": [
+    "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+  ],
+  "pause_before_turn": {
+    "2": [
+      "P-WRITING"
+    ]
+  },
+  "resume_from": "D06",
+  "native_binary_sha256": "ecbb728305b58f62d3b00b7ecf44f20a192c9ea52aec35da0ce28f4aaf2f0513"
+}

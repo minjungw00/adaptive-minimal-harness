@@ -21,19 +21,42 @@
 - [x] Incremental audit-segment exports and an optional independently retained monotonic checkpoint.
 - [x] Read-only recovery diagnosis with explicit failure classifications.
 - [ ] Authenticated, independently witnessed audit service, tested crash recovery, secure host review, platform portability, and key issuance/custody.
-- [ ] User-facing state initialization and controlled write integration.
+- [x] User-owned project initialization and explicit local write-plan integration (not authenticated protected writes).
+
+## P0 native project flow
+- [x] Project initialization with user/shared/managed ownership and read-only previews.
+- [x] Canonical TOML event registry, explicit user-registry import and task-scoped items.
+- [x] Version-checked item/metadata operations, REMOVE, REPRIORITIZE and history-preserving rollback.
+- [x] Optional content-pinned development/inquiry packs and custom pack inputs.
+- [x] Agent-assisted natural-language applicability with complete grounded assessments and deterministic dependency/conflict guards.
+- [x] Existing-agent AGENTS.md handoff and explicit one-shot stdio/Codex interpreter adapters.
+- [x] Minimal task compilation with provenance and no silent budget truncation.
+- [x] AGENTS.md adapter, stale deployment detection, preservation and uninstall/reinstall.
+- [x] Recoverable local update journal with unrelated-edit refusal.
+- [x] Explicit verification-tool execution and local evidence; unobserved compliance remains unknown.
+- [x] Library/CLI regression cases and supported walkthrough inputs.
+- [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
+- [ ] Publish an approved public release for account-free binary downloads after release gates.
+- [x] Initial independent qualitative pilot: 8 fresh actors, 16 two-stage reviews, findings and evidence retained. See [report](../evals/results/2026-11-17-pilot/report.md).
+- [x] Replace mandatory per-request Task creation with conversation state, scoped policy reuse, stdio delivery and optional explicit Task attachments.
+- [x] Preserve session isolation, stale-input guards and deterministic policy constraints; verify unchanged reuse does not write or add files.
+- [x] Initial multi-turn and explicit-resume evaluation: 9 fresh actors, 23 requests, 18 independent reviewers; evidence and remaining limits retained. Stored work alone is not current intent.
+- [ ] Broader downstream effectiveness measurement, repeated/cross-model semantic evaluation and rule-removal experiments (P1).
+
+The local write path relies on user filesystem permissions. It is not the
+optional signed host and does not claim authenticated policy enforcement.
 
 ## Policy and task contracts
-- Extend item models with explicit scope references, owner, source, typed payloads, and governance relations.
-- Complete REMOVE and REPRIORITIZE, and introduce a trusted authorization mechanism for policy changes.
-- Resolve policy applicability with explicit conflict diagnostics and no recency-based priority.
-- Compile a minimal context preserving all applicable mandatory conditions.
+- Extend semantic analysis and authority/exception handling beyond the implemented explicit native metadata.
+- Evaluate authenticated consumer approval integration; native local REMOVE/REPRIORITIZE are implemented.
+- Measure natural-language selection quality and evaluate semantic conflicts beyond declared relations.
+- Evaluate compiler effectiveness and support additional native agent formats.
 
 ## Safe installation
-- Detect existing instructions and tooling before install.
-- Assign managed/user/shared ownership to each file.
-- Preview and verify add/update/delete operations; support recovery and migration.
-- Confirm actual deployment state separately from declared desired state.
+- Expand existing instruction/tool detection beyond the initial instruction inventory.
+- Extend the implemented managed/user/shared ownership model to additional adapters.
+- Extend preview/recovery to format migrations and additional integrations.
+- Measure live-session effective state separately from implemented file deployment checks.
 
 ## Evaluation and adapters
 - Agent-specific adapter support; prefer existing Agent Skills and interoperability tools.

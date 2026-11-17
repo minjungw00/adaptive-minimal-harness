@@ -1,0 +1,318 @@
+{
+  "request": "이 오류를 고쳐줘.",
+  "files": {
+    "README.md": {
+      "sha256": "faca59d23e0962acd60359d22d14c725ab16f1e41a1284dabc899621c5dd6d95",
+      "bytes": 254,
+      "text": "# Checkout calculation\nThe checkout total is wrong for percentage discounts. `discounted_total(price, percent)` is used by existing callers. Inputs and ValueError behavior are public expectations. Run `python -m unittest -v` to inspect current behavior.\n"
+    },
+    "calculator.py": {
+      "sha256": "dabdb477f7d640021722a245e6b2edcbd39e2abc38b37cfeddf8665ef59f8231",
+      "bytes": 223,
+      "text": "def discounted_total(price, percent):\n    \"\"\"Return the amount payable after a percentage discount.\"\"\"\n    if price < 0 or not 0 <= percent <= 100:\n        raise ValueError(\"invalid input\")\n    return price * percent / 100\n"
+    },
+    "test_calculator.py": {
+      "sha256": "a9b3d9af2ba3b57d17c6be8b51342fb9182bc8350dc10a7c9c810e9653ff4c7d",
+      "bytes": 486,
+      "text": "import unittest\nfrom calculator import discounted_total\n\nclass CalculatorTests(unittest.TestCase):\n    def test_no_discount(self): self.assertEqual(discounted_total(100, 0), 100)\n    def test_partial_discount(self): self.assertEqual(discounted_total(100, 20), 80)\n    def test_full_discount(self): self.assertEqual(discounted_total(100, 100), 0)\n    def test_invalid(self):\n        with self.assertRaises(ValueError): discounted_total(-1, 20)\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "policies": {
+    "pack_locks": {
+      "development": "0.2.0:5c321ee34c2dd189c174825b22639aa4e23ec99e0f8f624ab6886b4746de437b"
+    },
+    "policies": [
+      {
+        "applicability": "When changing an API or externally consumed interface with existing compatibility expectations.",
+        "item": {
+          "content": "Preserve supported API compatibility or explicitly document and authorize the breaking change.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.api_change"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Check affected callers and compatibility expectations."
+            ]
+          },
+          "id": "P-API",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When investigating an unexplained defect or failing behavior and identifying its cause. Exclude requests that only explain already established results.",
+        "item": {
+          "content": "Reproduce the failure and test a concrete cause before changing code.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.debugging"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Record reproduction and the check that distinguishes the proposed cause."
+            ]
+          },
+          "id": "P-DEBUG",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When evaluating or strengthening the ability of tests to detect behavior defects and mutation testing would provide useful evidence.",
+        "item": {
+          "content": "Use mutation testing when it helps detect weak behavioral assertions.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.test_quality"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "may",
+            "type": "principle",
+            "verification": [
+              "Report executed mutations and meaningful survivors when performed."
+            ]
+          },
+          "id": "P-MUTATION",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When improving internal code structure while preserving observable behavior. Identify separately requested behavior changes instead of calling them refactoring.",
+        "item": {
+          "content": "Preserve observable behavior while improving structure. Reclassify intended behavior changes before proceeding.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.refactor"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Compare relevant behavior before and after the refactor."
+            ]
+          },
+          "id": "P-REFACTOR",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When fixing a defect whose recurrence can be checked by a meaningful automated regression test.",
+        "item": {
+          "content": "Add a regression check at the layer where the defect occurred.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.bug_fix"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Show the check detects the original failure."
+            ]
+          },
+          "id": "P-REGRESSION",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When reviewing an implementation, diff, or API for defects and regressions. Exclude work that merely drafts explanatory prose.",
+        "item": {
+          "content": "Review correctness and regressions against accepted requirements. Prioritize actionable findings with evidence.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.review"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Link findings to a concrete trigger and affected behavior."
+            ]
+          },
+          "id": "P-REVIEW",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When changing testable observable program behavior or fixing a defect. Exclude explanations, documentation-only edits, formatting, and behavior-preserving refactoring.",
+        "item": {
+          "content": "Use Red–Green–Refactor for testable behavior changes. Demonstrate the failing test before implementation, then passing tests.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.behavior_change",
+                "code.bug_fix"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Record the failing-before and passing-after commands and results."
+            ]
+          },
+          "id": "P-TDD",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "item": {
+          "content": "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior.",
+          "details": {
+            "acceptance_criteria": [
+              "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
+            ],
+            "role": "core",
+            "type": "requirement"
+          },
+          "id": "R-API",
+          "kind": "requirement",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "Accepted project requirement"
+      }
+    ],
+    "revision": 3
+  },
+  "current_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "49260e065b105d9a0ca200abafe1b6d13084215690e7823582c291f3c9e065fd",
+    "created_agents": true,
+    "task": null,
+    "task_file": null,
+    "budget": null,
+    "source_digest": null
+  },
+  "agent_instructions": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n",
+  "user_messages": [
+    "이 오류를 고쳐줘.",
+    "수정 이유를 설명해줘.",
+    "README에 사용 예시를 추가해줘.",
+    "이제 이 함수의 입력 검증도 점검해줘."
+  ]
+}

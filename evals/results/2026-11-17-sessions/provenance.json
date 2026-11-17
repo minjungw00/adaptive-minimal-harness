@@ -1,0 +1,60 @@
+{
+  "format": "amh.qualitative-archive.v1",
+  "suite_sha256": "d2bbbb099781c96f5dd2da779bd8845421196729d4ae8d5fa53360b04517a2bd",
+  "amh_sha256": "d948a2cfa4c5bf8a9006579b651874d8c7fbc662d6d1ad354889045dbc151994",
+  "created_ns": 1794899652854560208,
+  "executed_cases": [
+    "D01",
+    "D02",
+    "D03",
+    "D04",
+    "D05",
+    "D06",
+    "D07",
+    "D08",
+    "D09"
+  ],
+  "actors": 9,
+  "review_records": 18,
+  "session_provenance": {
+    "actors": 9,
+    "independent_review_sessions": 18,
+    "parent_history_forwarded": false,
+    "launch_configuration": "All actors and reviewers launched with fork_turns=none and no model override. Within D01-D06 the actual user messages were delivered successively in the same actor session; D07/D08/D09 are fresh actors explicitly linked to existing AMH sessions.",
+    "model_configuration": "Inherited parent default; exact provider/version not surfaced by collaboration tool.",
+    "product_revisions": {
+      "D01_to_D07": "f598cce0d93da8d2083cb3d3789bd9830f0658d8",
+      "D08": "91376216239b3622efbed1f68889a8a43e7a0f94",
+      "D09": "a195d609c128098e32d6d99284fd94d55889833c"
+    },
+    "planned_base_dialogues": 6,
+    "explicit_resume_cases": 3,
+    "user_requests": 23,
+    "actor_note_capture": "Controller transcription of final responses; Markdown/path presentation normalized, factual claims remain self-reports.",
+    "notes": [
+      "One attempt per case; D07/D08/D09 use different source projects/policy states and product revisions, not controlled accuracy or latency comparisons.",
+      "Work recorder logs voluntarily routed commands, file snapshots and outputs. No complete provider-session transcript was accessed.",
+      "AMH handoffs over stdin are captured. Baseline calls use the recorded run binary fingerprint; later wrappers also fingerprint the native binary per call.",
+      "D08 initial reviewer policy snapshot mistakenly predates the controller pause; factual correction supplied before stage two. Original initial/provisional records remain unchanged.",
+      "Current-state and delivery consistency are functional guards, not authenticated authority or proof of behavioral compliance.",
+      "D09 pending clarification was seeded by the controller through the actual API and recorded as fixture setup, not an observed prior actor reply."
+    ],
+    "post_pilot_changes": {
+      "source_revision": "a381329884d958073894d34d0001cccba48c69b4",
+      "changes": [
+        "Session finish help explains the outer packet/response envelope.",
+        "analysis is accepted as a response field alias while duplicate/unknown fields and all bindings remain checked.",
+        "Packet instructions distinguish the inner response schema from the submission envelope."
+      ],
+      "validation": "Native CLI regression and workspace checks; no new whole-agent attempt after this ergonomic adjustment."
+    }
+  },
+  "automatic_semantic_score": null,
+  "archive_notes": [
+    "Paths normalized for portability; original fingerprints refer to original run bytes, not normalized replay inputs.",
+    "Actor notes are self-reports; their capture method must be recorded by the controller.",
+    "AMH command output is captured; arbitrary actor shell/read/edit events are not fully audited.",
+    "Actor/reviewer access restrictions are instructional on a shared filesystem, not an OS sandbox.",
+    "A missing pre-reveal hash is retained as null, not reconstructed after review."
+  ]
+}

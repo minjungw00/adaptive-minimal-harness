@@ -1,0 +1,381 @@
+{
+  "request": "어떤 정보를 알려주기를 기다리고 있었지?",
+  "user_messages": [
+    "어떤 정보를 알려주기를 기다리고 있었지?",
+    "README의 인사 함수 사용 예시 뒤에 설명 한 문장을 추가해줘. 함수는 바꾸지 마."
+  ],
+  "files": {
+    "README.md": {
+      "sha256": "5eea4170ca63aa88fdfc12de53ac179b8513f518379c76e61c282c7481fecd38",
+      "bytes": 204,
+      "text": "# Greeter\nA small greeting utility.\n\n## Usage\nRun the following Python code from the project directory:\n\n```python\nfrom greeter import greet\n\nprint(greet(\"Alice\"))\n```\n\nOutput:\n\n```text\nHello, Alice!\n```\n"
+    },
+    "greeter.py": {
+      "sha256": "a55c14346b5c0e11da873793db175efd28d4840a330a5edba18d03d7d7310626",
+      "bytes": 46,
+      "text": "def greet(name):\n    return f\"Hello, {name}!\"\n"
+    }
+  },
+  "policies": {
+    "pack_locks": {
+      "inquiry": "0.2.0:c42460a4ff207dd9e1e2d257f521041483ba953eb6adaf5c3d9a684419f71adf"
+    },
+    "policies": [
+      {
+        "applicability": "When assessing the validity, assumptions, evidence, or consequences of an argument or decision.",
+        "item": {
+          "content": "Identify assumptions, supporting evidence, counterexamples, and consequences relevant to the conclusion.",
+          "details": {
+            "activation": {
+              "any": [
+                "reasoning.argument"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Distinguish verified facts, inference, and recommendations."
+            ]
+          },
+          "id": "P-ARGUMENT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When discovering or clarifying requirements and acceptance criteria for a project or decision.",
+        "item": {
+          "content": "Separate outcomes, constraints, and acceptance criteria. Preserve valid existing requirements when adding new ones.",
+          "details": {
+            "activation": {
+              "any": [
+                "requirements.discovery"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "List unresolved ambiguities and explicit changes."
+            ]
+          },
+          "id": "P-ELICIT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When organizing knowledge, notes, or source material and preserving provenance and traceability is relevant.",
+        "item": {
+          "content": "Keep source provenance and distinguish original material from interpretation.",
+          "details": {
+            "activation": {
+              "any": [
+                "knowledge.organization"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Check references and traceability of important claims."
+            ]
+          },
+          "id": "P-KNOWLEDGE",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When work depends on current, high-stakes, disputed, or uncertain factual claims requiring reliable external evidence. Exclude purely stylistic editing and translation without new factual claims.",
+        "item": {
+          "content": "Verify time-sensitive, high-stakes, disputed, and uncertain claims using reliable sources. State remaining uncertainty.",
+          "details": {
+            "activation": {
+              "any": [
+                "research.verification"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Cite supporting sources and the scope of verification."
+            ]
+          },
+          "id": "P-RESEARCH",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "Only when a material goal, assumption, or decision criterion is unclear and focused questions would advance the task. Exclude clear action requests and straightforward factual questions.",
+        "item": {
+          "content": "Ask focused questions only while goals, assumptions, or decision criteria remain materially unclear. Stop when the task is sufficiently defined.",
+          "details": {
+            "activation": {
+              "any": [
+                "inquiry.unclear"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Explain the decision-relevant uncertainty each question resolves."
+            ]
+          },
+          "id": "P-SOCRATIC",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When drafting or substantively revising a document while preserving accepted requirements and their roles. Exclude code-only changes and mechanical formatting.",
+        "item": {
+          "content": "Preserve currently accepted document requirements and their roles. Express the resulting position directly without unnecessary revision-history contrasts.",
+          "details": {
+            "activation": {
+              "any": [
+                "document.revision"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Check coverage of all active requirements and document quality."
+            ]
+          },
+          "id": "P-WRITING",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      }
+    ],
+    "revision": 1
+  },
+  "current_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "0fc04fc51a6503f07b536caf69b4b3f9e19c2e5cf6094d6ee30c31ad6652bc85",
+    "created_agents": true,
+    "task": {
+      "id": "WORK-1",
+      "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+      "tags": [
+        "document.revision"
+      ],
+      "classification_complete": true,
+      "done_when": [
+        "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+        "The existing greeting behavior is preserved"
+      ],
+      "allowed_paths": [
+        "README.md"
+      ],
+      "stop_when": [],
+      "outputs": [
+        "README.md"
+      ],
+      "explicit_policies": [],
+      "items": [],
+      "checks": []
+    },
+    "task_file": "{RUN_ROOT}/actors/12c18ca988e3/workspace/.amh/current-task.json",
+    "budget": null,
+    "source_digest": "4ee5b1d728ab1a5592e1197e42af4a193c819377b9c8026223c8020b0160db76"
+  },
+  "agent_instructions": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n",
+  "resume_link": {
+    "session_id": "S-75f91e0a0ef43d2f3884b567",
+    "prior_conversation_unavailable": true,
+    "state": {
+      "format": "amh.session.v1",
+      "id": "S-75f91e0a0ef43d2f3884b567",
+      "project_id": "workspace",
+      "root": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "revision": 3,
+      "closed": false,
+      "catalog_digest": "",
+      "assessments": [
+        {
+          "id": "P-ARGUMENT",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "The user requests documentation rather than argument evaluation.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+            }
+          ]
+        },
+        {
+          "id": "P-ELICIT",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "This is a fully specified request to repeat example output, with no requirements discovery.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "예시에 적힌 출력만 알려줘."
+            }
+          ]
+        },
+        {
+          "id": "P-KNOWLEDGE",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "This is utility documentation, without a source organization or provenance task.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+            }
+          ]
+        },
+        {
+          "id": "P-RESEARCH",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "The documentation concerns the supplied local greeting function and adds no uncertain external factual claims.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+            }
+          ]
+        },
+        {
+          "id": "P-SOCRATIC",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "The clarified task is a clear action request with no material ambiguity.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+            }
+          ]
+        },
+        {
+          "id": "P-WRITING",
+          "item_revision": 2,
+          "applicability": "no_match",
+          "reason": "Quoting the existing example output is not document drafting or substantive revision.",
+          "evidence": [
+            {
+              "source": "request",
+              "quote": "예시에 적힌 출력만 알려줘."
+            }
+          ]
+        }
+      ],
+      "assessment_bindings": {
+        "P-ARGUMENT": "4a2456f740d1291400b84d965236d64cec5a90c20005d9f33211725fea2f38b0",
+        "P-ELICIT": "c4969a9bb7a2b07467f3de767c4895c4edf5927cb0f8d0dc543b61e4a7d91782",
+        "P-KNOWLEDGE": "4a2456f740d1291400b84d965236d64cec5a90c20005d9f33211725fea2f38b0",
+        "P-RESEARCH": "4a2456f740d1291400b84d965236d64cec5a90c20005d9f33211725fea2f38b0",
+        "P-SOCRATIC": "4a2456f740d1291400b84d965236d64cec5a90c20005d9f33211725fea2f38b0",
+        "P-WRITING": "c4969a9bb7a2b07467f3de767c4895c4edf5927cb0f8d0dc543b61e4a7d91782"
+      },
+      "selected": [],
+      "notes": [
+        {
+          "id": "readme-greeting-request",
+          "text": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마.",
+          "origin": "user_quote",
+          "source_request": "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마."
+        },
+        {
+          "id": "question-e290ece120175b8e13796ff8",
+          "text": "Pending clarification: 어떤 파일이나 대상을 작업하고, 어떤 결과를 원하나요?",
+          "origin": "agent_question",
+          "source_request": "새로운 작업을 도와줘."
+        }
+      ],
+      "tasks": [],
+      "focus": null,
+      "delivery_digest": ""
+    }
+  }
+}

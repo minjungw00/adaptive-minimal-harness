@@ -43,3 +43,7 @@ jobs:
           printf '%s\n' '{"format":"amh.item-snapshot","format_revision":1,"snapshot":{"revision":0,"items":{},"history":[]}}' > "$RUNNER_TEMP/state.json"
           printf '%s\n' '{"expected_revision":0,"reason":"Explicit CI fixture","change":{"operation":"ADD","item":{"id":"R-CI","kind":"requirement","scope":"project","revision":1,"lifecycle":"draft","content":"Check request interoperability","replaces":null}}}' > "$RUNNER_TEMP/proposal.json"
           cargo run -p amh-cli --features approval-request --locked -- change request --file "$RUNNER_TEMP/state.json" --proposal "$RUNNER_TEMP/proposal.json" --project ci --ttl 120 | grep untrusted_unsigned_request
+      - name: Qualitative evaluation infrastructure checks
+        env:
+          AMH_EXECUTABLE: target/debug/amh
+        run: python -m unittest discover -s tests -p 'test_qualitative_eval.py' -v

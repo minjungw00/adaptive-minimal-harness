@@ -1,0 +1,33 @@
+{
+  "id": "D03",
+  "fixture": "continuation",
+  "request": "작업을 진행해.",
+  "family": "short_request_known_state",
+  "review_note": "Inspect whether the tool exposes enough existing task context; do not supply a private hint.",
+  "packs": [
+    "inquiry"
+  ],
+  "current_task": {
+    "id": "WORK-1",
+    "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+    "tags": [
+      "document.revision"
+    ],
+    "classification_complete": true,
+    "done_when": [
+      "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+      "The existing greeting behavior is preserved"
+    ],
+    "allowed_paths": [
+      "README.md"
+    ],
+    "outputs": [
+      "README.md"
+    ]
+  },
+  "turns": [
+    "작업을 진행해.",
+    "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마.",
+    "예시에 적힌 출력만 알려줘."
+  ]
+}

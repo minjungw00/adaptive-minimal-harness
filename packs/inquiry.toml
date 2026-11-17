@@ -1,0 +1,116 @@
+id = "inquiry"
+version = "0.2.0"
+
+[[policies]]
+owner = "user"
+applicability = "Only when a material goal, assumption, or decision criterion is unclear and focused questions would advance the task. Exclude clear action requests and straightforward factual questions."
+priority = 0
+[policies.item]
+id = "P-SOCRATIC"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Ask focused questions only while goals, assumptions, or decision criteria remain materially unclear. Stop when the task is sufficiently defined."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Explain the decision-relevant uncertainty each question resolves."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["inquiry.unclear"]
+
+[[policies]]
+owner = "user"
+applicability = "When discovering or clarifying requirements and acceptance criteria for a project or decision."
+priority = 0
+[policies.item]
+id = "P-ELICIT"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Separate outcomes, constraints, and acceptance criteria. Preserve valid existing requirements when adding new ones."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["List unresolved ambiguities and explicit changes."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["requirements.discovery"]
+
+[[policies]]
+owner = "user"
+applicability = "When work depends on current, high-stakes, disputed, or uncertain factual claims requiring reliable external evidence. Exclude purely stylistic editing and translation without new factual claims."
+priority = 0
+[policies.item]
+id = "P-RESEARCH"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Verify time-sensitive, high-stakes, disputed, and uncertain claims using reliable sources. State remaining uncertainty."
+[policies.item.details]
+type = "principle"
+strength = "must"
+verification = ["Cite supporting sources and the scope of verification."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["research.verification"]
+
+[[policies]]
+owner = "user"
+applicability = "When drafting or substantively revising a document while preserving accepted requirements and their roles. Exclude code-only changes and mechanical formatting."
+priority = 0
+[policies.item]
+id = "P-WRITING"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Preserve currently accepted document requirements and their roles. Express the resulting position directly without unnecessary revision-history contrasts."
+[policies.item.details]
+type = "principle"
+strength = "must"
+verification = ["Check coverage of all active requirements and document quality."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["document.revision"]
+
+[[policies]]
+owner = "user"
+applicability = "When assessing the validity, assumptions, evidence, or consequences of an argument or decision."
+priority = 0
+[policies.item]
+id = "P-ARGUMENT"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Identify assumptions, supporting evidence, counterexamples, and consequences relevant to the conclusion."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Distinguish verified facts, inference, and recommendations."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["reasoning.argument"]
+
+[[policies]]
+owner = "user"
+applicability = "When organizing knowledge, notes, or source material and preserving provenance and traceability is relevant."
+priority = 0
+[policies.item]
+id = "P-KNOWLEDGE"
+kind = "principle"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Keep source provenance and distinguish original material from interpretation."
+[policies.item.details]
+type = "principle"
+strength = "should"
+verification = ["Check references and traceability of important claims."]
+[policies.item.details.activation]
+mode = "on_tags"
+any = ["knowledge.organization"]

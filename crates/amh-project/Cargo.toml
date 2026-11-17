@@ -1,0 +1,12 @@
+[package]
+name = "amh-project"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+amh-core = { path = "../amh-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+sha2 = "0.11"
