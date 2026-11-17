@@ -120,7 +120,10 @@ mod tests {
         assert_eq!(prepared.project_id, "project-one");
         assert_eq!(prepared.expires_at, 400);
         assert_eq!(prepared.expected_revision, 0);
-        assert!(prepared.signing_message().unwrap().starts_with(b"AMH:change-approval:v1\0"));
+        assert!(prepared
+            .signing_message()
+            .unwrap()
+            .starts_with(b"AMH:change-approval:v1\0"));
     }
 
     #[test]
