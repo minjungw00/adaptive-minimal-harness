@@ -4,7 +4,7 @@
 //! Mutating state requires a separate trusted host; this executable does not
 //! accept a public key or an "approved" flag to bypass that boundary.
 
-use amh_core::{Change, ItemSnapshot, ManagedItem, SnapshotStore};
+use amh_core::{Change, ItemSnapshot, ManagedItem, SnapshotStore, StateManifest};
 #[cfg(feature = "approval-request")]
 mod request;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,7 @@ USAGE:
     amh --help
     amh --version
     amh state inspect --file PATH
+    amh manifest inspect --file PATH
     amh item get --file PATH --id ITEM_ID
     amh change preview --file PATH --proposal JSON_FILE
 
@@ -91,6 +92,24 @@ fn inspect(path: &str) -> Result<String, String> {
         "legacy_item_ids": legacy,
         "verification_scope": "structure_and_history_only",
         "note": "Legacy details require explicit review; no inferred migration was performed."
+    }))
+}
+
+fn inspect_manifest(path: &str) -> Result<String, String> {
+    let bytes = fs::read(path)
+        .map_err(|error| format!("cannot read metadata-only manifest: {error}"))?;
+    let manifest: StateManifest = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("invalid metadata-only manifest: {error}"))?;
+    manifest
+        .validate_shape()
+        .map_err(|error| format!("invalid metadata-only manifest: {error}"))?;
+    write_json(&serde_json::json!({
+        "status": "structurally_valid_untrusted",
+        "project_id": manifest.project_id,
+        "snapshot_revision": manifest.snapshot_revision,
+        "item_count": manifest.items.len(),
+        "authority": "informational_only",
+        "warning": "Manifest structure is valid, but authenticity is not established. Do not use it for approval, policy enforcement, or protected-state writes."
     }))
 }
 
@@ -171,6 +190,10 @@ fn run(args: &[String]) -> Result<String, String> {
         [a, b, rest @ ..] if a == "state" && b == "inspect" => {
             let flags = parse_flags(rest, &["--file"])?;
             inspect(flags["--file"])
+        }
+        [a, b, rest @ ..] if a == "manifest" && b == "inspect" => {
+            let flags = parse_flags(rest, &["--file"])?;
+            inspect_manifest(flags["--file"])
         }
         [a, b, rest @ ..] if a == "item" && b == "get" => {
             let flags = parse_flags(rest, &["--file", "--id"])?;
@@ -343,6 +366,29 @@ mod tests {
         fs::write(&stale, b"{invalid json").unwrap();
         assert!(preview(path.to_str().unwrap(), stale.to_str().unwrap()).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
+    }
+
+    #[test]
+    fn structurally_valid_manifest_is_still_untrusted() {
+        let fixture = Fixture::new();
+        let manifest = StateManifest::from_snapshot("alpha", &sample_state());
+        let path = fixture.path.join("manifest.json");
+        fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let output = inspect_manifest(path.to_str().unwrap()).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(value["status"], "structurally_valid_untrusted");
+        assert_eq!(value["item_count"], 1);
+        assert_eq!(value["authority"], "informational_only");
+    }
+
+    #[test]
+    fn forged_manifest_authority_is_rejected() {
+        let fixture = Fixture::new();
+        let mut manifest = StateManifest::from_snapshot("alpha", &sample_state());
+        manifest.authority = "trusted".into();
+        let path = fixture.path.join("manifest.json");
+        fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        assert!(inspect_manifest(path.to_str().unwrap()).is_err());
     }
 
     #[test]
