@@ -41,12 +41,36 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         projects: Vec<TrustedProject>,
     }
 
+    #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+    #[serde(rename_all = "snake_case")]
+    enum KeyStatus {
+        Active,
+        Retired,
+        Revoked,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct TrustedKey {
+        id: String,
+        public_key_hex: String,
+        status: KeyStatus,
+        #[serde(default)]
+        not_before: Option<u64>,
+        #[serde(default)]
+        accept_until: Option<u64>,
+    }
+
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct TrustedProject {
         project_id: String,
         state_file: PathBuf,
-        public_key_hex: String,
+        /// Backward-compatible single verifier. Cannot coexist with `keys`.
+        #[serde(default)]
+        public_key_hex: Option<String>,
+        #[serde(default)]
+        keys: Vec<TrustedKey>,
     }
 
     fn parse_key(hex: &str) -> Result<[u8; 32], String> {
@@ -155,12 +179,79 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 return Err("invalid trusted project ID".into());
             }
             validate_state_path(&project.state_file)?;
-            parse_key(&project.public_key_hex)?;
+            let has_legacy = project.public_key_hex.is_some();
+            if (has_legacy && !project.keys.is_empty())
+                || (!has_legacy && project.keys.is_empty())
+                || project.keys.len() > 16
+            {
+                return Err("exactly one verifier configuration is required (legacy key or 1-16 named keys)".into());
+            }
+            if let Some(ref key) = project.public_key_hex {
+                parse_key(key)?;
+            }
+            let mut key_ids = BTreeSet::new();
+            let mut key_bytes = BTreeSet::new();
+            for key in &project.keys {
+                if key.id.is_empty()
+                    || key.id.len() > 128
+                    || !key.id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
+                    || !key_ids.insert(&key.id)
+                    || !key_bytes.insert(parse_key(&key.public_key_hex)?)
+                    || matches!((key.not_before, key.accept_until), (Some(start), Some(end)) if start >= end)
+                {
+                    return Err("invalid or duplicated signer key configuration".into());
+                }
+            }
             if !ids.insert(id) || !paths.insert(&project.state_file) {
                 return Err("duplicate trusted project or state path".into());
             }
         }
         Ok(())
+    }
+
+    /// Select the unique currently active verifier that accepts the receipt.
+    /// The receipt format is unchanged: the Ed25519 signature identifies its key.
+    fn select_verifier(
+        project: &TrustedProject,
+        signed: &SignedApproval,
+    ) -> Result<(String, ApprovalVerifier), String> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| "system clock is invalid")?
+            .as_secs();
+        let mut matching = None;
+
+        if let Some(ref legacy_key) = project.public_key_hex {
+            let verifier = ApprovalVerifier::new(
+                project.project_id.clone(),
+                parse_key(legacy_key)?,
+            ).map_err(|_| "invalid legacy trusted verifier")?;
+            if verifier.check(signed).is_ok() {
+                matching = Some(("legacy".to_owned(), verifier));
+            }
+        } else {
+            for key in &project.keys {
+                if key.status != KeyStatus::Active
+                    || key.not_before.is_some_and(|start| now < start || signed.request.issued_at < start)
+                    || key.accept_until.is_some_and(|end| now >= end || signed.request.expires_at > end)
+                {
+                    continue;
+                }
+                let verifier = ApprovalVerifier::new(
+                    project.project_id.clone(),
+                    parse_key(&key.public_key_hex)?,
+                ).map_err(|_| "invalid trusted verifier")?;
+                if verifier.check(signed).is_ok() {
+                    if matching.is_some() {
+                        return Err("ambiguous trusted signing key".into());
+                    }
+                    matching = Some((key.id.clone(), verifier));
+                }
+            }
+        }
+        matching.ok_or_else(|| "no active trusted key accepted the signed approval".into())
     }
 
     fn load_config() -> Result<HostConfig, String> {
@@ -196,11 +287,7 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .ok_or("no trusted project matches signed receipt")?;
 
         validate_state_security(&project.state_file)?;
-        let verifier = ApprovalVerifier::new(
-            project.project_id.clone(),
-            parse_key(&project.public_key_hex)?,
-        )
-        .map_err(|e| format!("invalid project verifying key: {e:?}"))?;
+        let (key_id, verifier) = select_verifier(project, &signed)?;
         let state = SnapshotStore::new(&project.state_file)
             .apply_signed(&verifier, &signed)
             .map_err(|e| format!("receipt not applied: {e:?}"))?;
@@ -208,6 +295,7 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         serde_json::to_string_pretty(&serde_json::json!({
             "status": "applied",
             "project_id": project.project_id,
+            "signing_key_id": key_id,
             "snapshot_revision": state.revision()
         }))
         .map_err(|e| format!("could not encode result: {e}"))
@@ -273,7 +361,8 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             let make = || TrustedProject {
                 project_id: "alpha".into(),
                 state_file: PathBuf::from("/var/lib/amh/projects/alpha/state.json"),
-                public_key_hex: "11".repeat(32),
+                public_key_hex: Some("11".repeat(32)),
+                keys: vec![],
             };
             assert!(validate_config(&HostConfig {
                 projects: vec![make(), make()]
@@ -284,6 +373,104 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         #[test]
         fn untrusted_callers_cannot_set_keys_or_state_paths() {
             assert!(run(&["apply".into(), "--public-key".into(), "my-key".into()]).is_err());
+        }
+
+        #[test]
+        fn rotates_active_keys_and_rejects_retired_or_revoked_signers() {
+            use amh_core::{ApprovalRequest, Change, ItemKind, ItemScope, ManagedItem};
+            use ed25519_dalek::{Signer, SigningKey};
+            use std::time::{SystemTime, UNIX_EPOCH};
+
+            let old = SigningKey::from_bytes(&[17_u8; 32]);
+            let next = SigningKey::from_bytes(&[19_u8; 32]);
+            let public = |key: &SigningKey| {
+                key.verifying_key()
+                    .to_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            };
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let request = ApprovalRequest {
+                project_id: "alpha".into(),
+                expected_revision: 0,
+                change: Change::Add {
+                    item: ManagedItem::new(
+                        "P-1", ItemKind::Principle, ItemScope::Project, "TDD"
+                    ).unwrap(),
+                },
+                reason: "Owner approved policy".into(),
+                issued_at: now - 1,
+                expires_at: now + 120,
+            };
+            let sign = |key: &SigningKey| SignedApproval {
+                signature: key.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+                request: request.clone(),
+            };
+            let key = |id: &str, signer: &SigningKey, status| TrustedKey {
+                id: id.into(),
+                public_key_hex: public(signer),
+                status,
+                not_before: None,
+                accept_until: None,
+            };
+            let mut project = TrustedProject {
+                project_id: "alpha".into(),
+                state_file: PathBuf::from("/var/lib/amh/projects/alpha/state.json"),
+                public_key_hex: None,
+                keys: vec![
+                    key("old", &old, KeyStatus::Active),
+                    key("new", &next, KeyStatus::Active),
+                ],
+            };
+            assert!(validate_config(&HostConfig {
+                projects: vec![TrustedProject {
+                    project_id: project.project_id.clone(),
+                    state_file: project.state_file.clone(),
+                    public_key_hex: None,
+                    keys: vec![key("old", &old, KeyStatus::Active), key("new", &next, KeyStatus::Active)],
+                }]
+            }).is_ok());
+            assert_eq!(select_verifier(&project, &sign(&old)).unwrap().0, "old");
+            assert_eq!(select_verifier(&project, &sign(&next)).unwrap().0, "new");
+            project.keys[0].status = KeyStatus::Retired;
+            assert!(select_verifier(&project, &sign(&old)).is_err());
+            assert_eq!(select_verifier(&project, &sign(&next)).unwrap().0, "new");
+            project.keys[0].status = KeyStatus::Revoked;
+            assert!(select_verifier(&project, &sign(&old)).is_err());
+            project.keys[1].not_before = Some(now + 300);
+            assert!(select_verifier(&project, &sign(&next)).is_err());
+        }
+
+        #[test]
+        fn prevents_ambiguous_key_configuration() {
+            let config = serde_json::json!({
+                "projects": [{
+                    "project_id": "alpha",
+                    "state_file": "/var/lib/amh/projects/alpha/state.json",
+                    "public_key_hex": "11".repeat(32),
+                    "keys": [{
+                        "id": "primary",
+                        "public_key_hex": "22".repeat(32),
+                        "status": "active"
+                    }]
+                }]
+            });
+            let parsed: HostConfig = serde_json::from_value(config).unwrap();
+            assert!(validate_config(&parsed).is_err());
+
+            let config = serde_json::json!({
+                "projects": [{
+                    "project_id": "alpha",
+                    "state_file": "/var/lib/amh/projects/alpha/state.json",
+                    "keys": [
+                        {"id": "key", "public_key_hex": "11".repeat(32), "status": "active"},
+                        {"id": "key", "public_key_hex": "22".repeat(32), "status": "revoked"}
+                    ]
+                }]
+            });
+            let parsed: HostConfig = serde_json::from_value(config).unwrap();
+            assert!(validate_config(&parsed).is_err());
         }
 
         #[test]

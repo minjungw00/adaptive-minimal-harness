@@ -85,6 +85,12 @@ impl ApprovalVerifier {
         })
     }
 
+    /// Check a receipt without granting write access. Trusted hosts can use
+    /// this to select between concurrently active keys during rotation.
+    pub fn check(&self, approval: &SignedApproval) -> Result<(), ApprovalError> {
+        self.verify(approval).map(|_| ())
+    }
+
     pub(crate) fn verify(
         &self,
         approval: &SignedApproval,

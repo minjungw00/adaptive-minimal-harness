@@ -12,3 +12,6 @@ path = "src/main.rs"
 amh-core = { path = "../amh-core", features = ["signed-approvals"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[dev-dependencies]
+ed25519-dalek = "3"
