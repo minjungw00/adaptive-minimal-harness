@@ -450,6 +450,52 @@ mod tests {
     }
 
     #[test]
+    fn exported_segments_extend_independent_checkpoint() {
+        let fixture = Fixture::new();
+        let guard = fixture.guard();
+        let (first, initial_receipt) = event();
+        guard
+            .append_approved("alpha", None, &first, &initial_receipt, "primary")
+            .unwrap();
+        let genesis = guard.export_segment("alpha", 0).unwrap();
+        let anchor = amh_audit::validate_segment(None, &genesis)
+            .unwrap()
+            .unwrap();
+        assert_eq!(anchor.sequence, 1);
+
+        let mut second = first.clone();
+        let change = Change::Retire {
+            id: "P-PRIVATE".into(),
+            item_revision: 1,
+        };
+        second.apply_change(1, change.clone()).unwrap();
+        let receipt = SignedApproval {
+            request: ApprovalRequest {
+                project_id: "alpha".into(),
+                expected_revision: 1,
+                change,
+                reason: "Retire older principle".into(),
+                issued_at: 200,
+                expires_at: 260,
+            },
+            signature: vec![23; 64],
+        };
+        guard
+            .append_approved("alpha", Some(&first), &second, &receipt, "primary")
+            .unwrap();
+        let incremental = guard.export_segment("alpha", 1).unwrap();
+        let next = amh_audit::validate_segment(Some(&anchor), &incremental)
+            .unwrap()
+            .unwrap();
+        assert_eq!(next.sequence, 2);
+        assert_eq!(next.state_digest, state_digest(&second).unwrap());
+        assert!(guard.export_segment("alpha", 3).is_err());
+
+        let stale = guard.export_segment("alpha", 0).unwrap();
+        assert!(amh_audit::validate_segment(Some(&next), &stale).is_err());
+    }
+
+    #[test]
     fn refuses_truncated_journal() {
         let fixture = Fixture::new();
         let guard = fixture.guard();
