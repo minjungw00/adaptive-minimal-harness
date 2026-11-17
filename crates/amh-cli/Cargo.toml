@@ -4,6 +4,10 @@ version = "0.0.0"
 edition.workspace = true
 publish = false
 
+[features]
+default = []
+approval-request = ["amh-core/signed-approvals"]
+
 [[bin]]
 name = "amh"
 path = "src/main.rs"

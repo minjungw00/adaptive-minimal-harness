@@ -5,6 +5,8 @@
 //! accept a public key or an "approved" flag to bypass that boundary.
 
 use amh_core::{Change, ItemSnapshot, ManagedItem, SnapshotStore};
+#[cfg(feature = "approval-request")]
+mod request;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -22,6 +24,8 @@ USAGE:
     amh change preview --file PATH --proposal JSON_FILE
 
 All state and change commands are READ-ONLY. Preview is not authorization.
+OPTIONAL FEATURE (approval-request):
+    amh change request --file PATH --proposal JSON_FILE --project ID --ttl SECONDS
 Project initialization, authenticated writes, and policy compilation are not yet implemented.
 ";
 
@@ -175,6 +179,16 @@ fn run(args: &[String]) -> Result<String, String> {
         [a, b, rest @ ..] if a == "change" && b == "preview" => {
             let flags = parse_flags(rest, &["--file", "--proposal"])?;
             preview(flags["--file"], flags["--proposal"])
+        }
+        #[cfg(feature = "approval-request")]
+        [a, b, rest @ ..] if a == "change" && b == "request" => {
+            let flags = parse_flags(rest, &["--file", "--proposal", "--project", "--ttl"])?;
+            request::prepare(
+                flags["--file"],
+                flags["--proposal"],
+                flags["--project"],
+                flags["--ttl"],
+            )
         }
         _ => Err("unsupported command; run 'amh --help'".into()),
     }
