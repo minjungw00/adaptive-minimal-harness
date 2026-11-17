@@ -1,4 +1,4 @@
-use crate::{digest, kind_name, Policy, Result, Task};
+use crate::{digest, kind_name, natural::task_assessments, Applicability, Policy, Result, Task};
 use amh_core::{Activation, ItemDetails, Lifecycle, PrincipleStrength};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,10 +19,11 @@ pub struct Compilation {
     pub observed: String,
 }
 
-/// Deterministic, explicit matching. Tags and task references are supplied by
-/// the caller; no semantic classification or model compliance is inferred.
+/// Apply explicit tags or a snapshot-bound semantic assessment from the calling
+/// agent. Model judgments are distinct from structural validation and compliance.
 pub fn resolve(policies: &[Policy], task: &Task, budget: Option<usize>) -> Result<Compilation> {
     task.validate()?;
+    let assessments = task_assessments(policies, task)?;
     let mut all = BTreeMap::new();
     for policy in policies.iter().chain(task.items.iter()) {
         policy.validate()?;
@@ -47,26 +48,52 @@ pub fn resolve(policies: &[Policy], task: &Task, budget: Option<usize>) -> Resul
         let active = p.item.lifecycle == Lifecycle::Active;
         let scope_match =
             p.relations.applies_to.is_empty() || p.relations.applies_to.contains(&task.id);
-        let activation = match &p.item.details {
-            Some(ItemDetails::Principle { activation, .. }) => match activation {
-                Activation::Always => true,
-                Activation::ExplicitOnly => task.explicit_policies.contains(&p.item.id),
-                Activation::OnTags { any } => any.iter().any(|tag| task.tags.contains(tag)),
-            },
-            _ => true,
-        };
-        let selected = active && scope_match && activation;
-        let uncertain = active
+        let assessment = assessments.as_ref().and_then(|a| a.get(&p.item.id));
+        if active
             && scope_match
-            && !activation
-            && !task.classification_complete
-            && matches!(
+            && p.applicability.is_some()
+            && assessment.is_none()
+            && !matches!(
                 &p.item.details,
                 Some(ItemDetails::Principle {
                     activation: Activation::OnTags { .. },
                     ..
                 })
-            );
+            )
+        {
+            return Err(format!(
+                "policy {} requires natural-language interpretation",
+                p.item.id
+            ));
+        }
+        let activation = if let Some(a) = assessment {
+            a.applicability == Applicability::Match
+        } else {
+            match &p.item.details {
+                Some(ItemDetails::Principle { activation, .. }) => match activation {
+                    Activation::Always => true,
+                    Activation::ExplicitOnly => task.explicit_policies.contains(&p.item.id),
+                    Activation::OnTags { any } => any.iter().any(|tag| task.tags.contains(tag)),
+                },
+                _ => true,
+            }
+        };
+        let selected = active && scope_match && activation;
+        let uncertain = if let Some(a) = assessment {
+            a.applicability == Applicability::Uncertain
+        } else {
+            active
+                && scope_match
+                && !activation
+                && !task.classification_complete
+                && matches!(
+                    &p.item.details,
+                    Some(ItemDetails::Principle {
+                        activation: Activation::OnTags { .. },
+                        ..
+                    })
+                )
+        };
         if uncertain
             && matches!(
                 &p.item.details,
@@ -94,7 +121,9 @@ pub fn resolve(policies: &[Policy], task: &Task, budget: Option<usize>) -> Resul
                 "no_match"
             }
             .into(),
-            reason: if uncertain {
+            reason: if let Some(a) = assessment {
+                a.reason.as_str()
+            } else if uncertain {
                 "task classification is incomplete"
             } else if !active {
                 "inactive lifecycle"
@@ -130,6 +159,9 @@ pub fn resolve(policies: &[Policy], task: &Task, budget: Option<usize>) -> Resul
     chosen.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.item.id.cmp(&b.item.id)));
     let selected = chosen.iter().map(|p| p.item.id.clone()).collect();
     let mut content = format!("# AMH task: {}\n\nGoal: {}\n", task.id, task.goal);
+    if let Some(i) = &task.interpretation {
+        content.push_str(&format!("\nNatural-language request fingerprint: {}\nApplicability and completion criteria were interpreted by an agent; they are not independent semantic verification or approval.\n",i.response.request_digest));
+    }
     render_list(&mut content, "Done when", &task.done_when);
     render_list(
         &mut content,

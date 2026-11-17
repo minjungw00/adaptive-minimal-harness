@@ -1,11 +1,15 @@
 //! User-owned project workflow. This is deliberately separate from the optional
 //! protected host: local plans provide review and concurrency checks, not authentication.
+mod interpreter;
 mod model;
+mod natural;
 mod resolve;
 mod verify;
 mod workspace;
 
+pub use interpreter::*;
 pub use model::*;
+pub use natural::*;
 pub use resolve::*;
 pub use verify::*;
 pub use workspace::*;

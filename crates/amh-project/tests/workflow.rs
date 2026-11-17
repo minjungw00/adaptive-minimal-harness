@@ -69,6 +69,7 @@ fn principle(id: &str, tag: &str) -> Policy {
         source: None,
         priority: 0,
         relations: Relations::default(),
+        applicability: None,
     }
 }
 fn task(tag: &str) -> Task {

@@ -12,7 +12,8 @@ const REGISTRY: &str = ".amh/amh.toml";
 const GENERATED: &str = ".amh/generated/AGENTS.md";
 const MANIFEST: &str = ".amh/deployment.json";
 const JOURNAL: &str = ".amh/transaction.json";
-const BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n";
+pub const LEGACY_AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n";
+pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
@@ -80,6 +81,7 @@ pub struct Diagnosis {
     pub revision: u64,
     pub deployment: String,
     pub observed: String,
+    pub adapter_update_available: bool,
     pub note: String,
     pub instruction_files: Vec<String>,
 }
@@ -167,6 +169,7 @@ pub fn policies(root: &Path) -> Result<Vec<Policy>> {
 }
 
 pub fn compile(root: &Path, task: &Task, budget: Option<usize>) -> Result<Compilation> {
+    crate::natural::validate_interpreted_task(root, task)?;
     resolve(&input_policies(root)?, task, budget)
 }
 
@@ -186,7 +189,7 @@ fn decode_deployment(root: &Path) -> Result<Option<Deployment>> {
 fn bridge_valid(agents: &str) -> bool {
     agents.matches("<!-- AMH:BEGIN -->").count() == 1
         && agents.matches("<!-- AMH:END -->").count() == 1
-        && agents.contains(BRIDGE)
+        && (agents.contains(AGENT_BRIDGE) || agents.contains(LEGACY_AGENT_BRIDGE))
 }
 
 fn check_owned(root: &Path, d: &Deployment) -> Result<()> {
@@ -276,6 +279,14 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                 }
                 if let Some(d) = decode_deployment(&root)? {
                     check_owned(&root, &d)?;
+                    let agents = read(&root, "AGENTS.md")?.unwrap();
+                    change(
+                        &root,
+                        &mut changes,
+                        "AGENTS.md",
+                        Some(agents.replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)),
+                        "shared",
+                    )?;
                 } else {
                     return Err(
                         "project is initialized but adapter is uninstalled; use sync to reinstall"
@@ -293,7 +304,7 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                     return Err("existing AMH markers require manual conflict resolution".into());
                 }
                 let registry = Registry::new(project_id.clone(), user_root)?;
-                let initial = "# AMH\n\nNo task has been compiled. Select an explicit task with `amh sync`.\n".to_string();
+                let initial = "# AMH\n\nNo task has been interpreted. Follow the natural-language agent workflow in the project AGENTS.md, or use `amh sync` for an explicit task.\n".to_string();
                 let deployment = Deployment {
                     format: "amh.deployment.v1".into(),
                     generated_digest: digest(initial.as_bytes()),
@@ -315,7 +326,7 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                     &root,
                     &mut changes,
                     "AGENTS.md",
-                    Some(agents + BRIDGE),
+                    Some(agents + AGENT_BRIDGE),
                     "shared",
                 )?;
                 change(
@@ -378,12 +389,15 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
             let agents = read(&root, "AGENTS.md")?.unwrap_or_default();
             let (agents, created) = if let Some(d) = old {
                 check_owned(&root, &d)?;
-                (agents, d.created_agents)
+                (
+                    agents.replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1),
+                    d.created_agents,
+                )
             } else {
                 if read(&root, GENERATED)?.is_some() || agents.contains("<!-- AMH:") {
                     return Err("unowned adapter files or markers; refusing to overwrite".into());
                 }
-                (agents + BRIDGE, read(&root, "AGENTS.md")?.is_none())
+                (agents + AGENT_BRIDGE, read(&root, "AGENTS.md")?.is_none())
             };
             let deployment = Deployment {
                 format: "amh.deployment.v1".into(),
@@ -414,7 +428,10 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
             load(&root)?;
             if let Some(d) = decode_deployment(&root)? {
                 check_owned(&root, &d)?;
-                let agents = read(&root, "AGENTS.md")?.unwrap().replacen(BRIDGE, "", 1);
+                let agents = read(&root, "AGENTS.md")?
+                    .unwrap()
+                    .replacen(AGENT_BRIDGE, "", 1)
+                    .replacen(LEGACY_AGENT_BRIDGE, "", 1);
                 let remaining = if agents.is_empty() && d.created_agents {
                     None
                 } else {
@@ -606,7 +623,9 @@ pub fn doctor(root: &Path) -> Result<Diagnosis> {
     .filter(|p| root.join(p).exists())
     .map(|p| (*p).to_string())
     .collect();
-    Ok(Diagnosis { project_id: registry.project_id, revision: registry.events.len() as u64, deployment, observed: "unknown".into(), note: "Deployment inspection is not behavioral evaluation. Other instruction files are inventoried, not semantically reconciled. Live sessions must reload updated instructions.".into(), instruction_files })
+    let adapter_update_available =
+        read(&root, "AGENTS.md")?.is_some_and(|s| s.contains(LEGACY_AGENT_BRIDGE));
+    Ok(Diagnosis { adapter_update_available, project_id: registry.project_id, revision: registry.events.len() as u64, deployment, observed: "unknown".into(), note: "Deployment inspection is not behavioral evaluation. Other instruction files are inventoried, not semantically reconciled. Live sessions must reload updated instructions.".into(), instruction_files })
 }
 
 pub(crate) fn require_current(root: &Path, task: &Task) -> Result<Compilation> {

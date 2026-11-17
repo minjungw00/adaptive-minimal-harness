@@ -27,6 +27,9 @@ pub struct Policy {
     pub priority: i32,
     #[serde(default)]
     pub relations: Relations,
+    /// Human-authored activation condition for semantic agent discovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applicability: Option<String>,
 }
 
 impl Policy {
@@ -36,6 +39,13 @@ impl Policy {
             .map_err(|e| format!("invalid item: {e:?}"))?;
         if self.owner.trim().is_empty() || self.item.details.is_none() {
             return Err("project policies require an owner and explicit typed details".into());
+        }
+        if let Some(condition) = &self.applicability {
+            if self.item.kind != ItemKind::Principle || condition.trim().is_empty() {
+                return Err(
+                    "natural applicability requires a principle and a nonempty condition".into(),
+                );
+            }
         }
         for relation in [
             &self.relations.depends_on,
@@ -86,6 +96,11 @@ pub enum PolicyChange {
         owner: String,
         source: Option<String>,
         relations: Relations,
+    },
+    SetApplicability {
+        id: String,
+        item_revision: u64,
+        applicability: Option<String>,
     },
     Replace {
         id: String,
@@ -319,6 +334,13 @@ fn reduce(
             p.source = source.clone();
             p.relations = relations.clone();
         }
+        PolicyChange::SetApplicability {
+            id,
+            item_revision,
+            applicability,
+        } => {
+            existing(items, id, *item_revision)?.applicability = applicability.clone();
+        }
         PolicyChange::Reprioritize {
             id,
             item_revision,
@@ -414,6 +436,8 @@ pub struct Task {
     pub explicit_policies: Vec<String>,
     pub items: Vec<Policy>,
     pub checks: Vec<Check>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interpretation: Option<crate::RequestInterpretation>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
