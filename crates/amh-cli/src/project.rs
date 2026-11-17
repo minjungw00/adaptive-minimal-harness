@@ -432,6 +432,9 @@ fn execute_session(args: &[String]) -> Result<String, String> {
     use amh_project::{SessionFocus, SessionOperation, TurnOptions};
     let sub = args.first().ok_or("missing session subcommand")?.as_str();
     let rest = &args[1..];
+    if rest == ["--help"] || rest == ["-h"] || sub == "--help" || sub == "-h" {
+        return Ok(format!("{HELP}\nSESSION HANDOFF:\nThe response_schema is the inner response, not the transport envelope.\nSend {{\"packet\": <entire prepare output, unchanged>, \"response\": <object matching response_schema>}} to session finish --input -.\nThe legacy field name 'analysis' is accepted as an alias for 'response'; never provide both.\n"));
+    }
     match sub {
         "open" => {
             let f = Flags::parse(rest, &["--root", "--id"], &["--apply"])?;
@@ -488,10 +491,11 @@ fn execute_session(args: &[String]) -> Result<String, String> {
             #[serde(deny_unknown_fields)]
             struct Handoff {
                 packet: amh_project::SessionPacket,
+                #[serde(alias = "analysis")]
                 response: amh_project::SessionResponse,
             }
             let f = Flags::parse(rest, &["--root", "--input"], &["--apply"])?;
-            let h: Handoff = input_json(f.required("--input")?)?;
+            let h: Handoff = input_json(f.required("--input")?).map_err(|e| format!("Invalid session handoff: submit {{\"packet\": <unmodified prepare output>, \"response\": <response_schema object>}}. {e}"))?;
             session_mutation(
                 &f,
                 SessionOperation::Turn {

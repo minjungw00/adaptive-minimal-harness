@@ -427,3 +427,49 @@ fn session_input_refuses_unknown_commands_and_cross_session_packets() {
         .status
         .success());
 }
+
+#[test]
+fn session_help_and_analysis_alias_explain_handoff_without_weakening_bindings() {
+    let f = Fixture::new();
+    let help = f.run(&["session", "finish", "--help"]);
+    assert!(help.status.success());
+    let text = String::from_utf8(help.stdout).unwrap();
+    assert!(
+        text.contains("inner response") && text.contains("packet") && text.contains("response")
+    );
+    assert!(!f.0.join(".amh").exists());
+    f.ok(&["init", "--id", "conversation", "--apply"]);
+    f.ok(&["session", "open", "--id", "one", "--apply"]);
+    let p = f.ok(&[
+        "session",
+        "prepare",
+        "--id",
+        "one",
+        "--text",
+        "Explain this.",
+    ]);
+    let r = session_analysis(&p);
+    let both = f.stdin(
+        &["session", "finish", "--input", "-", "--apply"],
+        &json!({"packet":p,"response":r,"analysis":r}),
+    );
+    assert!(!both.status.success());
+    let out = f.stdin(
+        &["session", "finish", "--input", "-", "--apply"],
+        &json!({"packet":p,"analysis":r}),
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let mut other = p.clone();
+    other["request"] = "Different work".into();
+    assert!(!f
+        .stdin(
+            &["session", "finish", "--input", "-", "--apply"],
+            &json!({"packet":other,"analysis":r})
+        )
+        .status
+        .success());
+}
