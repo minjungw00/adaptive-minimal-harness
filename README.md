@@ -18,7 +18,7 @@ TDD, refactoring, Socratic questioning, writing practices, and requirement prese
 
 ## Planned use
 
-The native `amh` CLI now supports **read-only state inspection, item retrieval, and change preview**. Project installation, policy compilation, and consumer-facing authenticated approval remain future work. An **optional experimental Linux-only `amh-host`** accepts externally signed receipts and writes only to independently protected state paths. It does not sign approvals or provide a user-authentication UI.
+The native `amh` CLI now supports **read-only state inspection, item retrieval, and change preview**. Project installation, policy compilation, and consumer-facing authenticated approval remain future work. An **optional experimental Linux-only `amh-host`** accepts externally signed receipts and writes only to independently protected state paths, with a separate local audit witness for state rollback detection. It does not sign approvals or provide a user-authentication UI.
 
 ```sh
 amh state inspect --file ./state.json
@@ -27,7 +27,7 @@ amh change preview --file ./state.json --proposal ./proposal.json
 amh manifest inspect --file ./state-manifest.json
 ```
 
-See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), and [trusted host limitations](docs/trusted-host.md).
+See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), [protected audit contract](docs/audit.md), and [trusted host limitations](docs/trusted-host.md).
 
 The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and authenticated approval UI are not implemented.
 

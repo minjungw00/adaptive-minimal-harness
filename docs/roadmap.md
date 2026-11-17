@@ -17,7 +17,8 @@
 - [x] Host configuration supports active/retired/revoked verifier keys and staged rotation.
 - [x] Optional unsigned signing-request preparation for external signer interoperability.
 - [x] Operator-controlled metadata-only export with untrusted consumer inspection.
-- [ ] Secure host review, platform portability, key issuance/custody and audit logging.
+- [x] Protected local audit journal and state rollback detection (fail-closed).
+- [ ] Independently witnessed anti-rollback, crash recovery, secure host review, platform portability, and key issuance/custody.
 - [ ] User-facing state initialization and controlled write integration.
 
 ## Policy and task contracts

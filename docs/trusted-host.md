@@ -10,6 +10,7 @@ The host never takes a project ID, state path, or verification key from command-
 
 - Trusted host configuration: `/etc/amh/trust.json`
 - Protected state root: `/var/lib/amh/projects`
+- Independent audit witness root: `/var/lib/amh/audit`
 - Expected state paths: `/var/lib/amh/projects/<project>/state.json`
 
 The host checks that trusted configuration and protected state paths have no symlink components and that existing ancestors/files are root-owned and not group-/world-writable. It refuses unresolved or untrusted paths.
@@ -40,6 +41,7 @@ A trusted operator provisions root-owned directories and configuration *outside*
 ```sh
 sudo install -d -o root -g root -m 0755 /etc/amh
 sudo install -d -o root -g root -m 0755 /var/lib/amh/projects/my-project
+sudo install -d -o root -g root -m 0700 /var/lib/amh/audit
 # A trusted administrator installs /etc/amh/trust.json owned by root.
 sudo chown root:root /etc/amh/trust.json
 sudo chmod 0644 /etc/amh/trust.json
@@ -56,7 +58,7 @@ amh-host apply < signed-approval.json
 amh-host export-manifest my-project
 ```
 
-The `apply` command reads a size-limited `SignedApproval` from standard input rather than following an attacker-controlled receipt path. It verifies project binding and Ed25519 signature, checks the current snapshot revision, and writes via the protected `SnapshotStore::apply_signed` path. A stale approval cannot authorize a different snapshot revision.
+The `apply` command reads a size-limited `SignedApproval` from standard input rather than following an attacker-controlled receipt path. It checks the independent protected audit witness before changes, verifies project binding and Ed25519 signature, checks the current snapshot revision, writes via the protected `SnapshotStore::apply_signed` path, and appends a hashed audit record before reporting success. A stale approval cannot authorize a different snapshot revision.
 
 The optional CLI `change request` generates an **unsigned** approval request and its canonical signing bytes; **creating a signature and obtaining authenticated human consent are not implemented**. An external signer must review and sign the exact request, including its short validity window and the expected revision. Do not send an unsigned preview JSON directly to the host and mistake it for an approval.
 
@@ -67,7 +69,7 @@ The optional CLI `change request` generates an **unsigned** approval request and
 - The host supports multiple configured verification keys, staged rotation, and key status `active`/`retired`/`revoked`, but **does not** provide an administrative key-provisioning UI, private-key custody, audit signatures, or multi-platform support.
 - It is not a sandbox, a secure enclave, or a replacement for OS permissions.
 - Filesystem metadata checks are not a general defense against a compromised root account. Production deployment needs an independent security review.
-- The host exports a metadata-only manifest to stdout upon explicit operator request, not the actual protected policy content. The resulting consumer copy is **not authenticated** and cannot be used for writes or enforcement.
+- The host checks its protected state against the audit witness before exporting metadata to stdout upon explicit operator request, not the actual protected policy content. The resulting consumer copy is **not authenticated** and cannot be used for writes or enforcement.
 
 This is an **optional enforcement integration**. A lightweight CLI-only user does not need the host or root-owned configuration.
 
@@ -88,3 +90,11 @@ This is **configuration-enforced verification status**, not automatic key issuan
 `amh-host export-manifest PROJECT_ID` reads the protected state, verifies its replayed history, and returns metadata only. It never accepts a caller-provided state path or public key. An explicitly selected project ID is a **selector among trusted configured projects**, not a trust-anchor override. See [metadata-only manifest](state-manifest.md).
 
 External signing protocol: [signer contract](external-signer.md).
+
+## Audit witness and interrupted-write handling
+
+The host requires `/var/lib/amh/audit` to exist as an independently protected, root-owned directory. Audit and lock files are private. Existing state without an audit witness is refused until a trusted migration is designed and executed.
+
+The two-file state/audit update is not crash-atomic. An interrupted write will cause later `apply`, `doctor` and `export-manifest` operations to fail closed rather than guessing a repair. A retained audit record detects rollback of the state file. It does **not** detect an attacker with authority to roll back both.
+
+See [audit and recovery contract](audit.md) before deploying the host.

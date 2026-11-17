@@ -44,3 +44,9 @@ The implementation rejects a symlink at the direct state file path and at the lo
 CI runs `cargo test --workspace --locked` and `cargo test --workspace --all-features --locked`. Store tests cover round-trip loading, replay consistency, stale writes, invalid transitions, malformed snapshots, unknown format revisions, and symlink rejection on Unix.
 
 These tests verify **local storage contracts**, not actual agent compliance or semantic correctness of policies.
+
+## Host-level audit witness
+
+The optional Linux host now verifies a separate, root-owned audit chain before applying changes or exporting metadata. Each approved state revision has a receipt hash and a canonical state hash; detected rollback and interrupted two-file commits fail closed. The basic `SnapshotStore` alone is unchanged and does not maintain this witness.
+
+See [protected audit limitations](audit.md). Neither ordinary JSON persistence nor local audit hashes can defend against an actor able to replace **both** protected files.

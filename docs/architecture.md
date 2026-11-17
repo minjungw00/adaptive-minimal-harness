@@ -41,3 +41,7 @@ The first implementation contains a small Rust workspace, an honest CLI entrypoi
 The optional `approval-request` CLI feature produces unsigned canonical requests, while the Linux host verifies signed receipts using root-owned trusted keys (including active/retired/revoked key states). No private signing key or human authentication UI is bundled.
 
 The host can export a **metadata-only, non-authoritative** view of protected state. Consumer CLI inspection validates its structure, not its provenance. Neither the manifest nor an unsigned approval request authorizes protected writes. Full authenticated policy content delivery remains outside the implemented scope.
+
+## Protected host audit witness
+
+An optional Linux host maintains a root-protected append-only hash chain outside the consumer repository. This detects a reverted protected state when the audit history remains intact and blocks subsequent writes/exports on mismatch. It does not create a globally tamper-proof log: a privileged actor capable of rewriting both files can bypass local rollback detection. State and audit are distinct file updates, so interrupted commits require manual recovery; see [audit contract](audit.md).

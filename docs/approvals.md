@@ -51,7 +51,7 @@ For an actual deployment, the trusted host MUST:
 
 If the same actor can replace the public key, alter the state file directly, and call the library, **the signature check does not enforce approval**.
 
-An experimental Linux `amh-host` now reads trusted project bindings from the fixed root-owned `/etc/amh/trust.json` and applies receipts only to protected `/var/lib/amh/projects/…/state.json` paths. It has no private signing keys, accepts no caller-supplied public-key or state-path override, and requires separate OS filesystem protection. See [trusted host](trusted-host.md). Unsigned request preparation, host-managed verifier rotation/retirement/revocation, and metadata-only export are implemented as separate building blocks. An authenticated signing UI, secure key provisioning and custody, anti-rollback protection, operational key management, and production security review remain **future work**.
+An experimental Linux `amh-host` now reads trusted project bindings from the fixed root-owned `/etc/amh/trust.json` and applies receipts only to protected `/var/lib/amh/projects/…/state.json` paths. It has no private signing keys, accepts no caller-supplied public-key or state-path override, and requires separate OS filesystem protection. See [trusted host](trusted-host.md). Unsigned request preparation, host-managed verifier rotation/retirement/revocation, and metadata-only export are implemented as separate building blocks. An authenticated signing UI, secure key provisioning and custody, external anti-rollback attestations, crash recovery, operational key management, and production security review remain **future work**.
 
 ## Security tests
 
@@ -70,3 +70,7 @@ Before enabling consumer-facing authenticated mutation commands, complete:
 The signed-check mechanism is a reusable building block, not yet an end-to-end authorization product.
 
 See [external signing requests](external-signer.md) for exact bytes and user authentication requirements, and [metadata-only export](state-manifest.md) for the non-authoritative consumer bridge.
+
+## Protected local audit
+
+The Linux host maintains a separate, root-owned, hash-chained audit journal that binds successive state digests, approved receipt digests, and the active signing-key ID. This provides **local rollback detection only while the witness remains intact**. See [audit contract](audit.md). It does not replace external monitoring, a human-authenticated signer, or a trusted monotonic service.
