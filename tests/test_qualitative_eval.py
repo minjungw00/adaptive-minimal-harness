@@ -211,7 +211,33 @@ class RunTests(unittest.TestCase):
         de.collect_turn(run, 'D03', 3)
         result = de.finalize(run, 'D03')
         self.assertTrue((result / 'turns/1/observation.json').exists())
+        manifest = qe.read_json(result / 'evidence-manifest.json')
+        self.assertEqual(manifest['observation.json'], qe.sha((result / 'observation.json').read_bytes()))
+        self.assertIn('turns/1/observation.json', manifest)
         self.assertEqual(len(qe.read_json(Path(c['cases']['D03']['private']) / 'initial.json')['user_messages']), 3)
+
+    def test_resume_is_an_explicit_same_project_link_without_prior_conversation(self):
+        run = Path(self.tmp.name) / 'resume'
+        c = de.prepare(self.amh, ROOT / 'evals/dialogues.json', run)
+        source = c['cases']['D02']
+        qe.invoke(self.amh, Path(source['workspace']), 'session', 'open', '--id', 'one', '--apply')
+        current = qe.invoke(self.amh, Path(source['workspace']), 'policy', 'list')
+        writing = next(x for x in current['policies'] if x['item']['id'] == 'P-WRITING')
+        change = run / 'pause.json'
+        qe.write_json(change, {'operation': 'PAUSE', 'id': 'P-WRITING', 'item_revision': writing['item']['revision']})
+        qe.invoke(self.amh, Path(source['workspace']), 'policy', 'change', '--file', str(change), '--expected-revision', str(current['revision']), '--reason', 'Fixture policy changed before resume', '--apply')
+        resume = de.prepare_resume(run, self.amh, 'D02', 'D07', 'one', 'Explain the report.')
+        self.assertEqual(resume['workspace'], source['workspace'])
+        self.assertEqual(resume['case']['turns'], ['Explain the report.'])
+        prompt = Path(resume['actor_prompt']).read_text()
+        self.assertNotIn(source['case']['turns'][0], prompt)
+        self.assertNotIn(source['case']['review_note'], prompt)
+        initial = qe.read_json(Path(resume['private']) / 'initial.json')
+        self.assertTrue(initial['resume_link']['prior_conversation_unavailable'])
+        writing = next(x for x in initial['policies']['policies'] if x['item']['id'] == 'P-WRITING')
+        self.assertEqual(writing['item']['lifecycle'], 'paused')
+        with self.assertRaises(FileExistsError):
+            de.prepare_resume(run, self.amh, 'D02', 'D07', 'one', 'Explain again.')
 
     def test_prepare_never_overwrites_an_existing_run(self):
         with self.assertRaises(FileExistsError):

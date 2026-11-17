@@ -120,7 +120,7 @@ def make_tool(directory, amh, audit):
     audit.mkdir(parents=True)
     script = directory / 'amh'
     script.write_text(f'''#!{sys.executable}
-import json,os,pathlib,subprocess,sys,time,uuid
+import hashlib,json,os,pathlib,subprocess,sys,time,uuid
 real={str(amh)!r}
 audit=pathlib.Path({str(audit)!r})
 id=uuid.uuid4().hex
@@ -133,7 +133,7 @@ stdin_data=sys.stdin.buffer.read() if any(args[i:i+2]==['--input','-'] for i in 
 r=subprocess.run([real,*args],input=stdin_data,capture_output=True,timeout=300)
 (audit/(id+'.stdout')).write_bytes(r.stdout)
 (audit/(id+'.stderr')).write_bytes(r.stderr)
-record={{'id':id,'argv':args,'cwd':os.getcwd(),'started_ns':started,'finished_ns':time.time_ns(),'exit_code':r.returncode}}
+record={{'id':id,'binary_sha256':hashlib.sha256(pathlib.Path(real).read_bytes()).hexdigest(),'argv':args,'cwd':os.getcwd(),'started_ns':started,'finished_ns':time.time_ns(),'exit_code':r.returncode}}
 if stdin_data is not None:
     (audit/(id+'.stdin')).write_bytes(stdin_data)
     record['stdin_file']=id+'.stdin'
@@ -230,7 +230,7 @@ def collect(run, id, actor_note=None):
 
 
 STAGE_ONE = '''You are an independent qualitative reviewer. You have no expected policy list or prior conversation. Read only the supplied initial context. Infer the user's goal, applicable conditions, legitimate alternatives and information gaps. Do not assume that every named method must be used, or that more methods is better. Distinguish mandatory conditions from flexible approaches. Write provisional notes to PROVISIONAL. Do not inspect actor results or other reviewers. Do not edit the workspace or invoke other agents. Your initial view is a revisable hypothesis, not an answer key. Return only the notes path.'''
-STAGE_TWO = '''Now read the actor observation and recorded AMH calls. Raw command outputs are under actor/audit as CALL_ID.stdout and CALL_ID.stderr (also linked from newer observation records). Inspect relevant evidence in the frozen workspace if needed. Evaluate the appropriateness of chosen AND omitted principles, joint application, unnecessary procedure, preservation of requirements, actual outcomes and uncertainty. Accept justified alternatives and revise your provisional view when evidence supports it. Use no exact-set scoring or method-count target. Tie material findings to the request, policy condition, source state or observed result. Execution records, actor self-reports and unverified claims are different evidence. Write a qualitative review to REVIEW with: understanding, strengths, findings (observation/evidence/impact/alternative), defensible_alternatives, uncertainty, and limits. Do not edit actor evidence, inspect other reviewers or launch agents. Return only the review path.'''
+STAGE_TWO = '''Now read the actor observation and recorded AMH calls. Raw command outputs are under actor/audit as CALL_ID.stdout and CALL_ID.stderr (also linked from newer observation records). For multi-turn cases inspect actor/turns for intermediate snapshots and actor/work-audit/events.jsonl plus its stdout/stderr for observed commands/edits. A controller-event file, if present, identifies controller-originated policy changes. Work traces observe only commands sent through the recorder, not the entire agent session. Inspect relevant evidence in the frozen workspace if needed. Evaluate the appropriateness of chosen AND omitted principles, joint application, unnecessary procedure, preservation of requirements, actual outcomes and uncertainty. Accept justified alternatives and revise your provisional view when evidence supports it. Use no exact-set scoring or method-count target. Tie material findings to the request, policy condition, source state or observed result. Execution records, actor self-reports and unverified claims are different evidence. Write a qualitative review to REVIEW with: understanding, strengths, findings (observation/evidence/impact/alternative), defensible_alternatives, uncertainty, and limits. Do not edit actor evidence, inspect other reviewers or launch agents. Return only the review path.'''
 
 
 def reviewer(run, id, label):

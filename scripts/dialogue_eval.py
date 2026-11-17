@@ -64,10 +64,51 @@ def prepare(amh, suite, out):
     return c
 
 
+def prepare_resume(run, amh, source_case, case_id, session_id, request, allow_binary_change=False):
+    """Explicit same-project link for a fresh actor; never infer the latest ID."""
+    import uuid
+    run = Path(run).resolve()
+    c = qe.read_json(run / 'controller.json')
+    if case_id in c['cases']: raise FileExistsError('case already exists')
+    binary_sha = qe.sha(Path(amh).read_bytes())
+    if binary_sha != c['amh_sha256'] and not allow_binary_change: raise ValueError('evaluation binary changed')
+    source = c['cases'][source_case]
+    root = Path(source['workspace'])
+    state = qe.read_json(root / '.amh/sessions' / session_id / 'state.json')
+    if state['root'] != str(root.resolve()) or state['id'] != session_id: raise ValueError('resume link does not match the existing project')
+    directory = run / 'actors' / uuid.uuid4().hex[:12]
+    private = run / 'controller' / case_id
+    private.mkdir(parents=True)
+    tool = qe.make_tool(directory / 'bin', Path(amh).resolve(), private / 'audit')
+    trace = make_trace(directory / 'bin', root, private)
+    case = {**source['case'], 'id': case_id, 'request': request, 'turns': [request], 'resume_from': source_case, 'native_binary_sha256': binary_sha}
+    initial = {'request': request, 'user_messages': [request], 'files': qe.product_files(root),
+               'policies': qe.invoke(Path(amh).resolve(), root, 'policy', 'list'),
+               'current_deployment': qe.deployment(root), 'agent_instructions': (root / 'AGENTS.md').read_text(),
+               'resume_link': {'session_id': session_id, 'prior_conversation_unavailable': True, 'state': state}}
+    qe.write_json(private / 'initial.json', initial)
+    prompt = (f'Work only in {root}. AMH is available at {tool}. '
+              f'This conversation explicitly resumes AMH session {session_id}; prior conversational content is unavailable. '
+              'Do not use network services, other agents, sibling directories, repository sources or unrelated connected tools. '
+              f'Use {trace} exec COMMAND [ARG...] for workspace reads, edits and checks, and the supplied AMH directly for AMH calls. '
+              'Do not inspect wrapper sources or observation storage. Handle this user request, reporting work and actual checks.\n\n' + request)
+    (directory / 'actor-prompt.txt').write_text(prompt, encoding='utf-8')
+    c['cases'][case_id] = {'opaque_id': directory.name, 'case': case, 'workspace': str(root), 'tool': str(tool),
+                         'private': str(private), 'actor_prompt': str(directory / 'actor-prompt.txt')}
+    qe.write_json(run / 'controller.json', c)
+    return c['cases'][case_id]
+
+
+def seal(folder):
+    qe.write_json(folder / 'evidence-manifest.json', {p.relative_to(folder).as_posix(): qe.sha(p.read_bytes()) for p in sorted(folder.rglob('*')) if p.is_file() and p != folder / 'evidence-manifest.json'})
+
+
 def collect_turn(run, case, turn, actor_note=None):
     run = Path(run).resolve()
     item = qe.read_json(run / 'controller.json')['cases'][case]
     private = Path(item['private'])
+    if not 1 <= turn <= len(item['case']['turns']): raise ValueError('turn index out of range')
+    if turn > 1 and not (private / 'turns' / str(turn-1) / 'observation.json').exists(): raise ValueError('freeze prior turn first')
     destination = private / 'turns' / str(turn)
     if destination.exists(): raise FileExistsError('turn already frozen')
     observation = qe.collect(run, case, actor_note)
@@ -76,6 +117,7 @@ def collect_turn(run, case, turn, actor_note=None):
     observation['work_trace_scope'] = 'Commands voluntarily passed through work; other session events are not fully observed or sandboxed.'
     qe.write_json(private / 'result/observation.json', observation)
     if (private / 'work-audit').exists(): shutil.copytree(private / 'work-audit', private / 'result/work-audit')
+    seal(private / 'result')
     destination.parent.mkdir(exist_ok=True)
     (private / 'result').rename(destination)
     return observation
@@ -90,17 +132,55 @@ def finalize(run, case):
         if not (private / 'turns' / str(i) / 'observation.json').is_file(): raise ValueError('all turns must be frozen')
     shutil.copytree(private / 'turns' / str(count), private / 'result')
     shutil.copytree(private / 'turns', private / 'result/turns')
+    event = private / 'controller-event.json'
+    if event.exists(): shutil.copyfile(event, private / 'result/controller-event.json')
+    seal(private / 'result')
     return private / 'result'
+
+def export(run, out):
+    run, out = Path(run).resolve(), Path(out).resolve()
+    provenance = qe.export_evidence(run, out)
+    controller = qe.read_json(run / 'controller.json')
+    def portable(value):
+        if isinstance(value, str): return value.replace(str(run), '{RUN_ROOT}').replace(str(qe.REPO), '{REPOSITORY}')
+        if isinstance(value, list): return [portable(v) for v in value]
+        if isinstance(value, dict): return {k: portable(v) for k,v in value.items()}
+        return value
+    for case, item in controller['cases'].items():
+        private, folder = Path(item['private']), out / case
+        qe.write_json(folder / 'case.json', portable(item['case']))
+        for turn in sorted((private / 'turns').iterdir(), key=lambda p: int(p.name)):
+            target = folder / 'turns' / turn.name
+            qe.write_json(target / 'observation.json', portable(qe.read_json(turn / 'observation.json')))
+            workspace = turn / 'workspace'
+            states = {p.relative_to(workspace).as_posix(): qe.read_json(p) for p in sorted((workspace / '.amh/sessions').glob('*/state.json'))}
+            inventory = {p.relative_to(workspace).as_posix(): {'sha256': qe.sha(p.read_bytes()), 'bytes': p.stat().st_size} for p in sorted(workspace.rglob('*')) if p.is_file() and '__pycache__' not in p.parts}
+            qe.write_json(target / 'session-states.json', portable(states))
+            qe.write_json(target / 'file-inventory.json', inventory)
+        audit = private / 'result/work-audit'
+        if (audit / 'events.jsonl').exists():
+            for line in (audit / 'events.jsonl').read_text().splitlines():
+                record = __import__('json').loads(line)
+                for channel in ['stdin','stdout','stderr']:
+                    record[channel] = (audit / (record['id'] + '.' + channel)).read_text(encoding='utf-8', errors='replace')
+                qe.write_json(folder / 'work' / (record['id'] + '.json'), portable(record))
+        for name in ['controller-event.json', 'controller-correction.json']:
+            if (private / name).exists(): qe.write_json(folder / name, portable(qe.read_json(private / name)))
+    manifest = {p.relative_to(out).as_posix(): qe.sha(p.read_bytes()) for p in sorted(out.rglob('*')) if p.is_file() and p != out / 'manifest.json'}
+    qe.write_json(out / 'manifest.json', manifest)
+    return provenance
 
 
 if __name__ == '__main__':
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='command',required=True)
     a=s.add_parser('prepare');a.add_argument('--amh',required=True);a.add_argument('--suite',required=True);a.add_argument('--out',required=True)
     a=s.add_parser('collect');a.add_argument('--run',required=True);a.add_argument('--case',required=True);a.add_argument('--turn',type=int,required=True);a.add_argument('--actor-note')
+    a=s.add_parser('export');a.add_argument('--run',required=True);a.add_argument('--out',required=True)
     a=s.add_parser('finalize');a.add_argument('--run',required=True);a.add_argument('--case',required=True)
     a=p.parse_args()
     if a.command=='prepare':
         c=prepare(a.amh,a.suite,a.out);print(json.dumps({k:v['actor_prompt'] for k,v in c['cases'].items()}))
     elif a.command=='collect':
         o=collect_turn(a.run,a.case,a.turn,a.actor_note);print(json.dumps({'turn':o['turn'],'calls':len(o['amh_calls']),'semantic_verdict':None}))
+    elif a.command=='export':print(__import__('json').dumps(export(a.run,a.out)))
     else:print(finalize(a.run,a.case))
