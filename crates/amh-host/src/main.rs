@@ -7,7 +7,7 @@
 
 #[cfg(target_os = "linux")]
 mod linux {
-    use amh_core::{ApprovalVerifier, SignedApproval, SnapshotStore};
+    use amh_core::{ApprovalVerifier, SignedApproval, SnapshotStore, StateManifest};
     use serde::Deserialize;
     use std::collections::BTreeSet;
     use std::fs;
@@ -26,6 +26,7 @@ USAGE:
     amh-host --help
     amh-host doctor
     amh-host apply < signed-approval.json
+    amh-host export-manifest PROJECT_ID
 
 TRUST:
     Root-owned configuration: /etc/amh/trust.json
@@ -307,6 +308,27 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         .map_err(|e| format!("could not encode result: {e}"))
     }
 
+    /// Deliberately export only a non-authoritative metadata view. The caller
+    /// may select a configured project but cannot choose a key or state path.
+    /// No item content or change history leaves the protected store.
+    fn export_manifest(config: &HostConfig, project_id: &str) -> Result<String, String> {
+        let project = config
+            .projects
+            .iter()
+            .find(|item| item.project_id == project_id)
+            .ok_or("unknown trusted project")?;
+        validate_state_security(&project.state_file)?;
+        if !project.state_file.is_file() {
+            return Err("protected state is not initialized; no manifest was exported".into());
+        }
+        let state = SnapshotStore::new(&project.state_file)
+            .load()
+            .map_err(|error| format!("protected state could not be verified: {error:?}"))?;
+        let manifest = StateManifest::from_snapshot(project_id, &state);
+        serde_json::to_string_pretty(&manifest)
+            .map_err(|error| format!("cannot encode state manifest: {error}"))
+    }
+
     fn run(args: &[String]) -> Result<String, String> {
         match args {
             [] => Ok(HELP.to_owned()),
@@ -322,6 +344,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 ))
             }
             [arg] if arg == "apply" => apply(&load_config()?),
+            [arg, project_id] if arg == "export-manifest" => {
+                export_manifest(&load_config()?, project_id)
+            }
             _ => Err("unsupported host command; run 'amh-host --help'".into()),
         }
     }
@@ -486,6 +511,41 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             });
             let parsed: HostConfig = serde_json::from_value(config).unwrap();
             assert!(validate_config(&parsed).is_err());
+        }
+
+        #[test]
+        fn exporting_unknown_project_fails_without_side_effects() {
+            let config = HostConfig {
+                projects: vec![],
+            };
+            assert!(export_manifest(&config, "unknown").is_err());
+            assert!(run(&["export-manifest".into(), "/tmp/state.json".into()]).is_err());
+        }
+
+        #[test]
+        fn metadata_view_never_contains_item_content() {
+            use amh_core::{Change, ItemKind, ItemScope, ItemSnapshot, ManagedItem};
+
+            let mut snapshot = ItemSnapshot::default();
+            snapshot
+                .apply_change(
+                    0,
+                    Change::Add {
+                        item: ManagedItem::new(
+                            "P-01",
+                            ItemKind::Principle,
+                            ItemScope::Project,
+                            "private policy contents that must not be exported",
+                        )
+                        .unwrap(),
+                    },
+                )
+                .unwrap();
+            let manifest = StateManifest::from_snapshot("alpha", &snapshot);
+            let serialized = serde_json::to_string(&manifest).unwrap();
+            assert!(!serialized.contains("private policy contents"));
+            assert!(!serialized.contains("history"));
+            assert!(serialized.contains("informational_only"));
         }
 
         #[test]
