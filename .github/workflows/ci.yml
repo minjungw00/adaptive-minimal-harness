@@ -23,6 +23,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Run unit tests
         run: cargo test --workspace --locked
+      - name: Minimal core without signed approvals
+        run: |
+          cargo test -p amh-core --no-default-features --locked
+          cargo clippy -p amh-core --no-default-features --locked -- -D warnings
       - name: Signed approval tests
         run: cargo test --workspace --all-features --locked
       - name: Lint
