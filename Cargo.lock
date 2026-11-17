@@ -7,6 +7,8 @@ name = "amh-cli"
 version = "0.0.0"
 dependencies = [
  "amh-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
