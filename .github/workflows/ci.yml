@@ -37,6 +37,7 @@ jobs:
           cargo run -p amh-cli --locked -- --version
           cargo run -p amh-cli --locked -- state inspect --file "$RUNNER_TEMP/amh-uncreated-state.json"
           cargo run -p amh-host --locked -- --help
+          cargo run -p amh-witness --locked -- --help
           printf '%s\n' '{"format":"amh.state-manifest","project_id":"ci","snapshot_revision":0,"items":[],"authority":"informational_only"}' > "$RUNNER_TEMP/manifest.json"
           cargo run -p amh-cli --locked -- manifest inspect --file "$RUNNER_TEMP/manifest.json" | grep structurally_valid_untrusted
           printf '%s\n' '{"format":"amh.item-snapshot","format_revision":1,"snapshot":{"revision":0,"items":{},"history":[]}}' > "$RUNNER_TEMP/state.json"
