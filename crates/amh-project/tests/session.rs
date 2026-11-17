@@ -420,7 +420,7 @@ fn context_changes_require_full_review_even_when_cached_judgments_exist() {
     f.finish(p, r).unwrap();
 }
 #[test]
-fn clarification_is_a_valid_blocked_outcome_without_state_mutation() {
+fn clarification_retains_context_without_activating_a_policy() {
     let f = Fixture::new();
     f.open("a");
     let p = f.packet("a", "작업을 진행해.");
@@ -430,8 +430,12 @@ fn clarification_is_a_valid_blocked_outcome_without_state_mutation() {
     let before = fs::read(f.file("a")).unwrap();
     let o = f.finish(p, r).unwrap();
     assert_eq!(o.status, "clarification_required");
-    assert!(!o.changed);
-    assert_eq!(before, fs::read(f.file("a")).unwrap());
+    assert!(o.changed);
+    assert_ne!(before, fs::read(f.file("a")).unwrap());
+    let state = read_session(&f.0, "a").unwrap();
+    assert!(state.selected.is_empty());
+    assert_eq!(state.notes[0].origin, NoteOrigin::AgentQuestion);
+    assert_eq!(state.notes[0].source_request, "작업을 진행해.");
 }
 #[test]
 fn attached_tasks_are_information_and_multiple_tasks_do_not_imply_focus() {
@@ -775,4 +779,45 @@ fn unacknowledged_conversation_context_requires_full_review_and_full_delivery() 
     let out = f.finish(p.clone(), response(&p, &["P-A"])).unwrap();
     assert!(out.instructions.contains("## P-A"));
     assert!(out.instructions.contains("## P-ALWAYS"));
+}
+
+#[test]
+fn a_pending_question_is_available_after_context_loss_and_retires_only_explicitly() {
+    let f = Fixture::new();
+    f.open("a");
+    let p = f.packet("a", "Start some work.");
+    let mut r = response(&p, &[]);
+    r.clarification_questions
+        .push("Which file and outcome do you mean?".into());
+    f.finish(p, r).unwrap();
+    let p = prepare_turn(
+        &f.0,
+        "a",
+        "What information were you waiting for?",
+        TurnOptions::default(),
+    )
+    .unwrap();
+    let state = p.context.as_ref().unwrap();
+    let note = state
+        .notes
+        .iter()
+        .find(|n| n.origin == NoteOrigin::AgentQuestion)
+        .unwrap();
+    assert!(note.text.contains("Which file"));
+    assert!(p
+        .sources
+        .as_ref()
+        .unwrap()
+        .iter()
+        .any(|s| s.kind == "unresolved_agent_question_not_requirement"));
+    f.finish(p.clone(), response(&p, &[])).unwrap();
+    assert_eq!(read_session(&f.0, "a").unwrap().notes.len(), 1);
+    let p = f.packet("a", "Update README with a greeting example.");
+    let mut r = response(&p, &[]);
+    r.context_changes.push(NoteChange::Retire {
+        id: note.id.clone(),
+        request_quote: p.request.clone(),
+    });
+    f.finish(p, r).unwrap();
+    assert!(read_session(&f.0, "a").unwrap().notes.is_empty());
 }

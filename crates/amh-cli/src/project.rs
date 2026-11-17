@@ -413,11 +413,17 @@ fn input_json<T: serde::de::DeserializeOwned>(file: &str) -> Result<T, String> {
 }
 fn session_mutation(f: &Flags<'_>, op: amh_project::SessionOperation) -> Result<String, String> {
     let p = amh_project::plan_session(f.root(), op)?;
-    if !p.output.clarification_questions.is_empty() {
-        return Err(json(&p.output)?);
-    }
     if f.switches.contains("--apply") {
-        json(&amh_project::apply_session(f.root(), &p)?)
+        let output = amh_project::apply_session(f.root(), &p)?;
+        if !output.clarification_questions.is_empty() {
+            Err(json(&output)?)
+        } else {
+            json(&output)
+        }
+    } else if !p.output.clarification_questions.is_empty() {
+        Err(json(
+            &serde_json::json!({"status":"clarification_required","plan":p}),
+        )?)
     } else {
         json(&p)
     }

@@ -378,10 +378,13 @@ fn session_previews_apply_over_stdin_and_clarification_returns_a_structured_bloc
     assert!(!o.status.success());
     let d: Value = serde_json::from_slice(&o.stderr).unwrap();
     assert_eq!(d["status"], "clarification_required");
-    assert_eq!(
+    assert_ne!(
         before,
         fs::read(f.0.join(".amh/sessions/one/state.json")).unwrap()
     );
+    let state = f.ok(&["session", "inspect", "--id", "one"]);
+    assert_eq!(state["state"]["notes"][0]["origin"], "agent_question");
+    assert!(state["state"]["selected"].as_array().unwrap().is_empty());
 }
 #[test]
 fn session_input_refuses_unknown_commands_and_cross_session_packets() {
