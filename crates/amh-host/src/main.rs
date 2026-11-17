@@ -194,7 +194,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             for key in &project.keys {
                 if key.id.is_empty()
                     || key.id.len() > 128
-                    || !key.id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
+                    || !key.id.bytes().all(|b| {
+                        b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':')
+                    })
                     || !key_ids.insert(&key.id)
                     || !key_bytes.insert(parse_key(&key.public_key_hex)?)
                     || matches!((key.not_before, key.accept_until), (Some(start), Some(end)) if start >= end)
@@ -224,25 +226,29 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         let mut matching = None;
 
         if let Some(ref legacy_key) = project.public_key_hex {
-            let verifier = ApprovalVerifier::new(
-                project.project_id.clone(),
-                parse_key(legacy_key)?,
-            ).map_err(|_| "invalid legacy trusted verifier")?;
+            let verifier =
+                ApprovalVerifier::new(project.project_id.clone(), parse_key(legacy_key)?)
+                    .map_err(|_| "invalid legacy trusted verifier")?;
             if verifier.check(signed).is_ok() {
                 matching = Some(("legacy".to_owned(), verifier));
             }
         } else {
             for key in &project.keys {
                 if key.status != KeyStatus::Active
-                    || key.not_before.is_some_and(|start| now < start || signed.request.issued_at < start)
-                    || key.accept_until.is_some_and(|end| now >= end || signed.request.expires_at > end)
+                    || key
+                        .not_before
+                        .is_some_and(|start| now < start || signed.request.issued_at < start)
+                    || key
+                        .accept_until
+                        .is_some_and(|end| now >= end || signed.request.expires_at > end)
                 {
                     continue;
                 }
                 let verifier = ApprovalVerifier::new(
                     project.project_id.clone(),
                     parse_key(&key.public_key_hex)?,
-                ).map_err(|_| "invalid trusted verifier")?;
+                )
+                .map_err(|_| "invalid trusted verifier")?;
                 if verifier.check(signed).is_ok() {
                     if matching.is_some() {
                         return Err("ambiguous trusted signing key".into());
@@ -390,21 +396,26 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                     .map(|byte| format!("{byte:02x}"))
                     .collect::<String>()
             };
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             let request = ApprovalRequest {
                 project_id: "alpha".into(),
                 expected_revision: 0,
                 change: Change::Add {
-                    item: ManagedItem::new(
-                        "P-1", ItemKind::Principle, ItemScope::Project, "TDD"
-                    ).unwrap(),
+                    item: ManagedItem::new("P-1", ItemKind::Principle, ItemScope::Project, "TDD")
+                        .unwrap(),
                 },
                 reason: "Owner approved policy".into(),
                 issued_at: now - 1,
                 expires_at: now + 120,
             };
             let sign = |key: &SigningKey| SignedApproval {
-                signature: key.sign(&request.signing_message().unwrap()).to_bytes().to_vec(),
+                signature: key
+                    .sign(&request.signing_message().unwrap())
+                    .to_bytes()
+                    .to_vec(),
                 request: request.clone(),
             };
             let key = |id: &str, signer: &SigningKey, status| TrustedKey {
@@ -428,9 +439,13 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                     project_id: project.project_id.clone(),
                     state_file: project.state_file.clone(),
                     public_key_hex: None,
-                    keys: vec![key("old", &old, KeyStatus::Active), key("new", &next, KeyStatus::Active)],
+                    keys: vec![
+                        key("old", &old, KeyStatus::Active),
+                        key("new", &next, KeyStatus::Active)
+                    ],
                 }]
-            }).is_ok());
+            })
+            .is_ok());
             assert_eq!(select_verifier(&project, &sign(&old)).unwrap().0, "old");
             assert_eq!(select_verifier(&project, &sign(&next)).unwrap().0, "new");
             project.keys[0].status = KeyStatus::Retired;
