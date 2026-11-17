@@ -10,7 +10,7 @@ mod audit;
 
 #[cfg(target_os = "linux")]
 mod linux {
-    use crate::audit::AuditGuard;
+    use crate::audit::{AuditGuard, AuditHead};
     use amh_core::{ApprovalVerifier, SignedApproval, SnapshotStore, StateManifest};
     use serde::Deserialize;
     use std::collections::BTreeSet;
@@ -33,6 +33,7 @@ USAGE:
     amh-host apply < signed-approval.json
     amh-host export-manifest PROJECT_ID
     amh-host export-audit PROJECT_ID AFTER_SEQUENCE
+    amh-host recovery-diagnose PROJECT_ID
 
 TRUST:
     Root-owned configuration: /etc/amh/trust.json
@@ -403,6 +404,83 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .map_err(|error| format!("cannot serialize audit segment: {error}"))
     }
 
+    fn classify_recovery(
+        project_id: &str,
+        state: Option<&amh_core::ItemSnapshot>,
+        head: Option<&AuditHead>,
+    ) -> Result<&'static str, String> {
+        match (state, head) {
+            (None, None) => Ok("uninitialized"),
+            (Some(_), None) => Ok("unaudited_state"),
+            (None, Some(_)) => Ok("missing_state"),
+            (Some(state), Some(head)) => {
+                if project_id != head.project_id {
+                    return Ok("audit_project_mismatch");
+                }
+                if state.revision() < head.revision {
+                    return Ok("state_behind_audit");
+                }
+                if state.revision() > head.revision {
+                    return Ok("state_ahead_of_audit");
+                }
+                let bytes = serde_json::to_vec(state)
+                    .map_err(|error| format!("cannot encode state for diagnosis: {error}"))?;
+                if amh_audit::digest(&bytes) != head.state_digest {
+                    return Ok("state_digest_mismatch");
+                }
+                Ok("healthy")
+            }
+        }
+    }
+
+    /// Read-only classification of a protected mismatch. Never restores or
+    /// re-anchors files; no approval is inferred from a diagnostic report.
+    fn recovery_diagnose(config: &HostConfig, project_id: &str) -> Result<String, String> {
+        let project = config
+            .projects
+            .iter()
+            .find(|item| item.project_id == project_id)
+            .ok_or("unknown trusted project")?;
+        validate_state_security(&project.state_file)?;
+        validate_audit_security(&project.project_id)?;
+        let guard = AuditGuard::acquire(&audit_path(project_id))?;
+
+        let (state, state_error) = if project.state_file.exists() {
+            match SnapshotStore::new(&project.state_file).load() {
+                Ok(state) => (Some(state), None),
+                Err(_) => (None, Some("corrupt_state")),
+            }
+        } else {
+            (None, None)
+        };
+        let (head, audit_error) = match guard.checked_head() {
+            Ok(head) => (head, None),
+            Err(_) => (None, Some("corrupt_audit")),
+        };
+        let classification = if let Some(error) = audit_error {
+            error
+        } else if let Some(error) = state_error {
+            error
+        } else {
+            classify_recovery(project_id, state.as_ref(), head.as_ref())?
+        };
+        let result = serde_json::json!({
+            "project_id": project_id,
+            "classification": classification,
+            "state_revision": state.as_ref().map(amh_core::ItemSnapshot::revision),
+            "audit_revision": head.as_ref().map(|entry| entry.revision),
+            "safe_to_proceed": matches!(classification, "healthy" | "uninitialized"),
+            "recovery": "no_mutation_performed",
+            "next_step": if matches!(classification, "healthy" | "uninitialized") {
+                "No recovery action indicated by local state and audit checks"
+            } else {
+                "Freeze writes; preserve state, audit, receipts and logs; compare independent witness and trusted backup; require manual operator review"
+            }
+        });
+        serde_json::to_string_pretty(&result)
+            .map_err(|error| format!("cannot encode recovery diagnosis: {error}"))
+    }
+
     fn run(args: &[String]) -> Result<String, String> {
         match args {
             [] => Ok(HELP.to_owned()),
@@ -423,6 +501,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             }
             [arg, project_id, sequence] if arg == "export-audit" => {
                 export_audit(&load_config()?, project_id, sequence)
+            }
+            [arg, project_id] if arg == "recovery-diagnose" => {
+                recovery_diagnose(&load_config()?, project_id)
             }
             _ => Err("unsupported host command; run 'amh-host --help'".into()),
         }
@@ -636,6 +717,54 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             assert!(!serialized.contains("private policy contents"));
             assert!(!serialized.contains("history"));
             assert!(serialized.contains("informational_only"));
+        }
+
+        #[test]
+        fn recovery_classes_distinguish_rollbacks_and_interrupted_writes() {
+            use amh_core::{Change, ItemKind, ItemScope, ItemSnapshot, ManagedItem};
+
+            let mut committed = ItemSnapshot::default();
+            committed
+                .apply_change(
+                    0,
+                    Change::Add {
+                        item: ManagedItem::new(
+                            "P-ONE",
+                            ItemKind::Principle,
+                            ItemScope::Project,
+                            "Check quality",
+                        )
+                        .unwrap(),
+                    },
+                )
+                .unwrap();
+            let state_digest = amh_audit::digest(&serde_json::to_vec(&committed).unwrap());
+            let head = AuditHead {
+                project_id: "alpha".into(),
+                revision: 1,
+                state_digest,
+            };
+            assert_eq!(classify_recovery("alpha", Some(&committed), Some(&head)).unwrap(), "healthy");
+            assert_eq!(classify_recovery("alpha", None, Some(&head)).unwrap(), "missing_state");
+            assert_eq!(classify_recovery("alpha", Some(&committed), None).unwrap(), "unaudited_state");
+            assert_eq!(classify_recovery("alpha", None, None).unwrap(), "uninitialized");
+            assert_eq!(
+                classify_recovery("alpha", Some(&ItemSnapshot::default()), Some(&head)).unwrap(),
+                "state_behind_audit"
+            );
+            let mut ahead = committed.clone();
+            ahead
+                .apply_change(1, Change::Retire { id: "P-ONE".into(), item_revision: 1 })
+                .unwrap();
+            assert_eq!(classify_recovery("alpha", Some(&ahead), Some(&head)).unwrap(), "state_ahead_of_audit");
+            let bad = AuditHead {
+                state_digest: amh_audit::digest(b"mismatched"),
+                ..head
+            };
+            assert_eq!(
+                classify_recovery("alpha", Some(&committed), Some(&bad)).unwrap(),
+                "state_digest_mismatch"
+            );
         }
 
         #[test]
