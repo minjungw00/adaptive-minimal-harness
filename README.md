@@ -27,7 +27,7 @@ amh change preview --file ./state.json --proposal ./proposal.json
 amh manifest inspect --file ./state-manifest.json
 ```
 
-See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), [protected audit contract](docs/audit.md), and [trusted host limitations](docs/trusted-host.md).
+See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), [protected audit contract](docs/audit.md), [independent witness](docs/external-witness.md), [manual recovery](docs/recovery.md), and [trusted host limitations](docs/trusted-host.md).
 
 The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and authenticated approval UI are not implemented.
 
@@ -43,6 +43,7 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo run -p amh-cli --locked -- --help
 cargo run -p amh-cli --features approval-request --locked -- --help
 cargo run -p amh-host --locked -- --help
+cargo run -p amh-witness --locked -- --help
 ```
 
 Commits are separated by **one actual responsibility** and use the repository's **Conventional Commit subject format** `type: description`. Responsibility-level atomic commits are a general working principle; the message format is a repository-level convention.

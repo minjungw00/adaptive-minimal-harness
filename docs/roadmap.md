@@ -18,7 +18,9 @@
 - [x] Optional unsigned signing-request preparation for external signer interoperability.
 - [x] Operator-controlled metadata-only export with untrusted consumer inspection.
 - [x] Protected local audit journal and state rollback detection (fail-closed).
-- [ ] Independently witnessed anti-rollback, crash recovery, secure host review, platform portability, and key issuance/custody.
+- [x] Incremental audit-segment exports and an optional independently retained monotonic checkpoint.
+- [x] Read-only recovery diagnosis with explicit failure classifications.
+- [ ] Authenticated, independently witnessed audit service, tested crash recovery, secure host review, platform portability, and key issuance/custody.
 - [ ] User-facing state initialization and controlled write integration.
 
 ## Policy and task contracts

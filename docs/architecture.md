@@ -45,3 +45,9 @@ The host can export a **metadata-only, non-authoritative** view of protected sta
 ## Protected host audit witness
 
 An optional Linux host maintains a root-protected append-only hash chain outside the consumer repository. This detects a reverted protected state when the audit history remains intact and blocks subsequent writes/exports on mismatch. It does not create a globally tamper-proof log: a privileged actor capable of rewriting both files can bypass local rollback detection. State and audit are distinct file updates, so interrupted commits require manual recovery; see [audit contract](audit.md).
+
+## External witness and recovery classification
+
+The host can export contiguous audit segments without policy contents. An optional, separately administered `amh-witness` CLI maintains a monotonic checkpoint and checks project binding, prior hash, sequence and state digest continuity before advancing. A recovered or forked local journal can be detected when it is checked against a retained external checkpoint. The witness does **not** authenticate the source of new segments or run continuously.
+
+Local `recovery-diagnose` provides read-only classification of uninitialized, unaudited, missing, corrupt, behind, ahead and divergent state. No privileged write-based recovery or automatic journal reset is exposed.

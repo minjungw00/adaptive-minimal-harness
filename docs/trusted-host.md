@@ -98,3 +98,14 @@ The host requires `/var/lib/amh/audit` to exist as an independently protected, r
 The two-file state/audit update is not crash-atomic. An interrupted write will cause later `apply`, `doctor` and `export-manifest` operations to fail closed rather than guessing a repair. A retained audit record detects rollback of the state file. It does **not** detect an attacker with authority to roll back both.
 
 See [audit and recovery contract](audit.md) before deploying the host.
+
+## Optional external checkpoint operations
+
+```sh
+amh-host export-audit my-project 0
+amh-host recovery-diagnose my-project
+```
+
+`export-audit` returns up to 256 consecutive audit records after the specified revision. A separate `amh-witness` CLI can validate that segment and record its hash checkpoint on an independently administered host. The signed approval body and policy contents are not exported.
+
+`recovery-diagnose` classifies corrupted, missing, ahead, behind, and mismatched protected state without performing any repair. See [external witness](external-witness.md) and [manual recovery](recovery.md). Neither feature provides a globally authenticated audit service.

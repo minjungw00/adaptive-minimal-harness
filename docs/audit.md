@@ -70,3 +70,11 @@ Audit records are constrained to a finite maximum journal size; production rotat
 The Rust tests exercise audit genesis, consecutive revisions, replayed and reverted states, deleted audit history, corruption and truncation, partial-commit mismatch, and omission of policy text.
 
 Passing tests does not establish secure user authentication, tamper-proof external audit storage, or full OS-hardening. See [trusted host](trusted-host.md) and [external signer](external-signer.md).
+
+## Incremental external evidence and local diagnosis
+
+The protected host now exposes `amh-host export-audit PROJECT_ID AFTER_SEQUENCE`, producing at most 256 content-free, hashed audit records after the specified revision. An independently administered `amh-witness` command can validate a contiguous segment and store the resulting monotonic checkpoint on another machine. The observer can reject a reverted or forked chain **when submitted evidence is checked**; it does not authenticate the source of arbitrary forward records.
+
+For local failures, `amh-host recovery-diagnose PROJECT_ID` classifies the state/audit relationship without changing files. See [independent witness](external-witness.md) and [recovery guidance](recovery.md).
+
+The original protected audit journal remains the host's local source. External checkpoints must be held under an independent security principal and checked during incident response. They are not a replacement for proper backup retention or authenticated host attestations.
