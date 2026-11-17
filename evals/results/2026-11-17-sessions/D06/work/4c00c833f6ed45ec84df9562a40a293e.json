@@ -1,0 +1,49 @@
+{
+  "id": "4c00c833f6ed45ec84df9562a40a293e",
+  "argv": [
+    "ls",
+    "-la"
+  ],
+  "started_ns": 1794899715024773238,
+  "finished_ns": 1794899715029348213,
+  "exit_code": 0,
+  "before": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "ffe2817d7a56a35888b2e365b7c18ba190d82f6d0b07efc525e8730f3e413c27",
+      "text": "# Report workspace\nComplete `report.md` using the fictional source records in `sources.json`. There is no need for network access or real company data. The cost structure remains the primary axis; retention is supporting evidence.\n"
+    },
+    "report.md": {
+      "sha256": "e60318094701949512a5d3a747cee853d1946c9f2be2c7a90115e5662b9e6a3c",
+      "text": "# 구독 서비스 운영 검토\n\n비용 구조가 이 보고서의 핵심 분석축이다.\n\n## 비용\nTODO: 제공된 월별 비용 기록을 분석한다.\n\n## 고객 유지\nTODO: 핵심 비용 분석을 보조하는 관점으로 설명한다.\n\n## 권고\nTODO: 근거와 한계를 구분해 결론을 작성한다.\n"
+    },
+    "sources.json": {
+      "sha256": "7ffc62ed423a559911adfe112d05b2f02210317384d15ad4a62adb20589b7b21",
+      "text": "{\"notice\":\"All values are fictional fixture facts; use these local records, not real company data.\",\"period\":\"same fictional quarter\",\"monthly_costs\":{\"infrastructure\":600,\"support\":300,\"tools\":100},\"customers_at_start\":200,\"customers_retained\":160,\"qualification\":\"No causal evidence that increasing one cost item improves retention.\"}\n"
+    }
+  },
+  "after": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "ffe2817d7a56a35888b2e365b7c18ba190d82f6d0b07efc525e8730f3e413c27",
+      "text": "# Report workspace\nComplete `report.md` using the fictional source records in `sources.json`. There is no need for network access or real company data. The cost structure remains the primary axis; retention is supporting evidence.\n"
+    },
+    "report.md": {
+      "sha256": "e60318094701949512a5d3a747cee853d1946c9f2be2c7a90115e5662b9e6a3c",
+      "text": "# 구독 서비스 운영 검토\n\n비용 구조가 이 보고서의 핵심 분석축이다.\n\n## 비용\nTODO: 제공된 월별 비용 기록을 분석한다.\n\n## 고객 유지\nTODO: 핵심 비용 분석을 보조하는 관점으로 설명한다.\n\n## 권고\nTODO: 근거와 한계를 구분해 결론을 작성한다.\n"
+    },
+    "sources.json": {
+      "sha256": "7ffc62ed423a559911adfe112d05b2f02210317384d15ad4a62adb20589b7b21",
+      "text": "{\"notice\":\"All values are fictional fixture facts; use these local records, not real company data.\",\"period\":\"same fictional quarter\",\"monthly_costs\":{\"infrastructure\":600,\"support\":300,\"tools\":100},\"customers_at_start\":200,\"customers_retained\":160,\"qualification\":\"No causal evidence that increasing one cost item improves retention.\"}\n"
+    }
+  },
+  "stdin": "",
+  "stdout": "total 28\ndrwxr-xr-x 3 agent agent 4096 Nov 17 16:14 .\ndrwxr-xr-x 4 agent agent 4096 Nov 17 16:14 ..\ndrwxr-xr-x 3 agent agent 4096 Nov 17 16:14 .amh\n-rw-r--r-- 1 agent agent    0 Nov 17 16:14 .amh.lock\n-rw------- 1 agent agent 2435 Nov 17 16:14 AGENTS.md\n-rw-r--r-- 1 agent agent  231 Nov 17 13:19 README.md\n-rw-r--r-- 1 agent agent  316 Nov 17 13:19 report.md\n-rw-r--r-- 1 agent agent  337 Nov 17 13:19 sources.json\n",
+  "stderr": ""
+}

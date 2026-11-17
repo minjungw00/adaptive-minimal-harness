@@ -43,6 +43,43 @@ source digest and rendered content. Sync only targets the AGENTS.md adapter.
 Semantic conflict analysis, authenticated human approval, arbitrary adapter
 formats and live-session behavioral attestation remain outside P0.
 
+## Conversation sessions
+
+`amh.session.v1` is a project/root-bound state with an ID, revision, closed flag,
+policy catalogue fingerprint, conditional judgments and their request bindings,
+currently selected IDs, provenance-tagged notes, optional attached Tasks/focus, and
+a delivery fingerprint. Closing a conversation is not completion of its Tasks.
+One state file is authoritative; emitted instructions are derived, not another store.
+
+`amh.session-packet.v1` binds the current message, session snapshot, policy snapshot,
+focus and refresh/known-context options. Optional omitted catalogue/context bodies
+are references to material already held by the current agent, not omitted rules.
+`amh.session-analysis.v1` supplies review/reuse, reasoning and exact source quotations,
+conditional assessment changes, optional context changes and clarification questions.
+No goal, Task ID, done criteria or executable check fields are required.
+
+The source catalogue distinguishes current user messages, saved user quotes, agent
+inferences, unresolved agent questions, stored Tasks and registered policy content. Quotation binding establishes
+traceability, not semantic truth, user approval or authentic provenance. Inferred
+summaries cannot be declared verbatim user quotations. Notes are bounded to 64 and
+32 KiB including their source messages; state and packets are bounded to 1 MiB.
+Explicit retirement cites the current user message and never removes project policy.
+Clarification output is retained as agent_question context with its original request,
+without making it a user requirement or proof of actual message delivery. It remains
+unresolved until explicitly retired; unrelated successful work does not complete it.
+
+Full conditional coverage is required initially and after catalogue, focus or context
+changes, refresh, or without both matching prior state/catalogue digests. Other turns can inherit unchanged judgments, including previous
+no_match decisions, while the agent reconsiders their relevance. AMH rechecks the
+complete selected set's lifecycle, scope, mandatory uncertainty, dependencies and
+conflicts. Reuse does not certify semantic correctness or process adherence.
+
+Mutation plans bind state, source inputs and project; application recomputes the
+plan under the project lock. Session IDs cannot escape managed paths and symlink
+components are rejected. Unchanged state is not rewritten. Explicit Tasks and their
+scope IDs keep their original contracts; a matching session ID does not activate a
+Task-scoped policy. Session analyses cannot add executable checks.
+
 ## Legacy common item envelope
 
 A goal, principle, requirement, constraint, or decision may share the following identity and governance metadata:

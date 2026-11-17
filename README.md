@@ -4,11 +4,12 @@ A **local-first, model-agnostic control layer** for user-defined goals, principl
 requirements, constraints, and decisions. AMH works with existing agents; it does
 not provide an LLM, agent runner, or mandatory server.
 
-**Status: pre-alpha.** The native project workflow now connects initialization,
-policy management, agent-assisted natural-language discovery, task contracts, AGENTS.md deployment,
-and explicit verification. An [independent qualitative pilot](evals/results/2026-11-17-pilot/report.md)
-now records actual agent behavior and an unresolved saved-task continuation gap.
-Broad semantic reliability and process compliance remain unestablished. See the [P0 acceptance boundary](docs/p0.md).
+**Status: pre-alpha.** The existing agent now uses conversation sessions to
+retain relevant context and reconsider principles for each request. Simple requests
+need no Task contract or invented completion criteria. Explicit Task files remain
+available for work that needs them. Interpretation and actual compliance remain
+different evidence. See the [P0 boundary](docs/p0.md) and
+[agent integration](docs/agent-requests.md) and [multi-turn evaluation](evals/results/2026-11-17-sessions/report.md).
 
 ## Native project workflow
 
@@ -21,13 +22,14 @@ amh init --id my-project > init-plan.json
 amh apply --plan init-plan.json
 amh pack install --name development --expected-revision 0 --reason 'Use development policies' --apply
 # In an AGENTS.md-compatible agent, now describe the desired work normally.
-# The current agent handles discovery, interpretation, deployment and continuation.
+# The current agent maintains one AMH session for the conversation.
+# It reuses appropriate context and changes principles as the requests change.
 # Alternatively, explicitly use an existing Codex CLI as the interpreter:
 amh request --text 'Fix the parser bug while preserving API compatibility.' --agent codex --apply
 amh doctor
 ```
 
-The one-shot command prepares the contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`. After syncing such a file, `verify --task FILE` previews its checks and `verify --task FILE --run` executes them; verification requires that same deployed task.
+The optional one-shot command uses the explicit Task compatibility path and prepares a contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`. After syncing such a file, `verify --task FILE` previews its checks and `verify --task FILE --run` executes them; verification requires that same deployed task.
 
 Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and the
 [complete walkthrough](docs/p0.md). For chat and notes, use the optional
@@ -39,8 +41,12 @@ Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and th
   policy conditions; AMH validates complete, grounded, snapshot-bound assessments
   and applies lifecycle, scope, dependencies and declared conflicts. Uncertain
   mandatory conditions and unresolved dependencies/conflicts block compilation.
-- **Minimal context:** only selected policies and the current task contract are
-  rendered. A character budget cannot silently discard an applicable condition.
+- **Session context:** one state file per conversation; instructions travel over
+  stdout. Reuse does not rewrite state or create protocol files. Previously excluded
+  methods are reconsidered when the request changes. Sessions remain separate.
+- **Minimal context:** selected principles and relevant conditions are delivered;
+  previously delivered bodies can be reused when still available and appropriate.
+  Lost context or changed policy snapshots require renewed review.
 - **Safe updates:** reviewed plans are recomputed before application; generated
   edits and symlinks are refused. Only an identified block in an existing
   `AGENTS.md` is managed. Interrupted updates have an explicit recovery path.

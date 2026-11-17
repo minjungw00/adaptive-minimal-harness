@@ -1,0 +1,132 @@
+{
+  ".amh/sessions/S-bae672e7e223335c36189d56/state.json": {
+    "format": "amh.session.v1",
+    "id": "S-bae672e7e223335c36189d56",
+    "project_id": "workspace",
+    "root": "{RUN_ROOT}/actors/8e87b2e82e79/workspace",
+    "revision": 1,
+    "closed": false,
+    "catalog_digest": "10857f4637b9ce608b0f52ecfccf6d3da64d46f2d1218bbd8b54d49024696b21",
+    "assessments": [
+      {
+        "id": "P-ARGUMENT",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Report recommendations assess evidence, assumptions and consequences.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-ELICIT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "Completion of an existing scoped report, not requirements discovery.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-INFERENCE",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Cost and retention records support recommendations with causal limits.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-KNOWLEDGE",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Numeric report must retain provenance to local records.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-RESEARCH",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "Fictional supplied local records require no external factual verification.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-SOCRATIC",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "Report file, scope and records make the action sufficiently clear.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-TRACE",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Cost shares and retention rate require calculations against source records.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-WRITING",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Substantive drafting preserves cost as primary axis and retention as support.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "이 보고서를 완성해줘."
+          }
+        ]
+      }
+    ],
+    "assessment_bindings": {
+      "P-ARGUMENT": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-ELICIT": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-INFERENCE": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-KNOWLEDGE": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-RESEARCH": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-SOCRATIC": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-TRACE": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148",
+      "P-WRITING": "f1e1fee0d155682c4e748c13fd8fd0fdd4cf88cc03e69813571314786631f148"
+    },
+    "selected": [
+      "P-ARGUMENT",
+      "P-INFERENCE",
+      "P-KNOWLEDGE",
+      "P-TRACE",
+      "P-WRITING",
+      "R-COST",
+      "R-RETENTION"
+    ],
+    "notes": [],
+    "tasks": [],
+    "focus": null,
+    "delivery_digest": "5778909e48927681712d2e5b4a4a1d983db07eae523e1007ac60db0a6d4cecc4"
+  }
+}

@@ -1,0 +1,202 @@
+{
+  "format": "amh.qualitative-observation.v1",
+  "request": "어떤 정보를 알려주기를 기다리고 있었지?",
+  "files": {
+    "README.md": {
+      "sha256": "5eea4170ca63aa88fdfc12de53ac179b8513f518379c76e61c282c7481fecd38",
+      "bytes": 204,
+      "text": "# Greeter\nA small greeting utility.\n\n## Usage\nRun the following Python code from the project directory:\n\n```python\nfrom greeter import greet\n\nprint(greet(\"Alice\"))\n```\n\nOutput:\n\n```text\nHello, Alice!\n```\n"
+    },
+    "greeter.py": {
+      "sha256": "a55c14346b5c0e11da873793db175efd28d4840a330a5edba18d03d7d7310626",
+      "bytes": 46,
+      "text": "def greet(name):\n    return f\"Hello, {name}!\"\n"
+    }
+  },
+  "file_changes": [],
+  "amh_calls": [
+    {
+      "id": "eb3c2a6bb81d47e29b503e08d188e3df",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "--help"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902590609027468,
+      "finished_ns": 1794902590629123061,
+      "exit_code": 0,
+      "stdout_file": "audit/eb3c2a6bb81d47e29b503e08d188e3df.stdout",
+      "stderr_file": "audit/eb3c2a6bb81d47e29b503e08d188e3df.stderr"
+    },
+    {
+      "id": "89bc54438b9840c1b26704d5a53319a3",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "inspect",
+        "--id",
+        "S-75f91e0a0ef43d2f3884b567",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902595951293595,
+      "finished_ns": 1794902595974129340,
+      "exit_code": 0,
+      "stdout_file": "audit/89bc54438b9840c1b26704d5a53319a3.stdout",
+      "stderr_file": "audit/89bc54438b9840c1b26704d5a53319a3.stderr"
+    },
+    {
+      "id": "2b72a255e1984379b6f33e49c03fe8dd",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "prepare",
+        "--id",
+        "S-75f91e0a0ef43d2f3884b567",
+        "--text",
+        "어떤 정보를 알려주기를 기다리고 있었지?",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902604712189631,
+      "finished_ns": 1794902604729428497,
+      "exit_code": 0,
+      "stdout_file": "audit/2b72a255e1984379b6f33e49c03fe8dd.stdout",
+      "stderr_file": "audit/2b72a255e1984379b6f33e49c03fe8dd.stderr"
+    },
+    {
+      "id": "8861fd618d3048ff8e0268eb36383558",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "finish",
+        "--help"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902615434535946,
+      "finished_ns": 1794902615452097790,
+      "exit_code": 2,
+      "stdout_file": "audit/8861fd618d3048ff8e0268eb36383558.stdout",
+      "stderr_file": "audit/8861fd618d3048ff8e0268eb36383558.stderr"
+    },
+    {
+      "id": "86976cf9c64e407396bd6451eb693bd0",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "finish",
+        "--input",
+        "-",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902625786089520,
+      "finished_ns": 1794902625804239763,
+      "exit_code": 2,
+      "stdin_file": "86976cf9c64e407396bd6451eb693bd0.stdin",
+      "stdout_file": "audit/86976cf9c64e407396bd6451eb693bd0.stdout",
+      "stderr_file": "audit/86976cf9c64e407396bd6451eb693bd0.stderr"
+    },
+    {
+      "id": "f6488b95f5de48178a0afdade4587d8a",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "prepare",
+        "--id",
+        "S-75f91e0a0ef43d2f3884b567",
+        "--text",
+        "어떤 정보를 알려주기를 기다리고 있었지?",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902635727686994,
+      "finished_ns": 1794902635745254726,
+      "exit_code": 0,
+      "stdout_file": "audit/f6488b95f5de48178a0afdade4587d8a.stdout",
+      "stderr_file": "audit/f6488b95f5de48178a0afdade4587d8a.stderr"
+    },
+    {
+      "id": "f7a564e373f3426c91bf5428aa2c984a",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "finish",
+        "--input",
+        "-",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+        "--apply"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902648574202770,
+      "finished_ns": 1794902648604114639,
+      "exit_code": 2,
+      "stdin_file": "f7a564e373f3426c91bf5428aa2c984a.stdin",
+      "stdout_file": "audit/f7a564e373f3426c91bf5428aa2c984a.stdout",
+      "stderr_file": "audit/f7a564e373f3426c91bf5428aa2c984a.stderr"
+    },
+    {
+      "id": "f6695e9f256a4a1499a6f5210fcfd947",
+      "binary_sha256": "0fe8047daaf85c1936d3151878168a47a9fbe0ecdcbf23e5648bad3679f5c937",
+      "argv": [
+        "session",
+        "finish",
+        "--input",
+        "-",
+        "--root",
+        "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+        "--apply"
+      ],
+      "cwd": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+      "started_ns": 1794902660637754912,
+      "finished_ns": 1794902660682234079,
+      "exit_code": 0,
+      "stdin_file": "f6695e9f256a4a1499a6f5210fcfd947.stdin",
+      "stdout_file": "audit/f6695e9f256a4a1499a6f5210fcfd947.stdout",
+      "stderr_file": "audit/f6695e9f256a4a1499a6f5210fcfd947.stderr"
+    }
+  ],
+  "final_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "0fc04fc51a6503f07b536caf69b4b3f9e19c2e5cf6094d6ee30c31ad6652bc85",
+    "created_agents": true,
+    "task": {
+      "id": "WORK-1",
+      "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+      "tags": [
+        "document.revision"
+      ],
+      "classification_complete": true,
+      "done_when": [
+        "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+        "The existing greeting behavior is preserved"
+      ],
+      "allowed_paths": [
+        "README.md"
+      ],
+      "stop_when": [],
+      "outputs": [
+        "README.md"
+      ],
+      "explicit_policies": [],
+      "items": [],
+      "checks": []
+    },
+    "task_file": "{RUN_ROOT}/actors/12c18ca988e3/workspace/.amh/current-task.json",
+    "budget": null,
+    "source_digest": "4ee5b1d728ab1a5592e1197e42af4a193c819377b9c8026223c8020b0160db76"
+  },
+  "actor_note": "세션 기록상, 새 작업에 대해 어떤 파일이나 대상을 작업할지, 어떤 결과를 원하는지 알려주기를 기다리고 있었습니다.\n",
+  "actor_note_authority": "self_report_not_execution_proof",
+  "independent_outcome_checks": [],
+  "omitted_symlinks": [],
+  "semantic_verdict": null,
+  "user_message": "어떤 정보를 알려주기를 기다리고 있었지?",
+  "turn": 1,
+  "work_trace_scope": "Commands voluntarily passed through work; other session events are not fully observed or sandboxed."
+}

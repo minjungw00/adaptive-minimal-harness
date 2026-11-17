@@ -5,29 +5,84 @@ that request against AMH's policy catalogue; AMH validates the resulting decisio
 resolves dependencies/conflicts, and renders only applicable principles. Users do
 not need to supply task tags or choose policy IDs.
 
-## Existing agent: no second model process
+## Existing agent: conversation sessions
 
-After `amh init --id PROJECT --apply` and installation of any desired packs,
-AGENTS.md tells an existing compatible agent to perform the following workflow
-before substantive user work:
+After `amh init --id PROJECT --apply` and installation of desired packs,
+the AGENTS.md bridge directs the current agent to:
 
-1. Preserve the user's verbatim request in a temporary UTF-8 file.
-2. Run `amh request --request-file REQUEST.txt` and save its JSON discovery packet.
-3. As the current agent, read the conditions and produce the packet's structured
-   response. No second agent or provider is necessary.
-4. Run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`.
-5. Read `.amh/generated/AGENTS.md` and continue the original user task. Preparing
-   or deploying a contract is not completion of the actual work.
+1. Open one AMH session with `amh session open --apply` and retain its explicit
+   handle in this conversation. A new conversation does not select the project's
+   latest session or old deployed Task automatically.
+2. Obtain a packet with `amh session prepare --id ID --text TEXT`. The current
+   request, policy catalogue and typed session context inform applicability.
+3. Interpret all relevant conditions. Initially, after policy/focus/context changes,
+   with `--refresh`, or without both matching prior state/catalogue digests, provide full conditional coverage. Otherwise reuse every
+   existing judgment or provide changed assessments. Reconsider previously
+   excluded principles as well; this is semantic interpretation, not keyword filtering.
+4. Send `{ "packet": PACKET, "response": RESPONSE }` over stdin to
+   `amh session finish --input - --apply`. Read returned instructions and active/removed
+   IDs, then perform the actual requested work. No separate request/packet/response
+   files, Task ID, or completion criteria are required. The response_schema is the
+   inner response; finish expects the outer packet/response envelope. `analysis`
+   is also accepted as an alias for `response`, but not alongside it.
 
-Packet/response files are protocol details handled by the agent, not forms that
-users have to author. The adapter is an instruction integration, so the existing
-agent must read AGENTS.md and have access to the native CLI. It does not forcibly
-intercept arbitrary chats or prove that an agent followed its instructions.
+User messages and protocol values are handled by the existing agent, not user
+forms. The bridge is an instruction integration; it does not intercept arbitrary
+chats, detect every platform reset, or prove the agent followed it.
 
-Existing projects initialized by the earlier P0 implementation can run their
-original `amh init --id PROJECT [--user-root PATH] --apply` again, or sync a task.
-Only the recognized previous AMH block is upgraded; user text remains intact.
-`doctor` reports `adapter_update_available` for a recognized older bridge.
+When the prior context is still available, `--known-catalog DIGEST` and
+`--known-state DIGEST` avoid retransmitting the same catalogue/context bodies.
+Those values come from the previous packet/output. If context was lost, compacted
+or resumed with uncertain continuity, use `--refresh`; cached applicability must
+be reviewed again. Even reuse checks current policies and deterministic guards.
+It remains an agent judgment that earlier decisions fit the new request.
+
+Each conversation stores one `.amh/sessions/ID/state.json`. Instructions are emitted
+on stdout, avoiding a shared per-conversation instruction file. Unchanged reuse
+leaves the file, revision and modification time unchanged. Context changes are
+bounded; oversized content fails rather than silently truncating accepted conditions.
+Notes distinguish verbatim user quotations, agent inferences, and unresolved agent questions. A valid clarification submitted with --apply retains its context while returning clarification_required and blocking the actual work; it does not activate a new policy set. A later answer can explicitly retire the corresponding question note. Recording a returned question does not prove that a human received it. Neither the
+metadata nor the filesystem state authenticates a human approval.
+
+`amh session inspect --id ID` reads state and freshness without selecting a different
+session. `amh doctor` continues to diagnose the optional shared Task adapter;
+`uncompiled` there does not mean a session requires a Task.
+
+### Optional explicit work and verification
+
+`amh session attach --id ID --task FILE --expected-revision N --apply` registers a
+saved Task as information without selecting it. Several Tasks can be attached.
+Select one using prepare `--task-id TASK_ID` only when contextual grounds establish
+that scope; `--clear-focus` changes to an unrelated request. A single saved Task is
+not proof of current intent or unfinished status. Task-scoped policies retain Task
+identities, not session identities. Changed attached sources require explicit refresh
+through attachment before reuse.
+
+When an explicitly attached and focused Task has trusted caller-selected checks,
+`amh session verify --id ID` previews them and `--run` executes them. The record
+binds the session snapshot and checks its freshness afterwards. Natural analysis
+responses cannot inject executable checks. Execution remains ordinary local tool
+execution, not a sandbox or behavioral attestation.
+
+Closing with `amh session close --id ID --expected-revision N --apply` prevents
+further turns and does not declare all work complete. State and evidence remain.
+A reviewed `amh.session-plan.v1` from a mutation without `--apply` can be applied
+with `amh session apply --input -` or `--input FILE`; plans are recomputed and
+stale/tampered inputs are rejected. Single-file state writes are atomically replaced;
+there is no multi-file session transaction to recover. Platform/power-loss durability
+and hostile filesystem peers are not guaranteed.
+
+### Existing projects and explicit Task compatibility
+
+Run the original `amh init --id PROJECT [--user-root PATH] --apply` again to upgrade
+recognized previous AMH bridges while preserving user text. Explicit sync also
+upgrades the bridge. The first shared generated Task file is never treated as an
+implicit current conversational goal.
+
+The existing `amh request` / `amh request finish` commands remain an optional
+explicit-Task protocol. They require Task completion criteria and use the v1
+request/analysis schemas described below. They do not implement the new session
+protocol or automatically resume an existing conversation.
 
 ## One-shot interpretation with an explicitly selected agent
 
@@ -129,12 +184,15 @@ Codex argument/file protocol. Backend tests use an explicitly identified scripte
 protocol fixture, not an LLM or a measured semantic classifier. They do not prove
 live provider compatibility, selection accuracy or actual downstream compliance.
 
-## Observed continuation limitation
+## Qualitative evidence and limits
 
-The fresh-session pilot found a saved Task was not carried into the new request
-packet and the agent asked for a goal that already existed in project state. The
-work remained incomplete. The same question was appropriate in a paired case
-without a saved task. Current-task retrieval and context delivery therefore
-remain a material P0 limitation. See the [evidence and differing reviewer
-interpretations](../evals/results/2026-11-17-pilot/report.md) and the
-[qualitative evaluation procedure](../evals/README.md).
+The earlier single-turn pilot found that a saved Task was absent from a new request
+packet and the actor asked for the intended work. The old record does not establish
+that clarification was unnecessary: stored work alone does not select current intent.
+See the [corrected pilot interpretation](../evals/results/2026-11-17-pilot/report.md).
+
+The session workflow is evaluated with successive messages in the same fresh actor
+session, plus independent two-stage reviewers. AMH calls including stdin are recorded;
+commands voluntarily passed through the work recorder include before/after file
+snapshots and real stdout/stderr. This is not access to a complete provider session
+transcript. Actual process conclusions must name the observed evidence and its limits.

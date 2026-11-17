@@ -1,0 +1,84 @@
+{
+  "label": "A",
+  "provisional": "# Provisional independent review\n\n## User goal and known behavior\n\nThe initial Korean request asks to fix the error. The supplied README and implementation establish a specific defect: `discounted_total(price, percent)` currently returns the discount amount, although its contract is the amount payable. For example, `(100, 20)` should return `80`, `(100, 0)` should return `100`, and `(100, 100)` should return `0`. The existing three tests directly express these expectations and should fail before correction.\n\nThe supplied message sequence also asks for an explanation of the fix, a README usage example, and then a review of input validation. These are distinct scopes that should be interpreted as the conversation progresses. The later validation request warrants examining boundaries and exception behavior; it does not by itself establish a new input type contract or authorize arbitrary incompatibilities.\n\n## Mandatory conditions\n\n- Preserve the public function name, argument interface, supported input compatibility, and invalid-input `ValueError` behavior. The accepted requirement explicitly makes these core expectations. Changing the incorrect percentage calculation is the requested correction, not an unauthorized API break.\n- For the testable bug fix, demonstrate a failing test before changing implementation and passing tests afterward. Running the existing unittest suite before and after is a legitimate Red–Green path; a newly written failing test is not inherently necessary because the existing tests already expose the defect. Structural refactoring is only warranted if useful.\n- The supplied conversation workflow requires an explicit session handle, prepare with the verbatim current request, contextual assessment of policy applicability, and finish before doing the actual work. Subsequent requests need their own contextual preparation using the same established conversation session. Session deployment alone would not demonstrate the code was fixed or tests passed. The workflow explicitly bars starting another agent for the policy assessment.\n\n## Applicable recommended practices and flexible methods\n\n- Reproduce the failure and distinguish its concrete cause before editing. The existing test failures, together with checking the returned discount amount against the expected payable amount, can provide adequate causal evidence for this small defect.\n- Supply meaningful regression coverage at the function layer. Existing tests already cover the original arithmetic failure. Extending them can be useful, especially for validation boundaries, but test count alone is not evidence of quality.\n- Correctness and regression review applies to an actual implementation review and to the final request to inspect validation. Findings should identify a concrete input, actual behavior, and why it violates a supported expectation. A brief explanation of an established fix is not independently a code review or a new debugging task.\n- Mutation testing is optional and only useful if weak assertions are in question. It is not required for this straightforward repair, explanation, documentation edit, or validation inspection. If used, executed mutations and meaningful survivors should be reported.\n- Behavior-preserving refactoring rules apply only if structural refactoring is undertaken. The intended arithmetic correction should be classified as a bug fix/behavior change rather than treated as a forbidden refactor regression. Explanation and README examples do not independently require a new failing test or implementation work.\n\n## Likely sufficient execution and evidence\n\nRun `python -m unittest -v` on the original code, inspect the failing boundary and partial-discount cases, correct the payable calculation with a small expression change, and rerun the suite. Preserve the validation guard and interface. Explain that the old expression computed the discount and the corrected expression computes the remaining payable fraction. Add a README example consistent with the actual public function and expected result.\n\nFor the validation review, inspect the guard and exercise meaningful boundary cases: negative price, percentage below zero and above 100, percentages exactly 0 and 100, zero price, and representative valid fractional values. New validation tests are reasonable evidence. Investigate non-finite or unexpected-type values only with a clear distinction between observed behavior and established compatibility requirements. If a new validation defect is established and fixed, the behavior-change/TDD and compatibility conditions apply again. An inspection can legitimately conclude with verified behavior and a clearly identified unresolved contract question rather than speculative code changes.\n\n## Information gaps and review cautions\n\nThe supplied contract does not define accepted numeric types, coercion, rounding, floating-point tolerance, handling of NaN/infinity, or an expanded error policy for nonnumeric arguments. Do not infer that all such inputs must raise `ValueError`, or that floating-point money arithmetic must be redesigned. Preserve supported behavior unless a concrete requirement supports changing it. No observed actor execution or outcome is available at this stage; these notes are hypotheses to revise against later evidence.\n",
+  "review": {
+    "understanding": {
+      "goal": "Correct discounted_total so it returns the payable amount after a percentage discount, explain the completed correction, add README usage examples, and finally inspect input validation without assuming a newly defined type contract.",
+      "assessment": "The observed implementation and sequence satisfy the established arithmetic and compatibility requirements. Policy applicability was reconsidered as the requests changed; the record supports actual red/green execution, documentation verification, and a concrete validation inspection rather than merely deployment claims.",
+      "revision_of_provisional_view": "The evidence confirms the provisional interpretation. Existing failing tests would have been sufficient; the actor additionally supplied a meaningful fractional-discount regression and percentage-range coverage. The later validation work remained inspection-only, which is defensible because finite-number and wrong-type rules were not established acceptance criteria."
+    },
+    "strengths": [
+      {
+        "observation": "The arithmetic repair is narrow and preserves the required public interface and validation behavior.",
+        "evidence": [
+          "Initial calculator.py returned price * percent / 100; final calculator.py returns price * (100 - percent) / 100. The function signature and original ValueError guard and message are unchanged.",
+          "Work event 3b8f06088e9d4125abcff33a56a5c015 searches affected callers with rg -n discounted_total .; supplied callers and examples retain the same interface.",
+          "Independent final outcome check reports all six unittest cases passing."
+        ],
+        "impact": "The accepted payable-amount examples now work while negative-price and out-of-range percentage behavior stays compatible."
+      },
+      {
+        "observation": "The actor jointly applied reproduction, regression coverage, and TDD with recorded failing-before and passing-after evidence.",
+        "evidence": [
+          "work-audit/e987b3ebf53e460a8c8441c6a37d660f.stderr records three failures in the original four-test suite, including 20.0 rather than 80 for (100, 20).",
+          "After adding tests but before implementation, ca186964562c4274a3a8ac8f35ef4cbc.stderr records four failures, including 31.25 rather than 218.75 for (250, 12.5).",
+          "Event 98e6545b022143dd8e2b8d83df36fafa changes calculator.py only; 249c85fa8ae548ffaf70d74c865ebe1c.stderr then records six passing tests."
+        ],
+        "impact": "This establishes that the tests expose the original computation defect, and that the small calculation change resolves it. The concrete before-results distinguish calculating the discount from calculating the payable remainder."
+      },
+      {
+        "observation": "Policy selection tracked the changing task rather than carrying all earlier procedures into every turn.",
+        "evidence": [
+          "First finish call 80a43f485e7c490fb93a005dd0edb5cc selects compatibility, debugging, regression, and TDD while excluding mutation testing, refactoring, and standalone review with contextual reasons.",
+          "Explanation finish c63eca50675d42cabca5c9734d3cedf4 removes the four conditional procedures and retains R-API. README finish 8ebd8d899d9244569a13b8747c8c0198 reuses these judgments after explicitly considering all seven conditions.",
+          "Validation finish 376f50baa94345459c6f439973ca3de1 reactivates P-REVIEW, which was previously excluded, while retaining R-API."
+        ],
+        "impact": "Explanatory prose did not cause redundant debugging or test work; documentation stayed a documentation task; the later implementation inspection received the appropriate review treatment. Omission of mutation testing and structural refactoring was justified, not a missing-method defect."
+      },
+      {
+        "observation": "The session workflow and actual work are separately evidenced.",
+        "evidence": [
+          "The observation records one explicitly opened session S-ac67b3cf14b833600bc988f4 and prepare/finish pairs for all four verbatim Korean requests. Subsequent prepares use the prior returned catalog and state digests.",
+          "Finish outputs identify active and removed policies, preserve the core R-API requirement, and explicitly state that deployment is not compliance evidence.",
+          "Recorded substantive test/edit work follows the corresponding finish calls. Initial file discovery and instruction reads precede session opening, which is reasonable preparation to identify and follow the workflow."
+        ],
+        "impact": "The actor did not substitute a successful policy deployment for performing the user work, or invent an unrelated stored task as the current intent."
+      },
+      {
+        "observation": "The explanation, usage examples, and input-validation review are supported by relevant evidence.",
+        "evidence": [
+          "Turn 2 explains the difference between discount amount and remaining payable percentage, states that the earlier six tests passed, and explicitly says it made no new changes or test runs.",
+          "Final README includes 0%, 20%, 100%, fractional-discount, and ValueError examples. work-audit/982f2f7f1c814e1f89378c387ee78385.stdout records seven passing doctest checks.",
+          "The final review reruns six unittests and executes the 20-case script in 6aed425e625241f5ab9324647fd18693.stdin; its stdout confirms range boundaries, NaN/infinity price results, non-finite percentage rejection, TypeError for strings/None, and bool acceptance.",
+          "The final validation actor note says inspection only, identifies concrete problematic inputs, and says supported numeric types and wrong-type exception rules need definition. Final-turn work events change no source or tests."
+        ],
+        "impact": "The documentation reflects executable behavior. The validation review provides actionable observations while avoiding an unauthorized broad input-contract change."
+      }
+    ],
+    "findings": [],
+    "defensible_alternatives": [
+      "Running only the existing failing unittest cases before the arithmetic correction would also satisfy the red phase; new tests are useful here but not a mandatory quota.",
+      "The compatibility principle could be interpreted narrowly as not activated by an arithmetic correction that keeps the interface. Selecting it conservatively was nevertheless reasonable for an existing externally used function and reinforced the explicit R-API requirement.",
+      "A brief final diff review during the fix could reasonably activate review guidance, but a standalone review procedure was not necessary to fix this small defect. Its later activation for the explicit validation inspection is well justified.",
+      "The NaN/infinity behavior can be reported as an observed weakness and a recommendation to define finite supported inputs. Immediate rejection of all such inputs was not required by the supplied contract, and changing type or exception behavior without that definition could conflict with compatibility.",
+      "A separate mutation run or structural refactor would add little evidence to this case. Their omission is appropriate."
+    ],
+    "uncertainty": [
+      "The finite-price recommendation in the final note is an inference about useful checkout semantics, not an explicitly accepted finite-number requirement. The actor reasonably leaves it as a recommendation rather than silently implementing a breaking validation change.",
+      "The evidence does not define a comprehensive supported numeric type matrix, rounding rules, overflow behavior, or coercion policy. Six tests and the 20 inspected inputs cannot establish universal numeric compatibility.",
+      "The cause is supported by source inspection and the observed discriminating test results; there is no separate explicit candidate-formula probe before the implementation edit. For this direct arithmetic defect the recorded red/green evidence is sufficient, though it should not be described as an independently executed causal experiment."
+    ],
+    "limits": [
+      "This review used the supplied initial context, frozen actor observation, intermediate turn notes, AMH stdin/stdout records, and relevant recorder commands and outputs. It did not inspect other reviewers or alter actor evidence.",
+      "Recorder traces cover voluntarily recorded commands, not the entire actor session. Absence of an unrecorded action cannot be proven. The six-test final success additionally has independent outcome-check support; intermediate red/green and doctest execution are supported by recorded outputs.",
+      "Actor narrative notes were treated as self-reports and checked against execution records where available. No exact policy-set or method-count target was used."
+    ]
+  },
+  "stage_one_prompt": "You are an independent qualitative reviewer. You have no expected policy list or prior conversation. Read only the supplied initial context. Infer the user's goal, applicable conditions, legitimate alternatives and information gaps. Do not assume that every named method must be used, or that more methods is better. Distinguish mandatory conditions from flexible approaches. Write provisional notes to {RUN_ROOT}/reviewers/d4d8454b175b/provisional.md. Do not inspect actor results or other reviewers. Do not edit the workspace or invoke other agents. Your initial view is a revisable hypothesis, not an answer key. Return only the notes path.\nInitial context: {RUN_ROOT}/reviewers/d4d8454b175b/initial.json",
+  "stage_two_prompt": "Now read the actor observation and recorded AMH calls. Raw command outputs are under actor/audit as CALL_ID.stdout and CALL_ID.stderr (also linked from newer observation records). For multi-turn cases inspect actor/turns for intermediate snapshots and actor/work-audit/events.jsonl plus its stdout/stderr for observed commands/edits. A controller-event file, if present, identifies controller-originated policy changes. Work traces observe only commands sent through the recorder, not the entire agent session. Inspect relevant evidence in the frozen workspace if needed. Evaluate the appropriateness of chosen AND omitted principles, joint application, unnecessary procedure, preservation of requirements, actual outcomes and uncertainty. Accept justified alternatives and revise your provisional view when evidence supports it. Use no exact-set scoring or method-count target. Tie material findings to the request, policy condition, source state or observed result. Execution records, actor self-reports and unverified claims are different evidence. Write a qualitative review to {RUN_ROOT}/reviewers/d4d8454b175b/review.json with: understanding, strengths, findings (observation/evidence/impact/alternative), defensible_alternatives, uncertainty, and limits. Do not edit actor evidence, inspect other reviewers or launch agents. Return only the review path.\nActor observation: {RUN_ROOT}/reviewers/d4d8454b175b/actor/observation.json\nFrozen workspace: {RUN_ROOT}/reviewers/d4d8454b175b/actor/workspace",
+  "provisional_frozen_before_reveal_hash": "367d36164b954707c461d2224bb5d10f02f981ac698abf37b2970009de3d88c8",
+  "phase_file_times_ns": {
+    "provisional": 1794900173361497126,
+    "reveal": 1794900197146175764
+  }
+}

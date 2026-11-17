@@ -1,0 +1,46 @@
+{
+  "id": "D01",
+  "fixture": "discount",
+  "request": "이 오류를 고쳐줘.",
+  "family": "single_action_multiple_methods",
+  "review_note": "Assess what work the environment implies, not how many methods were named.",
+  "packs": [
+    "development"
+  ],
+  "policies": [
+    {
+      "owner": "user",
+      "source": "Accepted project requirement",
+      "priority": 0,
+      "item": {
+        "id": "R-API",
+        "kind": "requirement",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior.",
+        "details": {
+          "type": "requirement",
+          "role": "core",
+          "acceptance_criteria": [
+            "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
+          ]
+        }
+      }
+    }
+  ],
+  "checks": [
+    [
+      "{python}",
+      "-m",
+      "unittest",
+      "-v"
+    ]
+  ],
+  "turns": [
+    "이 오류를 고쳐줘.",
+    "수정 이유를 설명해줘.",
+    "README에 사용 예시를 추가해줘.",
+    "이제 이 함수의 입력 검증도 점검해줘."
+  ]
+}

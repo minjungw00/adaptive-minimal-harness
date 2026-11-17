@@ -1,0 +1,42 @@
+{
+  "id": "1ca9caad999d4c9287fd1a6b04271729",
+  "argv": [
+    "python3",
+    "-B",
+    "-"
+  ],
+  "started_ns": 1794899828368454103,
+  "finished_ns": 1794899828392969424,
+  "exit_code": 0,
+  "before": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "0d29b2c891b123bdf38ed6707607b154d82b94d499f7d0dcc7f4b2f578c6581c",
+      "text": "# Greeter\nA small greeting utility.\n\n## Usage\nTODO\n"
+    },
+    "greeter.py": {
+      "sha256": "a55c14346b5c0e11da873793db175efd28d4840a330a5edba18d03d7d7310626",
+      "text": "def greet(name):\n    return f\"Hello, {name}!\"\n"
+    }
+  },
+  "after": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "5eea4170ca63aa88fdfc12de53ac179b8513f518379c76e61c282c7481fecd38",
+      "text": "# Greeter\nA small greeting utility.\n\n## Usage\nRun the following Python code from the project directory:\n\n```python\nfrom greeter import greet\n\nprint(greet(\"Alice\"))\n```\n\nOutput:\n\n```text\nHello, Alice!\n```\n"
+    },
+    "greeter.py": {
+      "sha256": "a55c14346b5c0e11da873793db175efd28d4840a330a5edba18d03d7d7310626",
+      "text": "def greet(name):\n    return f\"Hello, {name}!\"\n"
+    }
+  },
+  "stdin": "from pathlib import Path\nfrom contextlib import redirect_stdout\nfrom io import StringIO\n\nreadme = Path('README.md')\ngreeter = Path('greeter.py')\noriginal_function = greeter.read_bytes()\noriginal_readme = readme.read_text()\nusage = '''Run the following Python code from the project directory:\n\n```python\nfrom greeter import greet\n\nprint(greet(\"Alice\"))\n```\n\nOutput:\n\n```text\nHello, Alice!\n```\n'''\nassert original_readme.count('TODO') == 1, 'Expected one usage placeholder'\nreadme.write_text(original_readme.replace('TODO\\n', usage))\nupdated_readme = readme.read_text()\nexample = updated_readme.split('```python\\n', 1)[1].split('```', 1)[0]\nexpected_output = updated_readme.split('```text\\n', 1)[1].split('```', 1)[0]\noutput = StringIO()\nwith redirect_stdout(output):\n    exec(compile(example, 'README.md usage example', 'exec'), {})\nassert output.getvalue() == expected_output\nassert greeter.read_bytes() == original_function\nassert updated_readme.startswith('# Greeter\\nA small greeting utility.\\n\\n## Usage\\n')\nassert 'TODO' not in updated_readme\nprint(updated_readme)\nprint('Checks passed: README example output matches; greeter.py is byte-for-byte unchanged; existing title and description retained.')\n",
+  "stdout": "# Greeter\nA small greeting utility.\n\n## Usage\nRun the following Python code from the project directory:\n\n```python\nfrom greeter import greet\n\nprint(greet(\"Alice\"))\n```\n\nOutput:\n\n```text\nHello, Alice!\n```\n\nChecks passed: README example output matches; greeter.py is byte-for-byte unchanged; existing title and description retained.\n",
+  "stderr": ""
+}

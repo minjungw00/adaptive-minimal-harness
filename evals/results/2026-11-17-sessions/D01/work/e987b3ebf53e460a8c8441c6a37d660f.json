@@ -1,0 +1,51 @@
+{
+  "id": "e987b3ebf53e460a8c8441c6a37d660f",
+  "argv": [
+    "python",
+    "-m",
+    "unittest",
+    "-v"
+  ],
+  "started_ns": 1794899721203128879,
+  "finished_ns": 1794899721274563664,
+  "exit_code": 1,
+  "before": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "faca59d23e0962acd60359d22d14c725ab16f1e41a1284dabc899621c5dd6d95",
+      "text": "# Checkout calculation\nThe checkout total is wrong for percentage discounts. `discounted_total(price, percent)` is used by existing callers. Inputs and ValueError behavior are public expectations. Run `python -m unittest -v` to inspect current behavior.\n"
+    },
+    "calculator.py": {
+      "sha256": "dabdb477f7d640021722a245e6b2edcbd39e2abc38b37cfeddf8665ef59f8231",
+      "text": "def discounted_total(price, percent):\n    \"\"\"Return the amount payable after a percentage discount.\"\"\"\n    if price < 0 or not 0 <= percent <= 100:\n        raise ValueError(\"invalid input\")\n    return price * percent / 100\n"
+    },
+    "test_calculator.py": {
+      "sha256": "a9b3d9af2ba3b57d17c6be8b51342fb9182bc8350dc10a7c9c810e9653ff4c7d",
+      "text": "import unittest\nfrom calculator import discounted_total\n\nclass CalculatorTests(unittest.TestCase):\n    def test_no_discount(self): self.assertEqual(discounted_total(100, 0), 100)\n    def test_partial_discount(self): self.assertEqual(discounted_total(100, 20), 80)\n    def test_full_discount(self): self.assertEqual(discounted_total(100, 100), 0)\n    def test_invalid(self):\n        with self.assertRaises(ValueError): discounted_total(-1, 20)\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "after": {
+    "AGENTS.md": {
+      "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+      "text": "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n"
+    },
+    "README.md": {
+      "sha256": "faca59d23e0962acd60359d22d14c725ab16f1e41a1284dabc899621c5dd6d95",
+      "text": "# Checkout calculation\nThe checkout total is wrong for percentage discounts. `discounted_total(price, percent)` is used by existing callers. Inputs and ValueError behavior are public expectations. Run `python -m unittest -v` to inspect current behavior.\n"
+    },
+    "calculator.py": {
+      "sha256": "dabdb477f7d640021722a245e6b2edcbd39e2abc38b37cfeddf8665ef59f8231",
+      "text": "def discounted_total(price, percent):\n    \"\"\"Return the amount payable after a percentage discount.\"\"\"\n    if price < 0 or not 0 <= percent <= 100:\n        raise ValueError(\"invalid input\")\n    return price * percent / 100\n"
+    },
+    "test_calculator.py": {
+      "sha256": "a9b3d9af2ba3b57d17c6be8b51342fb9182bc8350dc10a7c9c810e9653ff4c7d",
+      "text": "import unittest\nfrom calculator import discounted_total\n\nclass CalculatorTests(unittest.TestCase):\n    def test_no_discount(self): self.assertEqual(discounted_total(100, 0), 100)\n    def test_partial_discount(self): self.assertEqual(discounted_total(100, 20), 80)\n    def test_full_discount(self): self.assertEqual(discounted_total(100, 100), 0)\n    def test_invalid(self):\n        with self.assertRaises(ValueError): discounted_total(-1, 20)\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "stdin": "",
+  "stdout": "",
+  "stderr": "test_full_discount (test_calculator.CalculatorTests.test_full_discount) ... FAIL\ntest_invalid (test_calculator.CalculatorTests.test_invalid) ... ok\ntest_no_discount (test_calculator.CalculatorTests.test_no_discount) ... FAIL\ntest_partial_discount (test_calculator.CalculatorTests.test_partial_discount) ... FAIL\n\n======================================================================\nFAIL: test_full_discount (test_calculator.CalculatorTests.test_full_discount)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"{RUN_ROOT}/actors/c468b70d7198/workspace/test_calculator.py\", line 7, in test_full_discount\n    def test_full_discount(self): self.assertEqual(discounted_total(100, 100), 0)\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 100.0 != 0\n\n======================================================================\nFAIL: test_no_discount (test_calculator.CalculatorTests.test_no_discount)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"{RUN_ROOT}/actors/c468b70d7198/workspace/test_calculator.py\", line 5, in test_no_discount\n    def test_no_discount(self): self.assertEqual(discounted_total(100, 0), 100)\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 0.0 != 100\n\n======================================================================\nFAIL: test_partial_discount (test_calculator.CalculatorTests.test_partial_discount)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"{RUN_ROOT}/actors/c468b70d7198/workspace/test_calculator.py\", line 6, in test_partial_discount\n    def test_partial_discount(self): self.assertEqual(discounted_total(100, 20), 80)\n                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 20.0 != 80\n\n----------------------------------------------------------------------\nRan 4 tests in 0.001s\n\nFAILED (failures=3)\n"
+}

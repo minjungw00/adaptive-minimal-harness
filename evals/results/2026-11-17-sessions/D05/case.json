@@ -1,0 +1,65 @@
+{
+  "id": "D05",
+  "fixture": "proofread",
+  "request": "매출 비교 보고서의 어색한 문장만 교정해줘.",
+  "family": "exclusion_and_keywords",
+  "review_note": "Review scope preservation and unnecessary method loading.",
+  "packs": [
+    "development",
+    "inquiry"
+  ],
+  "policies": [
+    {
+      "owner": "user",
+      "source": "User-approved project policy",
+      "priority": 0,
+      "relations": {
+        "conflicts_with": []
+      },
+      "applicability": "When comparing company performance using numeric evidence. Exclude translation and proofreading that preserve facts and analysis.",
+      "item": {
+        "id": "P-COMPARABLE",
+        "kind": "principle",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Compare compatible periods, definitions and denominators, and disclose missing values.",
+        "details": {
+          "type": "principle",
+          "strength": "must",
+          "activation": {
+            "mode": "always"
+          },
+          "verification": [
+            "Provide evidence appropriate to the work"
+          ]
+        }
+      }
+    },
+    {
+      "owner": "user",
+      "source": "Accepted project requirement",
+      "priority": 0,
+      "item": {
+        "id": "R-PRESERVE",
+        "kind": "requirement",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Preserve all accepted numeric values and analytical conclusions in report.md.",
+        "details": {
+          "type": "requirement",
+          "role": "core",
+          "acceptance_criteria": [
+            "Preserve all accepted numeric values and analytical conclusions in report.md."
+          ]
+        }
+      }
+    }
+  ],
+  "turns": [
+    "매출 비교 보고서의 어색한 문장만 교정해줘.",
+    "이제 이 수치의 비교가 타당한지도 검토해줘.",
+    "검토 내용을 반영하되 새 분석은 추가하지 말고 문장만 다듬어줘."
+  ]
+}

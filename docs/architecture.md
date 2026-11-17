@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** The local P0 project workflow is implemented; advanced evaluation and integration sections remain design. Planning documents have no product release version.
+**Status:** Native project and conversation-session workflows are implemented; broad behavioral reliability remains under evaluation. Planning documents have no product release version.
 
 AMH is a local-first control layer built around existing agents. It is not an LLM, mandatory server, hosted control plane, or general-purpose multi-agent runner.
 
@@ -12,7 +12,7 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 1. **Item Store (implemented):** current authoritative items, type-specific validation, explicit changes, revision checks.
 2. **Policy Resolver (agent-assisted discovery plus deterministic guards implemented):** applicability, authority, exception and conflict diagnostics.
-3. **Task Contract (implemented):** goal, completion criteria, allowed scope, stop conditions, output and verification requirements as necessary.
+3. **Conversation Context (implemented):** one versioned state per conversation, source-tagged context, request-specific policy judgments and reuse. Explicit Task contracts are optional for goals, completion criteria, scope and checks.
 4. **Context Compiler (implemented):** minimal target-neutral execution contract, with traceable references to selected items.
 5. **Agent Adapters (AGENTS.md implemented):** target-native instruction/skill files; optional integrations and no required always-on process.
 6. **Reconciler (managed files and source drift implemented):** distinguish desired, rendered, deployed, and observed states. A paused policy may remain in a deployed file or live session.
@@ -61,3 +61,19 @@ with the validated generated instructions. One-shot stdio and Codex CLI adapters
 are explicit optional interpreter integrations, not a mandatory new runner.
 AMH checks snapshot binding, candidate coverage, quotations, uncertainty and
 structural conflicts; it does not claim that a model judgment is semantic proof.
+
+## Conversation state and delivery
+
+The default bridge retains an explicit session handle, obtains a current policy/context
+snapshot, and lets the current agent reconsider applicability for each request.
+No required Task or invented completion criteria are introduced for simple messages.
+One atomic session state file stores useful changes; unchanged reuse does not write.
+Instructions and changes are emitted over stdout, so concurrent sessions do not
+replace a common generated instruction file. The shared Task adapter remains an
+opt-in compatibility path and is not another conversation's current intent.
+
+Version/source guards and deterministic policy constraints apply to both paths.
+Semantic reuse, context summaries and interpreted applicability remain model judgments.
+A refresh re-delivers current instructions; it does not prove old text disappeared
+from an agent's memory. Provider session IDs, logs and reset signals are used only
+when a supported environment supplies them; no universal discovery is claimed.
