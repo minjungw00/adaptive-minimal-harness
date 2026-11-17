@@ -464,7 +464,12 @@ mod tests {
         let fixture = TemporaryStore::new();
         fixture
             .store
-            .apply_change(0, Change::Add { item: item("P-ONE") })
+            .apply_change(
+                0,
+                Change::Add {
+                    item: item("P-ONE"),
+                },
+            )
             .unwrap();
         let state_mode = fs::metadata(fixture.store.path())
             .unwrap()

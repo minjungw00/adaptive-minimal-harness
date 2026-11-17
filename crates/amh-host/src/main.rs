@@ -63,12 +63,16 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
     fn validate_state_path(path: &Path) -> Result<(), String> {
         if !path.is_absolute()
-            || path.components().any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+            || path
+                .components()
+                .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
             || !path.starts_with(STATE_ROOT)
             || path.parent() == Some(Path::new(STATE_ROOT))
             || path.file_name().and_then(|name| name.to_str()) != Some("state.json")
         {
-            return Err("untrusted state path (must be /var/lib/amh/projects/<project>/state.json)".into());
+            return Err(
+                "untrusted state path (must be /var/lib/amh/projects/<project>/state.json)".into(),
+            );
         }
         Ok(())
     }
@@ -77,7 +81,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
     /// group/other-writable. An absent final state/lock file is permitted.
     fn check_protected_path(path: &Path, absent_final_ok: bool) -> Result<(), String> {
         if !path.is_absolute()
-            || path.components().any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+            || path
+                .components()
+                .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
         {
             return Err("protected path must be absolute without dot components".into());
         }
@@ -91,13 +97,24 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 {
                     return Ok(());
                 }
-                Err(error) => return Err(format!("protected path inaccessible: {} ({error})", component.display())),
+                Err(error) => {
+                    return Err(format!(
+                        "protected path inaccessible: {} ({error})",
+                        component.display()
+                    ))
+                }
             };
             if meta.file_type().is_symlink() || meta.uid() != 0 || meta.mode() & 0o022 != 0 {
-                return Err(format!("unsafe ownership/permissions/symlink: {}", component.display()));
+                return Err(format!(
+                    "unsafe ownership/permissions/symlink: {}",
+                    component.display()
+                ));
             }
             if (is_leaf && !meta.is_file()) || (!is_leaf && !meta.is_dir()) {
-                return Err(format!("incorrect protected path type: {}", component.display()));
+                return Err(format!(
+                    "incorrect protected path type: {}",
+                    component.display()
+                ));
             }
         }
         Ok(())
@@ -121,7 +138,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             let id = &project.project_id;
             if id.is_empty()
                 || id.len() > 128
-                || !id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
+                || !id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
             {
                 return Err("invalid trusted project ID".into());
             }
@@ -157,10 +176,12 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         if input.len() as u64 > MAX_RECEIPT_BYTES {
             return Err("signed receipt exceeds size limit".into());
         }
-        let signed: SignedApproval = serde_json::from_slice(&input)
-            .map_err(|e| format!("invalid signed receipt: {e}"))?;
+        let signed: SignedApproval =
+            serde_json::from_slice(&input).map_err(|e| format!("invalid signed receipt: {e}"))?;
 
-        let project = config.projects.iter()
+        let project = config
+            .projects
+            .iter()
             .find(|p| p.project_id == signed.request.project_id)
             .ok_or("no trusted project matches signed receipt")?;
 
@@ -191,7 +212,10 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 for project in &config.projects {
                     validate_state_security(&project.state_file)?;
                 }
-                Ok(format!("Protected configuration valid for {} project(s). No state changed.", config.projects.len()))
+                Ok(format!(
+                    "Protected configuration valid for {} project(s). No state changed.",
+                    config.projects.len()
+                ))
             }
             [arg] if arg == "apply" => apply(&load_config()?),
             _ => Err("unsupported host command; run 'amh-host --help'".into()),
@@ -201,8 +225,14 @@ The host does NOT sign approvals; an external authenticated signer is needed.
     pub(super) fn main() -> ExitCode {
         let args: Vec<String> = std::env::args().skip(1).collect();
         match run(&args) {
-            Ok(output) => { println!("{output}"); ExitCode::SUCCESS }
-            Err(error) => { eprintln!("{error}"); ExitCode::from(2) }
+            Ok(output) => {
+                println!("{output}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("{error}");
+                ExitCode::from(2)
+            }
         }
     }
 
@@ -221,7 +251,10 @@ The host does NOT sign approvals; an external authenticated signer is needed.
         fn state_path_must_be_within_protected_host_tree() {
             assert!(validate_state_path(Path::new("/var/lib/amh/projects/one/state.json")).is_ok());
             assert!(validate_state_path(Path::new("/tmp/agent/state.json")).is_err());
-            assert!(validate_state_path(Path::new("/var/lib/amh/projects/../escape/state.json")).is_err());
+            assert!(
+                validate_state_path(Path::new("/var/lib/amh/projects/../escape/state.json"))
+                    .is_err()
+            );
             assert!(validate_state_path(Path::new("relative/state.json")).is_err());
         }
 
@@ -232,7 +265,10 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 state_file: PathBuf::from("/var/lib/amh/projects/alpha/state.json"),
                 public_key_hex: "11".repeat(32),
             };
-            assert!(validate_config(&HostConfig { projects: vec![make(), make()] }).is_err());
+            assert!(validate_config(&HostConfig {
+                projects: vec![make(), make()]
+            })
+            .is_err());
         }
 
         #[test]
@@ -242,13 +278,17 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
         #[test]
         fn world_writable_paths_fail_closed() {
-            assert!(check_protected_path(Path::new("/tmp/amh-test-protected-state"), true).is_err());
+            assert!(
+                check_protected_path(Path::new("/tmp/amh-test-protected-state"), true).is_err()
+            );
         }
     }
 }
 
 #[cfg(target_os = "linux")]
-fn main() -> std::process::ExitCode { linux::main() }
+fn main() -> std::process::ExitCode {
+    linux::main()
+}
 
 #[cfg(not(target_os = "linux"))]
 fn main() -> std::process::ExitCode {
