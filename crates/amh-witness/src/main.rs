@@ -239,11 +239,11 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use amh_audit::{
         body_hash, digest, AuditBody, AuditEntry, CHAIN_FORMAT, CHAIN_FORMAT_REVISION,
         SEGMENT_FORMAT,
     };
+    use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
