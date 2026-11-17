@@ -119,7 +119,7 @@ impl AuditGuard {
 
         let mut entries = Vec::new();
         let mut previous_hash: Option<String> = None;
-        for line in bytes.split_terminator(|byte| *byte == b'\n') {
+        for line in bytes[..bytes.len() - 1].split(|byte| *byte == b'\n') {
             if line.is_empty() {
                 return Err("audit chain contains an empty record".into());
             }
