@@ -101,8 +101,8 @@ impl AuditGuard {
         if metadata.len() > MAX_JOURNAL_BYTES {
             return Err("audit chain exceeds size limit; operator maintenance required".into());
         }
-        let file = File::open(&self.path)
-            .map_err(|error| format!("cannot read audit chain: {error}"))?;
+        let file =
+            File::open(&self.path).map_err(|error| format!("cannot read audit chain: {error}"))?;
         let mut bytes = Vec::new();
         file.take(MAX_JOURNAL_BYTES + 1)
             .read_to_end(&mut bytes)
@@ -142,7 +142,9 @@ impl AuditGuard {
                 || body.after_state_digest.len() != 64
                 || entry.hash != body_hash(body)?
             {
-                return Err(format!("audit chain integrity check failed at entry {expected}"));
+                return Err(format!(
+                    "audit chain integrity check failed at entry {expected}"
+                ));
             }
             if expected == 1 {
                 if body.before_revision != 0 || body.before_state_digest.is_some() {
@@ -175,8 +177,7 @@ impl AuditGuard {
         match (entries.last(), state) {
             (None, None) => Ok(0),
             (None, Some(_)) => Err(
-                "existing state lacks an audit anchor; explicit operator migration required"
-                    .into(),
+                "existing state lacks an audit anchor; explicit operator migration required".into(),
             ),
             (Some(_), None) => Err("protected state is missing but audit history exists".into()),
             (Some(head), Some(state)) => {
@@ -285,8 +286,12 @@ mod tests {
         let mut state = ItemSnapshot::default();
         let change = Change::Add {
             item: ManagedItem::new(
-                "P-PRIVATE", ItemKind::Principle, ItemScope::Project, "secret content"
-            ).unwrap(),
+                "P-PRIVATE",
+                ItemKind::Principle,
+                ItemScope::Project,
+                "secret content",
+            )
+            .unwrap(),
         };
         state.apply_change(0, change.clone()).unwrap();
         let receipt = SignedApproval {
@@ -309,7 +314,9 @@ mod tests {
         let guard = fixture.guard();
         let (state, receipt) = event();
         assert_eq!(guard.verify_state("alpha", None).unwrap(), 0);
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
         assert_eq!(guard.verify_state("alpha", Some(&state)).unwrap(), 1);
         let raw = fs::read_to_string(fixture.dir.join("audit.jsonl")).unwrap();
         assert!(!raw.contains("secret content"));
@@ -322,7 +329,9 @@ mod tests {
         let fixture = Fixture::new();
         let guard = fixture.guard();
         let (state, receipt) = event();
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
         let rolled_back = ItemSnapshot::default();
         assert!(guard.verify_state("alpha", Some(&rolled_back)).is_err());
         assert!(guard.verify_state("alpha", None).is_err());
@@ -335,7 +344,9 @@ mod tests {
         let guard = fixture.guard();
         let (state, receipt) = event();
         assert!(guard.verify_state("alpha", Some(&state)).is_err());
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
         let path = fixture.dir.join("audit.jsonl");
         fs::write(&path, b"corrupted audit entry\n").unwrap();
         assert!(guard.verify_state("alpha", Some(&state)).is_err());
@@ -346,9 +357,15 @@ mod tests {
         let fixture = Fixture::new();
         let guard = fixture.guard();
         let (state, receipt) = event();
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
-        assert!(guard.append_approved("alpha", None, &state, &receipt, "primary").is_err());
-        assert!(guard.append_approved("alpha", Some(&state), &state, &receipt, "primary").is_err());
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
+        assert!(guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .is_err());
+        assert!(guard
+            .append_approved("alpha", Some(&state), &state, &receipt, "primary")
+            .is_err());
     }
 
     #[test]
@@ -356,9 +373,19 @@ mod tests {
         let fixture = Fixture::new();
         let guard = fixture.guard();
         let (state, receipt) = event();
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
         let mut newer = state.clone();
-        newer.apply_change(1, Change::Retire { id: "P-PRIVATE".into(), item_revision: 1 }).unwrap();
+        newer
+            .apply_change(
+                1,
+                Change::Retire {
+                    id: "P-PRIVATE".into(),
+                    item_revision: 1,
+                },
+            )
+            .unwrap();
         assert!(guard.verify_state("alpha", Some(&newer)).is_err());
     }
 
@@ -413,7 +440,9 @@ mod tests {
         let fixture = Fixture::new();
         let guard = fixture.guard();
         let (state, receipt) = event();
-        guard.append_approved("alpha", None, &state, &receipt, "primary").unwrap();
+        guard
+            .append_approved("alpha", None, &state, &receipt, "primary")
+            .unwrap();
         let path = fixture.dir.join("audit.jsonl");
         let mut contents = fs::read(&path).unwrap();
         contents.pop();

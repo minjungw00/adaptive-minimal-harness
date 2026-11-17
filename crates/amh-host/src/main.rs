@@ -179,7 +179,10 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             check_protected_path(&item, true)?;
             if let Ok(metadata) = fs::symlink_metadata(&item) {
                 if metadata.mode() & 0o077 != 0 {
-                    return Err(format!("audit file or lock is not private: {}", item.display()));
+                    return Err(format!(
+                        "audit file or lock is not private: {}",
+                        item.display()
+                    ));
                 }
             }
         }
@@ -188,13 +191,18 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
     /// The journal lock protects verification, write, and audit append as
     /// one cooperating-host operation. Crash recovery remains fail-closed.
-    fn audited_state(project: &TrustedProject) -> Result<(AuditGuard, Option<amh_core::ItemSnapshot>), String> {
+    fn audited_state(
+        project: &TrustedProject,
+    ) -> Result<(AuditGuard, Option<amh_core::ItemSnapshot>), String> {
         validate_state_security(&project.state_file)?;
         validate_audit_security(&project.project_id)?;
         let guard = AuditGuard::acquire(&audit_path(&project.project_id))?;
         let state = if project.state_file.exists() {
-            Some(SnapshotStore::new(&project.state_file).load()
-                .map_err(|e| format!("invalid protected state: {e:?}"))?)
+            Some(
+                SnapshotStore::new(&project.state_file)
+                    .load()
+                    .map_err(|e| format!("invalid protected state: {e:?}"))?,
+            )
         } else {
             None
         };
@@ -367,8 +375,7 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .find(|item| item.project_id == project_id)
             .ok_or("unknown trusted project")?;
         let (_audit, state) = audited_state(project)?;
-        let state = state
-            .ok_or("protected state is not initialized; no manifest was exported")?;
+        let state = state.ok_or("protected state is not initialized; no manifest was exported")?;
         let manifest = StateManifest::from_snapshot(project_id, &state);
         serde_json::to_string_pretty(&manifest)
             .map_err(|error| format!("cannot encode state manifest: {error}"))
