@@ -1,6 +1,6 @@
 # Local snapshot persistence
 
-**Status:** Implemented as a Rust library API; the consumer CLI is not yet wired to it.
+**Scope:** This document describes the legacy JSON `SnapshotStore` used by protected-state inspection and the optional host. The ordinary native project workflow instead uses the canonical TOML registry and recoverable update contract documented in [P0](p0.md).
 
 ## Scope and file format
 
@@ -8,13 +8,13 @@
 
 The document contains `format: "amh.item-snapshot"`, `format_revision: 1`, and `snapshot`. The numeric format revision is a **storage compatibility discriminator, not a planning or product release version**. The JSON format is an implementation detail and is **not** the full planned common item JSON contract.
 
-The underlying Rust types are `ManagedItem`, `Change`, `RecordedChange`, and `ItemSnapshot`. Public operations are `SnapshotStore::new`, `load`, and `apply_change`. `ItemSnapshot::replay` reconstructs the in-memory state from the recorded event sequence.
+The underlying Rust types are `ManagedItem`, `Change`, `RecordedChange`, and `ItemSnapshot`. Public operations are `SnapshotStore::new`, `load`, and (with `signed-approvals`) `apply_signed`. Unsigned `apply_change` is test-only. `ItemSnapshot::replay` reconstructs the in-memory state from the recorded event sequence.
 
 ## State transitions
 
 Available: ADD, content MODIFY, explicit compatible REPLACE, ACTIVATE, PAUSE, REACTIVATE, RETIRE, and SET_DETAILS for explicit type-specific updates. When provided, kind-specific item details are structurally validated; historical records without details remain readable.
 
-Not available: field-level arbitrary patching, REMOVE, REPRIORITIZE, typed goal/requirement acceptance criteria, policy-resolution semantics, trusted authorization.
+Not available in this legacy store: field-level arbitrary patching, REMOVE, REPRIORITIZE, policy-resolution semantics or end-to-end trusted authorization. Optional typed goal/requirement acceptance criteria are structurally validated.
 
 Each successful operation increments the **snapshot revision**; changing an existing item also increments its own item revision. Failed changes leave in-memory state and on-disk state unchanged if failure occurs before replacement.
 

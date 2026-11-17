@@ -21,19 +21,35 @@
 - [x] Incremental audit-segment exports and an optional independently retained monotonic checkpoint.
 - [x] Read-only recovery diagnosis with explicit failure classifications.
 - [ ] Authenticated, independently witnessed audit service, tested crash recovery, secure host review, platform portability, and key issuance/custody.
-- [ ] User-facing state initialization and controlled write integration.
+- [x] User-owned project initialization and explicit local write-plan integration (not authenticated protected writes).
+
+## P0 native project flow
+- [x] Project initialization with user/shared/managed ownership and read-only previews.
+- [x] Canonical TOML event registry, explicit user-registry import and task-scoped items.
+- [x] Version-checked item/metadata operations, REMOVE, REPRIORITIZE and history-preserving rollback.
+- [x] Optional content-pinned development/inquiry packs and custom pack inputs.
+- [x] Deterministic applicability/dependency/conflict diagnostics, including uncertain mandatory conditions.
+- [x] Minimal task compilation with provenance and no silent budget truncation.
+- [x] AGENTS.md adapter, stale deployment detection, preservation and uninstall/reinstall.
+- [x] Recoverable local update journal with unrelated-edit refusal.
+- [x] Explicit verification-tool execution and local evidence; unobserved compliance remains unknown.
+- [x] Library/CLI regression cases and supported walkthrough inputs.
+- [ ] Measured real-agent effectiveness, independent semantic evaluation and rule-removal experiments (P1).
+
+The local write path relies on user filesystem permissions. It is not the
+optional signed host and does not claim authenticated policy enforcement.
 
 ## Policy and task contracts
-- Extend item models with explicit scope references, owner, source, typed payloads, and governance relations.
-- Complete REMOVE and REPRIORITIZE, and introduce a trusted authorization mechanism for policy changes.
-- Resolve policy applicability with explicit conflict diagnostics and no recency-based priority.
-- Compile a minimal context preserving all applicable mandatory conditions.
+- Extend semantic analysis and authority/exception handling beyond the implemented explicit native metadata.
+- Evaluate authenticated consumer approval integration; native local REMOVE/REPRIORITIZE are implemented.
+- Evaluate natural-language applicability and semantic conflicts beyond deterministic declared conditions.
+- Evaluate compiler effectiveness and support additional native agent formats.
 
 ## Safe installation
-- Detect existing instructions and tooling before install.
-- Assign managed/user/shared ownership to each file.
-- Preview and verify add/update/delete operations; support recovery and migration.
-- Confirm actual deployment state separately from declared desired state.
+- Expand existing instruction/tool detection beyond the initial instruction inventory.
+- Extend the implemented managed/user/shared ownership model to additional adapters.
+- Extend preview/recovery to format migrations and additional integrations.
+- Measure live-session effective state separately from implemented file deployment checks.
 
 ## Evaluation and adapters
 - Agent-specific adapter support; prefer existing Agent Skills and interoperability tools.

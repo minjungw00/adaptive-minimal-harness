@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Draft design, not an implementation claim. Planning documents intentionally have **no product release version**.
+**Status:** The local P0 project workflow is implemented; advanced evaluation and integration sections remain design. Planning documents have no product release version.
 
 AMH is a local-first control layer built around existing agents. It is not an LLM, mandatory server, hosted control plane, or general-purpose multi-agent runner.
 
@@ -8,15 +8,15 @@ AMH is a local-first control layer built around existing agents. It is not an LL
 
 Goals, principles, requirements, constraints, and decisions share identity, scope, revision, lifecycle, and provenance. Each kind retains its own semantics and validation contract. No individual principle (TDD, Socratic dialogue, requirement preservation, etc.) receives architectural privilege.
 
-## Intended components
+## Components and implementation status
 
-1. **Item Store:** current authoritative items, type-specific validation, explicit changes, revision checks.
-2. **Policy Resolver:** applicability, authority, exception and conflict diagnostics.
-3. **Task Contract:** goal, completion criteria, allowed scope, stop conditions, output and verification requirements as necessary.
-4. **Context Compiler:** minimal target-neutral execution contract, with traceable references to selected items.
-5. **Agent Adapters:** target-native instruction/skill files; optional integrations and no required always-on process.
-6. **Reconciler:** distinguish desired, rendered, deployed, and observed states. A paused policy may remain in a deployed file or live session.
-7. **Verification:** deterministic checks first when applicable, semantic/human review where warranted, evidence tied to snapshots.
+1. **Item Store (implemented):** current authoritative items, type-specific validation, explicit changes, revision checks.
+2. **Policy Resolver (deterministic P0 implemented):** applicability, authority, exception and conflict diagnostics.
+3. **Task Contract (implemented):** goal, completion criteria, allowed scope, stop conditions, output and verification requirements as necessary.
+4. **Context Compiler (implemented):** minimal target-neutral execution contract, with traceable references to selected items.
+5. **Agent Adapters (AGENTS.md implemented):** target-native instruction/skill files; optional integrations and no required always-on process.
+6. **Reconciler (managed files and source drift implemented):** distinguish desired, rendered, deployed, and observed states. A paused policy may remain in a deployed file or live session.
+7. **Verification (explicit tool execution implemented; semantic evaluation planned):** deterministic checks first when applicable, semantic/human review where warranted, evidence tied to snapshots.
 
 ## Trust and data boundaries
 
@@ -30,11 +30,11 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 The initial `SnapshotStore` is an **implemented library feature**: replay-checked, format-tagged JSON storing current items and their change history together in one file. It uses advisory file locking, expected revisions, a synchronized temporary file, and same-directory rename. This is not authenticated, cryptographically tamper-evident, or guaranteed durable across power loss on every filesystem. See [storage contract](persistence.md).
 
-A user-editable TOML/Markdown source of truth, separate event store, and consumer-facing CLI persistence commands remain future work. They must not silently create duplicate authoritative sources.
+The native project path uses `amh-project`: a user-owned TOML event log, typed governance metadata, replayed state, explicit local write plans and a recoverable adapter transaction. It reuses the core item types and structural checks, but does not require the optional protected host. The legacy JSON snapshot and protected-host format remain separate trust domains; neither is silently imported into the project registry. See [P0 contracts](p0.md).
 
 ## Scope control
 
-The first implementation contains a small Rust workspace, an honest CLI entrypoint, testable core types, CI, and draft contracts. Full policy resolution, file reconciliation, trusted authorization, and actual agent behavioral evaluations are future work.
+The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, tag/task-based resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Natural-language classification, semantic conflict analysis, automatic live-session reconciliation, authenticated local approval and actual agent behavioral evaluations remain future work.
 
 ## External signer and read-only consumer bridge
 
