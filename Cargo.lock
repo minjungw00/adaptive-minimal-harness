@@ -41,6 +41,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "amh-witness"
+version = "0.0.0"
+dependencies = [
+ "amh-audit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
