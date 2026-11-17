@@ -1,0 +1,368 @@
+{
+  "request": "이 보고서를 완성해줘.",
+  "files": {
+    "README.md": {
+      "sha256": "ffe2817d7a56a35888b2e365b7c18ba190d82f6d0b07efc525e8730f3e413c27",
+      "bytes": 231,
+      "text": "# Report workspace\nComplete `report.md` using the fictional source records in `sources.json`. There is no need for network access or real company data. The cost structure remains the primary axis; retention is supporting evidence.\n"
+    },
+    "report.md": {
+      "sha256": "e60318094701949512a5d3a747cee853d1946c9f2be2c7a90115e5662b9e6a3c",
+      "bytes": 316,
+      "text": "# 구독 서비스 운영 검토\n\n비용 구조가 이 보고서의 핵심 분석축이다.\n\n## 비용\nTODO: 제공된 월별 비용 기록을 분석한다.\n\n## 고객 유지\nTODO: 핵심 비용 분석을 보조하는 관점으로 설명한다.\n\n## 권고\nTODO: 근거와 한계를 구분해 결론을 작성한다.\n"
+    },
+    "sources.json": {
+      "sha256": "7ffc62ed423a559911adfe112d05b2f02210317384d15ad4a62adb20589b7b21",
+      "bytes": 337,
+      "text": "{\"notice\":\"All values are fictional fixture facts; use these local records, not real company data.\",\"period\":\"same fictional quarter\",\"monthly_costs\":{\"infrastructure\":600,\"support\":300,\"tools\":100},\"customers_at_start\":200,\"customers_retained\":160,\"qualification\":\"No causal evidence that increasing one cost item improves retention.\"}\n"
+    }
+  },
+  "policies": {
+    "pack_locks": {
+      "inquiry": "0.2.0:c42460a4ff207dd9e1e2d257f521041483ba953eb6adaf5c3d9a684419f71adf"
+    },
+    "policies": [
+      {
+        "applicability": "When assessing the validity, assumptions, evidence, or consequences of an argument or decision.",
+        "item": {
+          "content": "Identify assumptions, supporting evidence, counterexamples, and consequences relevant to the conclusion.",
+          "details": {
+            "activation": {
+              "any": [
+                "reasoning.argument"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Distinguish verified facts, inference, and recommendations."
+            ]
+          },
+          "id": "P-ARGUMENT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When discovering or clarifying requirements and acceptance criteria for a project or decision.",
+        "item": {
+          "content": "Separate outcomes, constraints, and acceptance criteria. Preserve valid existing requirements when adding new ones.",
+          "details": {
+            "activation": {
+              "any": [
+                "requirements.discovery"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "List unresolved ambiguities and explicit changes."
+            ]
+          },
+          "id": "P-ELICIT",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When deriving conclusions or recommendations from observational evidence.",
+        "item": {
+          "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
+          "details": {
+            "activation": {
+              "mode": "always"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Provide evidence appropriate to the work"
+            ]
+          },
+          "id": "P-INFERENCE",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "User-approved project policy"
+      },
+      {
+        "applicability": "When organizing knowledge, notes, or source material and preserving provenance and traceability is relevant.",
+        "item": {
+          "content": "Keep source provenance and distinguish original material from interpretation.",
+          "details": {
+            "activation": {
+              "any": [
+                "knowledge.organization"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Check references and traceability of important claims."
+            ]
+          },
+          "id": "P-KNOWLEDGE",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When work depends on current, high-stakes, disputed, or uncertain factual claims requiring reliable external evidence. Exclude purely stylistic editing and translation without new factual claims.",
+        "item": {
+          "content": "Verify time-sensitive, high-stakes, disputed, and uncertain claims using reliable sources. State remaining uncertainty.",
+          "details": {
+            "activation": {
+              "any": [
+                "research.verification"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Cite supporting sources and the scope of verification."
+            ]
+          },
+          "id": "P-RESEARCH",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "Only when a material goal, assumption, or decision criterion is unclear and focused questions would advance the task. Exclude clear action requests and straightforward factual questions.",
+        "item": {
+          "content": "Ask focused questions only while goals, assumptions, or decision criteria remain materially unclear. Stop when the task is sufficiently defined.",
+          "details": {
+            "activation": {
+              "any": [
+                "inquiry.unclear"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Explain the decision-relevant uncertainty each question resolves."
+            ]
+          },
+          "id": "P-SOCRATIC",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
+        "item": {
+          "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
+          "details": {
+            "activation": {
+              "mode": "always"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Provide evidence appropriate to the work"
+            ]
+          },
+          "id": "P-TRACE",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "User-approved project policy"
+      },
+      {
+        "applicability": "When drafting or substantively revising a document while preserving accepted requirements and their roles. Exclude code-only changes and mechanical formatting.",
+        "item": {
+          "content": "Preserve currently accepted document requirements and their roles. Express the resulting position directly without unnecessary revision-history contrasts.",
+          "details": {
+            "activation": {
+              "any": [
+                "document.revision"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Check coverage of all active requirements and document quality."
+            ]
+          },
+          "id": "P-WRITING",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:inquiry@0.2.0"
+      },
+      {
+        "item": {
+          "content": "Keep the cost structure as the main analytical axis.",
+          "details": {
+            "acceptance_criteria": [
+              "Keep the cost structure as the main analytical axis."
+            ],
+            "role": "core",
+            "type": "requirement"
+          },
+          "id": "R-COST",
+          "kind": "requirement",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "Accepted project requirement"
+      },
+      {
+        "item": {
+          "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
+          "details": {
+            "acceptance_criteria": [
+              "Use customer retention as supporting evidence, not a replacement for cost analysis."
+            ],
+            "role": "support",
+            "type": "requirement"
+          },
+          "id": "R-RETENTION",
+          "kind": "requirement",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "Accepted project requirement"
+      }
+    ],
+    "revision": 9
+  },
+  "current_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "d709b8e2ced8b4217b5a8d1b2ce579d68763d7f5265371a8ed7a8941e1c7b130",
+    "created_agents": true,
+    "task": null,
+    "task_file": null,
+    "budget": null,
+    "source_digest": null
+  },
+  "agent_instructions": "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n"
+}

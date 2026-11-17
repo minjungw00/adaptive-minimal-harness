@@ -1,0 +1,189 @@
+{
+  "format": "amh.qualitative-observation.v1",
+  "request": "이 함수를 정리해줘.",
+  "files": {
+    "README.md": {
+      "sha256": "87d2fc82af072b05bd3c7f8c5885b9919660b8df882521b4314c3ad520af8c2f",
+      "bytes": 187,
+      "text": "# Name labels\nImprove the internal structure of `label` without intentionally changing its existing behavior. Existing callers use its current signature. Inspect `python -m unittest -v`.\n"
+    },
+    "formatter.py": {
+      "sha256": "002b1ade8c807de26ec2f7405c93a42714400d739dcd1d728c5455b3cb9cf27e",
+      "bytes": 92,
+      "text": "def label(first, last):\n    return \" \".join(part.strip() for part in (first, last) if part)\n"
+    },
+    "test_formatter.py": {
+      "sha256": "49b9c4423b203eb1bf394f2a748347336415633084d63da22eae169efb74a177",
+      "bytes": 423,
+      "text": "import unittest\nfrom formatter import label\nclass LabelTests(unittest.TestCase):\n    def test_both(self): self.assertEqual(label(\" Ada \", \" Lovelace \"), \"Ada Lovelace\")\n    def test_first(self): self.assertEqual(label(\" Ada \", \"\"), \"Ada\")\n    def test_last(self): self.assertEqual(label(\"\", \" Lovelace \"), \"Lovelace\")\n    def test_empty(self): self.assertEqual(label(\"\", \"\"), \"\")\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "file_changes": [
+    {
+      "path": "formatter.py",
+      "before": "4b37db3217e2476e93aa015690d547eaac0e723b233eb77dc238b3db11766e2c",
+      "after": "002b1ade8c807de26ec2f7405c93a42714400d739dcd1d728c5455b3cb9cf27e"
+    }
+  ],
+  "amh_calls": [
+    {
+      "id": "7dd7e69124184833830edd729242903f",
+      "argv": [
+        "--help"
+      ],
+      "cwd": "{RUN_ROOT}/actors/14baea466e3b/workspace",
+      "started_ns": 1794889516903370034,
+      "finished_ns": 1794889516904824332,
+      "exit_code": 0
+    },
+    {
+      "id": "1ce384b47e744b3cb48f19b73eebf40b",
+      "argv": [
+        "request",
+        "--request-file",
+        "request.txt"
+      ],
+      "cwd": "{RUN_ROOT}/actors/14baea466e3b/workspace",
+      "started_ns": 1794889522702006682,
+      "finished_ns": 1794889522704593813,
+      "exit_code": 0
+    },
+    {
+      "id": "c368abe0ee604a9a87124bc57a3811bf",
+      "argv": [
+        "request",
+        "finish",
+        "--packet",
+        "packet.json",
+        "--analysis",
+        "analysis.json",
+        "--apply"
+      ],
+      "cwd": "{RUN_ROOT}/actors/14baea466e3b/workspace",
+      "started_ns": 1794889536579238190,
+      "finished_ns": 1794889536586182277,
+      "exit_code": 0
+    }
+  ],
+  "final_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "5cefcf26cfff2b5ecfe58f32a0687a5f7c19e5c4764633f3e3257ee2bdcc3c15",
+    "created_agents": true,
+    "task": {
+      "id": "TASK-6207c38f0c6440c5",
+      "goal": "이 함수를 정리해줘.",
+      "tags": [],
+      "classification_complete": false,
+      "done_when": [
+        "label has a clearer internal structure with duplicated return assembly removed.",
+        "The label(first, last) signature and existing observable behavior, including truthiness before stripping, are preserved.",
+        "Run python -m unittest -v and report actual results."
+      ],
+      "allowed_paths": [],
+      "stop_when": [],
+      "outputs": [],
+      "explicit_policies": [],
+      "items": [],
+      "checks": [],
+      "interpretation": {
+        "request": "이 함수를 정리해줘.",
+        "response": {
+          "format": "amh.request-analysis.v1",
+          "request_digest": "977714d13e18a888366bcf6a9b2981220fbf0fcf6b7e3700894f7c9c78f547cf",
+          "catalog_digest": "ad9c66fe10f963fda921661e633c773be0750d2c254be89d6e68a3fe1ce860d7",
+          "done_when": [
+            "label has a clearer internal structure with duplicated return assembly removed.",
+            "The label(first, last) signature and existing observable behavior, including truthiness before stripping, are preserved.",
+            "Run python -m unittest -v and report actual results."
+          ],
+          "assessments": [
+            {
+              "id": "P-API",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The requested cleanup modifies label, an existing callable whose current signature is used by callers according to README; preserve that interface.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-DEBUG",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The request asks to tidy a function; no unexplained failure or defect investigation is requested.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-MUTATION",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The request asks for structural cleanup, not an evaluation of test quality or mutation testing.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-REFACTOR",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The request to tidy this function, with README specifying internal improvements without intentional behavior changes, is behavior-preserving refactoring.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-REGRESSION",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "No defect fix is requested or established.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-REVIEW",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The request is to implement cleanup, not to perform a review of an implementation or API.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            },
+            {
+              "id": "P-TDD",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The scope is behavior-preserving refactoring, which this condition explicitly excludes; no behavior change or defect fix is requested.",
+              "request_quotes": [
+                "이 함수를 정리해줘."
+              ]
+            }
+          ],
+          "clarification_questions": []
+        }
+      }
+    },
+    "task_file": null,
+    "budget": null,
+    "source_digest": "6d3c1e40cd634aaf1a181ae9e82f735af5707c310c0ec439cdbe830fb8e3b651"
+  },
+  "actor_note": "formatter.py의 label을 정리했습니다.\n\ndef label(first, last):\n    return \" \".join(part.strip() for part in (first, last) if part)\n\n기존 시그니처와 공백 처리 동작을 유지하며 중복 분기를 제거했습니다.\n\n검증: 변경 전후 기존 테스트 4개 모두 통과했고, 공백·빈 문자열·None 등을 포함한 100개 입력 조합의 결과가 일치했습니다. 미해결 질문은 없습니다.",
+  "actor_note_authority": "self_report_not_execution_proof",
+  "independent_outcome_checks": [
+    {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "-v"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_both (test_formatter.LabelTests.test_both) ... ok\ntest_empty (test_formatter.LabelTests.test_empty) ... ok\ntest_first (test_formatter.LabelTests.test_first) ... ok\ntest_last (test_formatter.LabelTests.test_last) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.000s\n\nOK\n"
+    }
+  ],
+  "semantic_verdict": null,
+  "actor_note_capture": "controller transcription of final response; Markdown/path presentation normalized; factual claims remain self-reports"
+}

@@ -1,0 +1,39 @@
+{
+  "format": "amh.qualitative-archive.v1",
+  "suite_sha256": "a9207d0a284fe06c574ff9465851a9a5fa4bd3f40b595027d9c0b075b58d238a",
+  "amh_sha256": "4ece0639888ea7ddd4a765460d307b89799bdbb82ac98d5782e805d3593ee489",
+  "created_ns": 1794889398737099678,
+  "executed_cases": [
+    "S01",
+    "S02",
+    "S03",
+    "S04",
+    "S05",
+    "S06",
+    "S07",
+    "S08"
+  ],
+  "actors": 8,
+  "review_records": 16,
+  "session_provenance": {
+    "actors": 8,
+    "independent_review_sessions": 16,
+    "parent_history_forwarded": false,
+    "launch_configuration": "All actor/reviewer sessions launched with fork_turns=none; no model override.",
+    "model_configuration": "Inherited parent default; provider/version not surfaced by collaboration tool.",
+    "product_source_head": "52a8581528d0af9edc194a356fa33604ee6aa6af",
+    "actor_note_capture": "Controller transcription of final responses; Markdown/path presentation normalized; factual claims remain self-reports.",
+    "notes": [
+      "Early six reveals predate provisional-hash recording; phase order retained in timestamps and session sequencing.",
+      "One attempt per scenario; reviewers share the same default model family; no statistical or cross-model generalization."
+    ]
+  },
+  "automatic_semantic_score": null,
+  "archive_notes": [
+    "Paths normalized for portability; original fingerprints refer to original run bytes, not normalized replay inputs.",
+    "Actor notes are self-reports; their capture method must be recorded by the controller.",
+    "AMH command output is captured; arbitrary actor shell/read/edit events are not fully audited.",
+    "Actor/reviewer access restrictions are instructional on a shared filesystem, not an OS sandbox.",
+    "A missing pre-reveal hash is retained as null, not reconstructed after review."
+  ]
+}

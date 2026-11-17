@@ -1,0 +1,194 @@
+{
+  "format": "amh.qualitative-observation.v1",
+  "request": "이 오류를 고쳐줘.",
+  "files": {
+    "README.md": {
+      "sha256": "faca59d23e0962acd60359d22d14c725ab16f1e41a1284dabc899621c5dd6d95",
+      "bytes": 254,
+      "text": "# Checkout calculation\nThe checkout total is wrong for percentage discounts. `discounted_total(price, percent)` is used by existing callers. Inputs and ValueError behavior are public expectations. Run `python -m unittest -v` to inspect current behavior.\n"
+    },
+    "calculator.py": {
+      "sha256": "b713f5a84e44acf850d29a634e66a9b6a115bde2a0d3faefb640dbb5252e0341",
+      "bytes": 231,
+      "text": "def discounted_total(price, percent):\n    \"\"\"Return the amount payable after a percentage discount.\"\"\"\n    if price < 0 or not 0 <= percent <= 100:\n        raise ValueError(\"invalid input\")\n    return price * (100 - percent) / 100\n"
+    },
+    "test_calculator.py": {
+      "sha256": "6b3ef1b41d807d7f02ea5a498f535ffb0969966ab80a44e5f3a6fee464f9f987",
+      "bytes": 815,
+      "text": "import unittest\nfrom calculator import discounted_total\n\nclass CalculatorTests(unittest.TestCase):\n    def test_no_discount(self): self.assertEqual(discounted_total(100, 0), 100)\n    def test_partial_discount(self): self.assertEqual(discounted_total(100, 20), 80)\n    def test_full_discount(self): self.assertEqual(discounted_total(100, 100), 0)\n    def test_non_unit_price_discount(self):\n        self.assertEqual(discounted_total(200, 25), 150)\n\n    def test_out_of_range_percent(self):\n        for percent in (-1, 101):\n            with self.subTest(percent=percent):\n                with self.assertRaises(ValueError):\n                    discounted_total(100, percent)\n\n    def test_invalid(self):\n        with self.assertRaises(ValueError): discounted_total(-1, 20)\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "file_changes": [
+    {
+      "path": "calculator.py",
+      "before": "dabdb477f7d640021722a245e6b2edcbd39e2abc38b37cfeddf8665ef59f8231",
+      "after": "b713f5a84e44acf850d29a634e66a9b6a115bde2a0d3faefb640dbb5252e0341"
+    },
+    {
+      "path": "test_calculator.py",
+      "before": "a9b3d9af2ba3b57d17c6be8b51342fb9182bc8350dc10a7c9c810e9653ff4c7d",
+      "after": "6b3ef1b41d807d7f02ea5a498f535ffb0969966ab80a44e5f3a6fee464f9f987"
+    }
+  ],
+  "amh_calls": [
+    {
+      "id": "18758708e6ef4f5aab34ebf90344dc13",
+      "argv": [
+        "--help"
+      ],
+      "cwd": "{RUN_ROOT}/actors/8ea808caa357/workspace",
+      "started_ns": 1794889425371889635,
+      "finished_ns": 1794889425373208799,
+      "exit_code": 0
+    },
+    {
+      "id": "9224cb65ddc8462bb3b6715231b0c8e5",
+      "argv": [
+        "request",
+        "--request-file",
+        "request.txt"
+      ],
+      "cwd": "{RUN_ROOT}/actors/8ea808caa357/workspace",
+      "started_ns": 1794889434984330793,
+      "finished_ns": 1794889434986728618,
+      "exit_code": 0
+    },
+    {
+      "id": "189b1bd8765d441d884e353ef0848628",
+      "argv": [
+        "request",
+        "finish",
+        "--packet",
+        "request-packet.json",
+        "--analysis",
+        "request-analysis.json",
+        "--apply"
+      ],
+      "cwd": "{RUN_ROOT}/actors/8ea808caa357/workspace",
+      "started_ns": 1794889448230272648,
+      "finished_ns": 1794889448237256896,
+      "exit_code": 0
+    }
+  ],
+  "final_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "35ad05d287826a87c9a3d056de10297eacfe66c75cd508888a20e11fa2b1dad9",
+    "created_agents": true,
+    "task": {
+      "id": "TASK-b4d6a80729709de2",
+      "goal": "이 오류를 고쳐줘.",
+      "tags": [],
+      "classification_complete": false,
+      "done_when": [
+        "Reproduce the percentage-discount calculation failure with automated tests before editing the implementation.",
+        "Correct the payable total while preserving discounted_total(price, percent) and invalid-input ValueError behavior.",
+        "Run the regression tests and report observed results."
+      ],
+      "allowed_paths": [],
+      "stop_when": [],
+      "outputs": [],
+      "explicit_policies": [],
+      "items": [],
+      "checks": [],
+      "interpretation": {
+        "request": "이 오류를 고쳐줘.",
+        "response": {
+          "format": "amh.request-analysis.v1",
+          "request_digest": "741e079d9739e5b8d68c2f2e5a98f5cc8c99b648884e38a4ef6e543891c9f59a",
+          "catalog_digest": "14d5503cf0c807d00a64a11a38fa57dbfd283d431018718dc62ec94f51cce283",
+          "done_when": [
+            "Reproduce the percentage-discount calculation failure with automated tests before editing the implementation.",
+            "Correct the payable total while preserving discounted_total(price, percent) and invalid-input ValueError behavior.",
+            "Run the regression tests and report observed results."
+          ],
+          "assessments": [
+            {
+              "id": "P-API",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The defect fix affects the publicly consumed calculator function; the accepted requirement explicitly establishes compatibility expectations.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-DEBUG",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The user asks to fix an error, so the failing behavior and its concrete cause must be investigated.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-MUTATION",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The request is a defect fix, not an evaluation or strengthening of test quality; existing concrete failing examples can validate this calculation.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-REFACTOR",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "Fixing the error intends a behavior correction, not a behavior-preserving structural change.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-REGRESSION",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The error fix can be checked by automated calculator regression tests.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-REVIEW",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The user requests implementation of a fix, not a review of an implementation or API.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            },
+            {
+              "id": "P-TDD",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The user requests a defect fix with testable observable behavior.",
+              "request_quotes": [
+                "이 오류를 고쳐줘."
+              ]
+            }
+          ],
+          "clarification_questions": []
+        }
+      }
+    },
+    "task_file": null,
+    "budget": null,
+    "source_digest": "614b2ab578883b14f6857d9c0ed7d396269c557429cf5b5cb64130db9a70acde"
+  },
+  "actor_note": "할인 후 결제 금액 대신 할인액을 반환하던 오류를 수정했습니다.\n\n- `calculator.py`: 계산식을 `price * (100 - percent) / 100`으로 변경했습니다. 함수 인터페이스와 `ValueError` 동작은 유지했습니다.\n- `test_calculator.py`: 가격 200의 25% 할인 결과와 할인율 범위 검사를 추가했습니다.\n- 실제 검증: `python -m unittest -v`로 수정 전 기존 4개 중 3개 실패, 회귀 테스트 추가 후 6개 중 4개 실패를 확인했습니다. 수정 후 6개 모두 통과했습니다.\n- AMH 요청 해석·적용과 생성 지침 확인을 완료했습니다.\n\n미해결 질문은 없습니다.",
+  "actor_note_authority": "self_report_not_execution_proof",
+  "independent_outcome_checks": [
+    {
+      "argv": [
+        "{python}",
+        "-m",
+        "unittest",
+        "-v"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_full_discount (test_calculator.CalculatorTests.test_full_discount) ... ok\ntest_invalid (test_calculator.CalculatorTests.test_invalid) ... ok\ntest_no_discount (test_calculator.CalculatorTests.test_no_discount) ... ok\ntest_non_unit_price_discount (test_calculator.CalculatorTests.test_non_unit_price_discount) ... ok\ntest_out_of_range_percent (test_calculator.CalculatorTests.test_out_of_range_percent) ... ok\ntest_partial_discount (test_calculator.CalculatorTests.test_partial_discount) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 0.000s\n\nOK\n"
+    }
+  ],
+  "semantic_verdict": null,
+  "actor_note_capture": "controller transcription of final response; Markdown/path presentation normalized; factual claims remain self-reports"
+}

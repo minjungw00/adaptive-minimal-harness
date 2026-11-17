@@ -1,0 +1,284 @@
+{
+  "request": "이 함수를 정리해줘.",
+  "files": {
+    "README.md": {
+      "sha256": "87d2fc82af072b05bd3c7f8c5885b9919660b8df882521b4314c3ad520af8c2f",
+      "bytes": 187,
+      "text": "# Name labels\nImprove the internal structure of `label` without intentionally changing its existing behavior. Existing callers use its current signature. Inspect `python -m unittest -v`.\n"
+    },
+    "formatter.py": {
+      "sha256": "4b37db3217e2476e93aa015690d547eaac0e723b233eb77dc238b3db11766e2c",
+      "bytes": 195,
+      "text": "def label(first, last):\n    if first and last:\n        return first.strip() + \" \" + last.strip()\n    if first:\n        return first.strip()\n    if last:\n        return last.strip()\n    return \"\"\n"
+    },
+    "test_formatter.py": {
+      "sha256": "49b9c4423b203eb1bf394f2a748347336415633084d63da22eae169efb74a177",
+      "bytes": 423,
+      "text": "import unittest\nfrom formatter import label\nclass LabelTests(unittest.TestCase):\n    def test_both(self): self.assertEqual(label(\" Ada \", \" Lovelace \"), \"Ada Lovelace\")\n    def test_first(self): self.assertEqual(label(\" Ada \", \"\"), \"Ada\")\n    def test_last(self): self.assertEqual(label(\"\", \" Lovelace \"), \"Lovelace\")\n    def test_empty(self): self.assertEqual(label(\"\", \"\"), \"\")\nif __name__ == \"__main__\": unittest.main()\n"
+    }
+  },
+  "policies": {
+    "pack_locks": {
+      "development": "0.2.0:5c321ee34c2dd189c174825b22639aa4e23ec99e0f8f624ab6886b4746de437b"
+    },
+    "policies": [
+      {
+        "applicability": "When changing an API or externally consumed interface with existing compatibility expectations.",
+        "item": {
+          "content": "Preserve supported API compatibility or explicitly document and authorize the breaking change.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.api_change"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Check affected callers and compatibility expectations."
+            ]
+          },
+          "id": "P-API",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When investigating an unexplained defect or failing behavior and identifying its cause. Exclude requests that only explain already established results.",
+        "item": {
+          "content": "Reproduce the failure and test a concrete cause before changing code.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.debugging"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Record reproduction and the check that distinguishes the proposed cause."
+            ]
+          },
+          "id": "P-DEBUG",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When evaluating or strengthening the ability of tests to detect behavior defects and mutation testing would provide useful evidence.",
+        "item": {
+          "content": "Use mutation testing when it helps detect weak behavioral assertions.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.test_quality"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "may",
+            "type": "principle",
+            "verification": [
+              "Report executed mutations and meaningful survivors when performed."
+            ]
+          },
+          "id": "P-MUTATION",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When improving internal code structure while preserving observable behavior. Identify separately requested behavior changes instead of calling them refactoring.",
+        "item": {
+          "content": "Preserve observable behavior while improving structure. Reclassify intended behavior changes before proceeding.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.refactor"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Compare relevant behavior before and after the refactor."
+            ]
+          },
+          "id": "P-REFACTOR",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When fixing a defect whose recurrence can be checked by a meaningful automated regression test.",
+        "item": {
+          "content": "Add a regression check at the layer where the defect occurred.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.bug_fix"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Show the check detects the original failure."
+            ]
+          },
+          "id": "P-REGRESSION",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When reviewing an implementation, diff, or API for defects and regressions. Exclude work that merely drafts explanatory prose.",
+        "item": {
+          "content": "Review correctness and regressions against accepted requirements. Prioritize actionable findings with evidence.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.review"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "should",
+            "type": "principle",
+            "verification": [
+              "Link findings to a concrete trigger and affected behavior."
+            ]
+          },
+          "id": "P-REVIEW",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      },
+      {
+        "applicability": "When changing testable observable program behavior or fixing a defect. Exclude explanations, documentation-only edits, formatting, and behavior-preserving refactoring.",
+        "item": {
+          "content": "Use Red–Green–Refactor for testable behavior changes. Demonstrate the failing test before implementation, then passing tests.",
+          "details": {
+            "activation": {
+              "any": [
+                "code.behavior_change",
+                "code.bug_fix"
+              ],
+              "mode": "on_tags"
+            },
+            "strength": "must",
+            "type": "principle",
+            "verification": [
+              "Record the failing-before and passing-after commands and results."
+            ]
+          },
+          "id": "P-TDD",
+          "kind": "principle",
+          "lifecycle": "active",
+          "replaces": null,
+          "revision": 2,
+          "scope": "project"
+        },
+        "owner": "user",
+        "priority": 0,
+        "relations": {
+          "applies_to": [],
+          "conflicts_with": [],
+          "depends_on": [],
+          "supports": [],
+          "verified_by": []
+        },
+        "source": "pack:development@0.2.0"
+      }
+    ],
+    "revision": 1
+  },
+  "current_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "d709b8e2ced8b4217b5a8d1b2ce579d68763d7f5265371a8ed7a8941e1c7b130",
+    "created_agents": true,
+    "task": null,
+    "task_file": null,
+    "budget": null,
+    "source_digest": null
+  },
+  "agent_instructions": "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n"
+}

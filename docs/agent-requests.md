@@ -109,7 +109,10 @@ The generated goal preserves the original request verbatim. Acceptance criteria
 and applicability are labeled agent interpretations. Exact quotations and hashes
 establish traceability and snapshot consistency, **not semantic truth or human
 approval**. A confidently wrong `no_match` judgment remains possible; independent
-semantic evaluations and measured selection quality remain follow-up work.
+semantic evaluation is needed beyond protocol validation. The
+[qualitative pilot](../evals/results/2026-11-17-pilot/report.md) records eight
+fresh-session executions and two independent reviews per case; it does not
+establish broad selection accuracy.
 
 Changed policies make an interpreted deployment blocked/stale until the agent
 interprets the request against the new catalogue. Materially changed user scope
@@ -125,3 +128,13 @@ conflicts, process failure/timeout/output limits, old bridge migration and the
 Codex argument/file protocol. Backend tests use an explicitly identified scripted
 protocol fixture, not an LLM or a measured semantic classifier. They do not prove
 live provider compatibility, selection accuracy or actual downstream compliance.
+
+## Observed continuation limitation
+
+The fresh-session pilot found a saved Task was not carried into the new request
+packet and the agent asked for a goal that already existed in project state. The
+work remained incomplete. The same question was appropriate in a paired case
+without a saved task. Current-task retrieval and context delivery therefore
+remain a material P0 limitation. See the [evidence and differing reviewer
+interpretations](../evals/results/2026-11-17-pilot/report.md) and the
+[qualitative evaluation procedure](../evals/README.md).

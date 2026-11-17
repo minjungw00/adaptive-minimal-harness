@@ -1,0 +1,176 @@
+{
+  "format": "amh.qualitative-observation.v1",
+  "request": "이 보고서를 완성해줘.",
+  "files": {
+    "README.md": {
+      "sha256": "ffe2817d7a56a35888b2e365b7c18ba190d82f6d0b07efc525e8730f3e413c27",
+      "bytes": 231,
+      "text": "# Report workspace\nComplete `report.md` using the fictional source records in `sources.json`. There is no need for network access or real company data. The cost structure remains the primary axis; retention is supporting evidence.\n"
+    },
+    "report.md": {
+      "sha256": "8a6ad4cc82c2545223c82094459073f5158302b54289a049b7d7e1ef77096f21",
+      "bytes": 4363,
+      "text": "# 구독 서비스 운영 검토\n\n비용 구조가 이 보고서의 핵심 분석축이다. 제공된 월 비용 합계는 1,000이며, 그중 인프라가 60%를 차지하므로 비용 검토의 우선 대상으로 삼는다. 고객 유지는 비용 조정의 영향을 살피는 보조 지표로 활용한다.\n\n자료: [sources.json](sources.json)의 동일 가상 분기 기록. 모든 값은 가상 자료이며, 비용의 통화·단위와 개별 월별 내역은 제공되지 않았다. 아래 비용 금액은 원자료의 단위를 그대로 사용한다.\n\n## 비용\n\n원자료의 `monthly_costs`에 기재된 월 비용과 이를 바탕으로 계산한 구성비는 다음과 같다.\n\n| 항목 | 월 비용: 원자료 | 구성비: 계산값 |\n| --- | ---: | ---: |\n| 인프라 | 600 | 60% |\n| 고객 지원 | 300 | 30% |\n| 도구 | 100 | 10% |\n| 합계 | 1,000 | 100% |\n\n출처: [sources.json](sources.json), `monthly_costs`. 합계는 600 + 300 + 100 = 1,000, 구성비는 각 항목 ÷ 1,000 × 100으로 계산했다.\n\n인프라와 고객 지원은 합쳐서 월 900, 전체의 90%를 차지한다. 따라서 비용 구조를 검토할 때 인프라의 사용량과 계약 조건을 먼저 확인하고, 고객 지원의 업무량과 처리 효율을 함께 살피는 것이 합리적이다. 다만 지출 규모만으로 낭비나 과다 지출을 판단할 수는 없다. 도구 비용은 비중이 작지만 사용하지 않는 구독이나 중복 기능이 있는지 확인할 수 있다. 이러한 항목별 확인은 권고이며, 실제 비효율이 발견됐다는 의미는 아니다.\n\n제공 자료에는 월별 시계열, 비용의 고정·변동 구분, 사용량, 매출 및 계약 조건이 없다. 따라서 비용 증가·감소 추세, 절감 가능액, 수익성은 판단할 수 없다. 월 비용을 분기 합계로 환산하려면 각 월에 같은 비용이 발생했다는 추가 가정이 필요하므로 분기 총액은 확정하지 않는다.\n\n## 고객 유지\n\n동일 가상 분기의 시작 고객은 200명이고 유지 고객은 160명이다. 유지율은 160 ÷ 200 × 100 = 80%이며, 시작 고객 중 유지되지 않은 고객은 200 − 160 = 40명, 그 비율은 20%다. 출처: [sources.json](sources.json)의 `customers_at_start`, `customers_retained`. 고객 수는 원자료이고 비율과 차이는 계산값이다.\n\n이 지표는 비용 검토를 보조한다. 비용 조정 전후에 같은 정의와 기간으로 유지율을 확인하면 고객 경험 악화 가능성을 점검하는 데 도움이 된다. 그러나 현재 자료는 한 분기의 집계치만 제공하므로 비용 항목과 유지율 사이의 상관관계조차 평가할 수 없다. 특정 비용을 늘리면 고객 유지가 개선된다는 인과 근거도 없다(`qualification`). 고객 유지에는 가격, 서비스 품질, 고객 구성 등의 요인이 영향을 줄 수 있으나, 이 역시 이 자료에서 검증된 설명은 아니다.\n\n## 권고\n\n1. **인프라부터 비용 구조를 점검한다.** 전체 월 비용의 60%라는 규모를 근거로 사용량, 미사용 자원, 계약 조건을 확인한다. 고객 지원은 30%의 비중과 서비스 운영 역할을 함께 고려해 업무량과 처리 방식을 검토한다. 도구는 중복·미사용 여부를 확인한다. 검토 우선순위는 지출 비중에 근거하며, 일괄 삭감 목표를 뜻하지 않는다.\n2. **비용 조정은 근거를 확보한 뒤 시행한다.** 월별 비용·사용량·서비스 품질 기록을 모아 지출의 필요성과 조정 가능성을 확인한다. 가능한 조정을 제한된 범위에서 평가하고 실제 절감액과 서비스 영향을 함께 기록한다.\n3. **고객 유지율을 보조 확인 지표로 둔다.** 비교 가능한 고객 집단과 관찰 기간을 정하고 유지율 변화를 함께 확인한다. 변화가 나타나더라도 가격이나 고객 구성 등 다른 설명을 검토한 뒤 비용 조정의 효과를 판단한다.\n\n확인된 사실은 인프라 중심의 비용 구성과 해당 분기의 고객 유지율 80%다. 현재 자료가 뒷받침하는 결론은 비용 검토의 우선순위 설정까지다. 특정 항목의 증액·감액이 유지율을 개선한다는 결론이나 구체적인 절감 목표를 정하려면 추가 자료가 필요하다.\n"
+    },
+    "sources.json": {
+      "sha256": "7ffc62ed423a559911adfe112d05b2f02210317384d15ad4a62adb20589b7b21",
+      "bytes": 337,
+      "text": "{\"notice\":\"All values are fictional fixture facts; use these local records, not real company data.\",\"period\":\"same fictional quarter\",\"monthly_costs\":{\"infrastructure\":600,\"support\":300,\"tools\":100},\"customers_at_start\":200,\"customers_retained\":160,\"qualification\":\"No causal evidence that increasing one cost item improves retention.\"}\n"
+    }
+  },
+  "file_changes": [
+    {
+      "path": "report.md",
+      "before": "e60318094701949512a5d3a747cee853d1946c9f2be2c7a90115e5662b9e6a3c",
+      "after": "8a6ad4cc82c2545223c82094459073f5158302b54289a049b7d7e1ef77096f21"
+    }
+  ],
+  "amh_calls": [
+    {
+      "id": "376bb450c61c4e7b8b5319fe25620744",
+      "argv": [
+        "request",
+        "--request-file",
+        "request.txt"
+      ],
+      "cwd": "{RUN_ROOT}/actors/9755fb6db5f9/workspace",
+      "started_ns": 1794889443993034333,
+      "finished_ns": 1794889443995687414,
+      "exit_code": 0
+    },
+    {
+      "id": "d126a23e28394752b80f38c78edffbf5",
+      "argv": [
+        "request",
+        "finish",
+        "--packet",
+        "packet.json",
+        "--analysis",
+        "analysis.json",
+        "--apply"
+      ],
+      "cwd": "{RUN_ROOT}/actors/9755fb6db5f9/workspace",
+      "started_ns": 1794889459271382833,
+      "finished_ns": 1794889459284207827,
+      "exit_code": 0
+    }
+  ],
+  "final_deployment": {
+    "format": "amh.deployment.v1",
+    "generated_digest": "bae9abd58ee6e9e486945b90d35f91d9b88902a8ca092f2cc018d367b6538efb",
+    "created_agents": true,
+    "task": {
+      "id": "TASK-2142b1c0c9df367c",
+      "goal": "이 보고서를 완성해줘.",
+      "tags": [],
+      "classification_complete": false,
+      "done_when": [
+        "report.md has no remaining TODO placeholders and completes the cost, retention, and recommendation sections using sources.json.",
+        "Cost structure remains the primary analytical axis; retention supports the cost review.",
+        "Important numeric claims are verified, source facts and calculations are distinguished, and causal and data limits are stated."
+      ],
+      "allowed_paths": [],
+      "stop_when": [],
+      "outputs": [],
+      "explicit_policies": [],
+      "items": [],
+      "checks": [],
+      "interpretation": {
+        "request": "이 보고서를 완성해줘.",
+        "response": {
+          "format": "amh.request-analysis.v1",
+          "request_digest": "1622c4ebbb33f62fd4059091d6f43a4df3bcf90d720ef38567a755277ea8e13a",
+          "catalog_digest": "10857f4637b9ce608b0f52ecfccf6d3da64d46f2d1218bbd8b54d49024696b21",
+          "done_when": [
+            "report.md has no remaining TODO placeholders and completes the cost, retention, and recommendation sections using sources.json.",
+            "Cost structure remains the primary analytical axis; retention supports the cost review.",
+            "Important numeric claims are verified, source facts and calculations are distinguished, and causal and data limits are stated."
+          ],
+          "assessments": [
+            {
+              "id": "P-ARGUMENT",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "Completing the report requires assessing evidence and limits for the recommendation in its existing recommendation section.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-ELICIT",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The report and source records define the task and accepted criteria; requirement discovery is not needed.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-INFERENCE",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The supplied cost and retention records support analytical conclusions and recommendations, with no causal evidence.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-KNOWLEDGE",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The report must preserve traceability to the supplied source records for its analysis.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-RESEARCH",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "The workspace explicitly supplies fictional records and requires no current or external factual claims; external verification is not needed.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-SOCRATIC",
+              "item_revision": 2,
+              "applicability": "no_match",
+              "reason": "This is a clear action request whose report scope and source records are supplied; no material ambiguity requires inquiry.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-TRACE",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "The analytical report contains cost amounts and calculated shares and retention metrics, requiring verification against sources.json.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            },
+            {
+              "id": "P-WRITING",
+              "item_revision": 2,
+              "applicability": "match",
+              "reason": "Completing report.md is substantive document revision and must preserve cost as the main axis and retention as support.",
+              "request_quotes": [
+                "이 보고서를 완성해줘."
+              ]
+            }
+          ],
+          "clarification_questions": []
+        }
+      }
+    },
+    "task_file": null,
+    "budget": null,
+    "source_digest": "561b687d17ff02241399b2393fa9d67a4ff3b08fb621e0e364a0e0114dd009b7"
+  },
+  "actor_note": "report.md를 완성했습니다.\n\n- 비용 구조를 중심으로 분석하고, 고객 유지율을 보조 지표로 반영했습니다.\n- 원자료와 계산값, 권고와 인과관계의 한계를 구분했습니다.\n- 실제 검증: 비용 합계·구성비, 고객 유지율 계산, 출처 링크, 필수 섹션 및 TODO 제거 확인을 통과했습니다.\n\n완성을 막는 미해결 질문은 없습니다. 통화·월별 추이·절감 효과 등 자료가 없는 부분은 판단 한계로 명시했습니다.",
+  "actor_note_authority": "self_report_not_execution_proof",
+  "independent_outcome_checks": [],
+  "semantic_verdict": null,
+  "actor_note_capture": "controller transcription of final response; Markdown/path presentation normalized; factual claims remain self-reports"
+}

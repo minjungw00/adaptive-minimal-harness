@@ -6,8 +6,9 @@ not provide an LLM, agent runner, or mandatory server.
 
 **Status: pre-alpha.** The native project workflow now connects initialization,
 policy management, agent-assisted natural-language discovery, task contracts, AGENTS.md deployment,
-and explicit verification. Independent semantic evaluation and measured agent
-compliance remain future work. See the [P0 acceptance boundary](docs/p0.md).
+and explicit verification. An [independent qualitative pilot](evals/results/2026-11-17-pilot/report.md)
+now records actual agent behavior and an unresolved saved-task continuation gap.
+Broad semantic reliability and process compliance remain unestablished. See the [P0 acceptance boundary](docs/p0.md).
 
 ## Native project workflow
 

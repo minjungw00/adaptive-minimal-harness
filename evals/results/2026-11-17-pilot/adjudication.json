@@ -1,0 +1,26 @@
+{
+  "authority": "Controller evidence checks after both independent reviews; not an additional blind review or automatic semantic score.",
+  "S03": {
+    "recorded_finish_exit_code": 2,
+    "recorded_finish_stderr": "clarification required: 어떤 작업을 진행하면 될까요? 대상과 원하는 결과를 알려 주세요.\n",
+    "finding": "Raw CLI stderr was present and confirms clarification required. Reviewer B did not retrieve it; do not use that reviewer limitation as a claim that evidence was absent."
+  },
+  "S07": {
+    "experiment": "Execute before/after source functions with the same bytes input in Python; no external tools or state.",
+    "observations": [
+      {
+        "version": "before",
+        "input": "label(b\"Ada\", None)",
+        "result": "b'Ada'",
+        "result_type": "bytes"
+      },
+      {
+        "version": "after",
+        "input": "label(b\"Ada\", None)",
+        "exception": "TypeError",
+        "message": "sequence item 0: expected str instance, bytes found"
+      }
+    ],
+    "interpretation": "The behavior difference is reproduced. Whether bytes must be preserved is contract-dependent: no input type contract was specified. Preserve the unresolved boundary rather than label this an unconditional failure."
+  }
+}

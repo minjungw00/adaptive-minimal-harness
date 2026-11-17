@@ -37,7 +37,9 @@
 - [x] Library/CLI regression cases and supported walkthrough inputs.
 - [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
 - [ ] Publish an approved public release for account-free binary downloads after release gates.
-- [ ] Measured downstream real-agent effectiveness, independent semantic evaluation and rule-removal experiments (P1).
+- [x] Initial independent qualitative pilot: 8 fresh actors, 16 two-stage reviews, findings and evidence retained. See [report](../evals/results/2026-11-17-pilot/report.md).
+- [ ] Resolve P0 saved-task continuation context gap exposed by the pilot; re-evaluate without prompting the answer.
+- [ ] Broader downstream effectiveness measurement, repeated/cross-model semantic evaluation and rule-removal experiments (P1).
 
 The local write path relies on user filesystem permissions. It is not the
 optional signed host and does not claim authenticated policy enforcement.
