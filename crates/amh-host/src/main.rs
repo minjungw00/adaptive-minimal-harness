@@ -122,10 +122,20 @@ The host does NOT sign approvals; an external authenticated signer is needed.
 
     fn validate_state_security(path: &Path) -> Result<(), String> {
         validate_state_path(path)?;
-        // Checking a known absent file also verifies all parent directories.
-        // The state or lock file itself is checked if it exists.
-        check_protected_path(path, true)?;
-        check_protected_path(&path.with_extension("lock"), true)
+        for protected_file in [path.to_path_buf(), path.with_extension("lock")] {
+            check_protected_path(&protected_file, true)?;
+            if let Ok(metadata) = fs::symlink_metadata(&protected_file) {
+                // Project state can contain sensitive text. An existing file
+                // must not be readable or writable by group or other users.
+                if metadata.mode() & 0o077 != 0 {
+                    return Err(format!(
+                        "state or lock file is not private: {}",
+                        protected_file.display()
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn validate_config(config: &HostConfig) -> Result<(), String> {
