@@ -1,10 +1,11 @@
-//! AMH CLI — inspected state and read-only change previews.
+//! AMH CLI — local project workflows and read-only protected-state inspection.
 //!
 //! An untrusted agent cannot turn a preview into a persistent write.
-//! Mutating state requires a separate trusted host; this executable does not
+//! Mutating protected state requires a separate trusted host; this executable does not
 //! accept a public key or an "approved" flag to bypass that boundary.
 
 use amh_core::{Change, ItemSnapshot, ManagedItem, SnapshotStore, StateManifest};
+mod project;
 #[cfg(feature = "approval-request")]
 mod request;
 use serde::{Deserialize, Serialize};
@@ -24,10 +25,10 @@ USAGE:
     amh item get --file PATH --id ITEM_ID
     amh change preview --file PATH --proposal JSON_FILE
 
-All state and change commands are READ-ONLY. Preview is not authorization.
+The legacy state and change commands are READ-ONLY. Preview is not authorization.
 OPTIONAL FEATURE (approval-request):
     amh change request --file PATH --proposal JSON_FILE --project ID --ttl SECONDS
-Project initialization, authenticated writes, and policy compilation are not yet implemented.
+Authenticated protected-state writes remain an optional host capability.
 ";
 
 #[derive(Debug, Deserialize)]
@@ -181,9 +182,12 @@ fn preview(state: &str, proposal_file: &str) -> Result<String, String> {
 }
 
 fn run(args: &[String]) -> Result<String, String> {
+    if let Some(result) = project::run(args) {
+        return result;
+    }
     match args {
-        [] => Ok(HELP.into()),
-        [arg] if arg == "-h" || arg == "--help" => Ok(HELP.into()),
+        [] => Ok(format!("{HELP}\n{}", project::HELP)),
+        [arg] if arg == "-h" || arg == "--help" => Ok(format!("{HELP}\n{}", project::HELP)),
         [arg] if arg == "-V" || arg == "--version" => {
             Ok(format!("amh {}", env!("CARGO_PKG_VERSION")))
         }
@@ -294,7 +298,8 @@ mod tests {
         let output = run(&["--help".into()]).unwrap();
         assert!(output.contains("change preview"));
         assert!(output.contains("READ-ONLY"));
-        assert!(!output.contains("amh init"));
+        assert!(output.contains("amh init"));
+        assert!(output.contains("local change"));
     }
 
     #[test]

@@ -1,0 +1,16 @@
+owner = "user"
+source = "User-approved report requirements"
+priority = 0
+
+[item]
+id = "R-COST"
+kind = "requirement"
+scope = "project"
+revision = 1
+lifecycle = "draft"
+content = "Keep the cost structure as the core analytical axis."
+
+[item.details]
+type = "requirement"
+role = "core"
+acceptance_criteria = ["Identify significant cost drivers and their implications"]

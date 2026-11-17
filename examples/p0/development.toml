@@ -1,0 +1,12 @@
+id = "TASK-BEHAVIOR"
+goal = "Implement the explicitly requested behavior change"
+tags = ["code.behavior_change"]
+classification_complete = true
+done_when = ["Requested behavior works", "Relevant checks pass"]
+allowed_paths = ["src/", "tests/"]
+stop_when = ["A mandatory requirement is unresolved"]
+
+[[checks]]
+id = "tests"
+argv = ["cargo", "test", "--locked"]
+timeout_seconds = 120

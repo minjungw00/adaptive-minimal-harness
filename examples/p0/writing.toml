@@ -1,0 +1,8 @@
+id = "TASK-REPORT"
+goal = "Extend the report with customer retention analysis while retaining the cost analysis"
+tags = ["document.revision"]
+classification_complete = true
+done_when = ["Both active requirements are covered", "Cost remains the core analytical axis"]
+allowed_paths = ["report.md"]
+stop_when = ["A requested change would replace an accepted requirement without approval"]
+outputs = ["report.md"]
