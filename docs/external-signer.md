@@ -39,9 +39,19 @@ The request binds project ID, expected snapshot revision, the exact change, reas
    The displayed `request` is schematic and `signature` must actually be **64 Ed25519 signature bytes**, expressed as a JSON array of byte values.
 7. Deliver the completed receipt to a separately protected `amh-host apply` process.
 
-The signed byte sequence is `b"AMH:change-approval:v1\\0" + serde_json::to_vec(typed_request)` (the domain literal denotes a **NUL byte**, not two printable characters). This is a signing protocol discriminator, **not** a planning or product release version.
+The signed byte sequence is `b"AMH:change-approval:v1\0" + serde_json::to_vec(typed_request)` (the domain literal denotes a **NUL byte**, not two printable characters). This is a signing protocol discriminator, **not** a planning or product release version.
 
 **Do not sign the enclosing untrusted JSON document** or a hand-constructed JSON representation with different field order. Do not treat a preview or a generated receipt as verified human consent.
+
+## Canonical byte regression vector
+
+For the following typed request:
+
+```json
+{"project_id":"p","expected_revision":7,"change":{"operation":"PAUSE","id":"P-A","item_revision":2},"reason":"approved","issued_at":100,"expires_at":200}
+```
+
+The signed message is the UTF-8 bytes for `AMH:change-approval:v1`, **one binary NUL byte**, then the compact JSON above without additional whitespace. The Rust test `canonical_signing_message_matches_external_signer_vector` pins this exact byte sequence. An external signing implementation should compare its output against this vector before producing real receipts.
 
 ## Operational limits
 
