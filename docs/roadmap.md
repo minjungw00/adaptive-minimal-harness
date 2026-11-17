@@ -14,7 +14,10 @@
 - [x] Read-only CLI inspection and change preview.
 - [x] Explicit typed-details migrations without inferred semantics.
 - [ ] Implement trusted key provisioning and authenticated human approval UX.
-- [ ] Secure host review, platform portability, key rotation and revocation.
+- [x] Host configuration supports active/retired/revoked verifier keys and staged rotation.
+- [x] Optional unsigned signing-request preparation for external signer interoperability.
+- [x] Operator-controlled metadata-only export with untrusted consumer inspection.
+- [ ] Secure host review, platform portability, key issuance/custody and audit logging.
 - [ ] User-facing state initialization and controlled write integration.
 
 ## Policy and task contracts

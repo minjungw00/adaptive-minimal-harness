@@ -8,6 +8,7 @@
 amh --help
 amh --version
 amh state inspect --file ./state.json
+amh manifest inspect --file ./state-manifest.json
 amh item get --file ./state.json --id R-COST
 amh change preview --file ./state.json --proposal ./proposal.json
 ```
@@ -48,3 +49,11 @@ A review must be grounded in the output's `affected_items` differences and the c
 - An `approved: true` escape hatch.
 
 For optional Linux-only receipt application through a separate OS-protected host, see [trusted host boundary](trusted-host.md).
+
+## Optional external signing request
+
+With `--features approval-request`, the read-only CLI additionally supports `amh change request --file PATH --proposal FILE --project ID --ttl SECONDS`. It prints an unsigned typed request and a canonical signing message for an **independent** signer. It does not authenticate users, issue signatures, or write state. See [signer contract](external-signer.md).
+
+## Read-only metadata import
+
+`amh manifest inspect --file PATH` validates the shape of an informational-only manifest exported by a trusted operator. It always reports `structurally_valid_untrusted`; validating a JSON structure is **not** a signature check. See [state manifest](state-manifest.md).

@@ -24,9 +24,10 @@ The native `amh` CLI now supports **read-only state inspection, item retrieval, 
 amh state inspect --file ./state.json
 amh item get --file ./state.json --id R-COST
 amh change preview --file ./state.json --proposal ./proposal.json
+amh manifest inspect --file ./state-manifest.json
 ```
 
-See the [CLI reference](docs/cli.md), [explicit legacy migration](docs/legacy-migration.md) and [trusted host limitations](docs/trusted-host.md).
+See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), and [trusted host limitations](docs/trusted-host.md).
 
 The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and authenticated approval UI are not implemented.
 
@@ -40,6 +41,7 @@ cargo test --workspace --all-features --locked
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo run -p amh-cli --locked -- --help
+cargo run -p amh-cli --features approval-request --locked -- --help
 cargo run -p amh-host --locked -- --help
 ```
 

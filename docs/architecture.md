@@ -35,3 +35,9 @@ A user-editable TOML/Markdown source of truth, separate event store, and consume
 ## Scope control
 
 The first implementation contains a small Rust workspace, an honest CLI entrypoint, testable core types, CI, and draft contracts. Full policy resolution, file reconciliation, trusted authorization, and actual agent behavioral evaluations are future work.
+
+## External signer and read-only consumer bridge
+
+The optional `approval-request` CLI feature produces unsigned canonical requests, while the Linux host verifies signed receipts using root-owned trusted keys (including active/retired/revoked key states). No private signing key or human authentication UI is bundled.
+
+The host can export a **metadata-only, non-authoritative** view of protected state. Consumer CLI inspection validates its structure, not its provenance. Neither the manifest nor an unsigned approval request authorizes protected writes. Full authenticated policy content delivery remains outside the implemented scope.

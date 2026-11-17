@@ -51,7 +51,7 @@ For an actual deployment, the trusted host MUST:
 
 If the same actor can replace the public key, alter the state file directly, and call the library, **the signature check does not enforce approval**.
 
-An experimental Linux `amh-host` now reads trusted project bindings from the fixed root-owned `/etc/amh/trust.json` and applies receipts only to protected `/var/lib/amh/projects/…/state.json` paths. It has no private signing keys, accepts no caller-supplied public-key or state-path override, and requires separate OS filesystem protection. See [trusted host](trusted-host.md). An authenticated signing UI, key provisioning, rotation, revocation, and production security review remain **future work**.
+An experimental Linux `amh-host` now reads trusted project bindings from the fixed root-owned `/etc/amh/trust.json` and applies receipts only to protected `/var/lib/amh/projects/…/state.json` paths. It has no private signing keys, accepts no caller-supplied public-key or state-path override, and requires separate OS filesystem protection. See [trusted host](trusted-host.md). Unsigned request preparation, host-managed verifier rotation/retirement/revocation, and metadata-only export are implemented as separate building blocks. An authenticated signing UI, secure key provisioning and custody, anti-rollback protection, operational key management, and production security review remain **future work**.
 
 ## Security tests
 
@@ -62,9 +62,11 @@ With `signed-approvals`, tests check correct signatures, wrong keys, project mis
 Before enabling consumer-facing authenticated mutation commands, complete:
 
 1. An authenticated human approval and signing interface with an independently protected signing key.
-2. Key provisioning, rotation, revocation, and an audit trail tied to project identity.
+2. Secure key provisioning, an operational rotation/revocation workflow, and an audit trail tied to project identity.
 3. A formally provisioned OS identity or restricted host service and security review of the root-owned host installation.
-4. A safe bridge between protected host state and the consumer project's read-only view.
+4. A trusted, content-aware bridge for selected policies; the current metadata-only export is explicitly untrusted.
 5. Cross-platform threat-model testing, failure reporting, and recovery paths.
 
 The signed-check mechanism is a reusable building block, not yet an end-to-end authorization product.
+
+See [external signing requests](external-signer.md) for exact bytes and user authentication requirements, and [metadata-only export](state-manifest.md) for the non-authoritative consumer bridge.
