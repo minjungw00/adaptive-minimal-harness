@@ -95,6 +95,7 @@ impl SnapshotStore {
     /// Locks, loads, applies, and commits as one on-disk document.
     ///
     /// A failed precondition or validation leaves the previous document intact.
+    #[cfg(test)]
     pub(crate) fn apply_change(
         &self,
         expected_revision: u64,
