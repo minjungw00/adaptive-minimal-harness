@@ -100,6 +100,18 @@ impl SnapshotStore {
         expected_revision: u64,
         change: Change,
     ) -> Result<ItemSnapshot, StoreError> {
+        self.apply_checked(expected_revision, change, || Ok(()))
+    }
+
+    fn apply_checked<F>(
+        &self,
+        expected_revision: u64,
+        change: Change,
+        verify: F,
+    ) -> Result<ItemSnapshot, StoreError>
+    where
+        F: FnOnce() -> Result<(), StoreError>,
+    {
         let parent = self
             .path
             .parent()
@@ -126,6 +138,10 @@ impl SnapshotStore {
         }
         let lock = lock_options.open(&lock_path)?;
         lock.lock()?;
+
+        // Validate the signature after acquiring the write lock so that an
+        // approval cannot expire during lock contention and still be applied.
+        verify()?;
 
         // Keep lock alive until the write is complete.
         let mut snapshot = self.load()?;
@@ -158,10 +174,21 @@ impl SnapshotStore {
         verifier: &crate::ApprovalVerifier,
         approval: &crate::SignedApproval,
     ) -> Result<ItemSnapshot, StoreError> {
-        let approved = verifier
-            .verify(approval)
-            .map_err(StoreError::Authorization)?;
-        self.apply_change(approved.expected_revision, approved.change)
+        self.apply_checked(
+            approval.request.expected_revision,
+            approval.request.change.clone(),
+            || {
+                let approved = verifier.verify(approval).map_err(StoreError::Authorization)?;
+                if approved.expected_revision != approval.request.expected_revision
+                    || approved.change != approval.request.change
+                {
+                    return Err(StoreError::Authorization(
+                        crate::ApprovalError::InvalidSignature,
+                    ));
+                }
+                Ok(())
+            },
+        )
     }
 
     fn atomic_replace(&self, parent: &Path, bytes: &[u8]) -> Result<(), StoreError> {
