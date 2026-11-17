@@ -27,14 +27,14 @@ Run on a separately administered machine; never in an agent-writable tree.
 ";
 
 fn parse_args(args: &[String]) -> Result<(bool, &Path, &str), String> {
-    if args.len() != 6
-        || args[2] != "--file"
-        || args[4] != "--project"
+    if args.len() != 5
+        || args[1] != "--file"
+        || args[3] != "--project"
         || !matches!(args[0].as_str(), "check" | "record")
     {
         return Err("usage: amh-witness <check|record> --file PATH --project PROJECT_ID".into());
     }
-    let id = args[5].as_str();
+    let id = args[4].as_str();
     if id.is_empty()
         || id.len() > 128
         || !id
@@ -43,7 +43,7 @@ fn parse_args(args: &[String]) -> Result<(bool, &Path, &str), String> {
     {
         return Err("invalid trusted project ID".into());
     }
-    Ok((args[0] == "record", Path::new(&args[3]), id))
+    Ok((args[0] == "record", Path::new(&args[2]), id))
 }
 
 fn reject_symlink(path: &Path) -> Result<(), String> {
@@ -343,6 +343,18 @@ mod tests {
     #[test]
     fn wrong_project_is_not_accepted_as_genesis() {
         assert!(verification_result(None, &segment(0, vec![entry(1, None)]), "other").is_err());
+    }
+
+    #[test]
+    fn accepts_exact_five_argument_operator_command() {
+        let args = vec![
+            "record".into(), "--file".into(), "checkpoint.json".into(),
+            "--project".into(), "alpha".into(),
+        ];
+        let (record, path, project) = parse_args(&args).unwrap();
+        assert!(record);
+        assert_eq!(path, Path::new("checkpoint.json"));
+        assert_eq!(project, "alpha");
     }
 
     #[test]
