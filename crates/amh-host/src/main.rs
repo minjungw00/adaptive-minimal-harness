@@ -32,6 +32,7 @@ USAGE:
     amh-host doctor
     amh-host apply < signed-approval.json
     amh-host export-manifest PROJECT_ID
+    amh-host export-audit PROJECT_ID AFTER_SEQUENCE
 
 TRUST:
     Root-owned configuration: /etc/amh/trust.json
@@ -381,6 +382,27 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             .map_err(|error| format!("cannot encode state manifest: {error}"))
     }
 
+    /// Export validated audit records after a known retained checkpoint.
+    /// The independent witness MUST authenticate the transport/operator.
+    /// This output contains no policy text or signed approval bodies.
+    fn export_audit(config: &HostConfig, project_id: &str, after: &str) -> Result<String, String> {
+        let from_sequence = after
+            .parse::<u64>()
+            .map_err(|_| "AFTER_SEQUENCE must be a nonnegative integer")?;
+        let project = config
+            .projects
+            .iter()
+            .find(|item| item.project_id == project_id)
+            .ok_or("unknown trusted project")?;
+        let (audit, state) = audited_state(project)?;
+        if state.is_none() {
+            return Err("cannot export an audit segment for an uninitialized project".into());
+        }
+        let segment = audit.export_segment(project_id, from_sequence)?;
+        serde_json::to_string(&segment)
+            .map_err(|error| format!("cannot serialize audit segment: {error}"))
+    }
+
     fn run(args: &[String]) -> Result<String, String> {
         match args {
             [] => Ok(HELP.to_owned()),
@@ -398,6 +420,9 @@ The host does NOT sign approvals; an external authenticated signer is needed.
             [arg] if arg == "apply" => apply(&load_config()?),
             [arg, project_id] if arg == "export-manifest" => {
                 export_manifest(&load_config()?, project_id)
+            }
+            [arg, project_id, sequence] if arg == "export-audit" => {
+                export_audit(&load_config()?, project_id, sequence)
             }
             _ => Err("unsupported host command; run 'amh-host --help'".into()),
         }
@@ -451,6 +476,21 @@ The host does NOT sign approvals; an external authenticated signer is needed.
                 projects: vec![make(), make()]
             })
             .is_err());
+        }
+
+        #[test]
+        fn audit_export_rejects_arbitrary_state_path_or_sequence() {
+            assert!(run(&[
+                "export-audit".into(),
+                "alpha".into(),
+                "../untrusted".into(),
+            ]).is_err());
+            assert!(run(&[
+                "export-audit".into(),
+                "alpha".into(),
+                "0".into(),
+                "/tmp/other-state".into(),
+            ]).is_err());
         }
 
         #[test]
