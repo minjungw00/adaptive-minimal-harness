@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/amh-core", "crates/amh-cli"]
+members = ["crates/amh-core", "crates/amh-cli", "crates/amh-host"]
 resolver = "2"
 
 [workspace.package]

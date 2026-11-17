@@ -12,6 +12,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "amh-host"
+version = "0.0.0"
+dependencies = [
+ "amh-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "amh-core"
 version = "0.0.0"
 dependencies = [
