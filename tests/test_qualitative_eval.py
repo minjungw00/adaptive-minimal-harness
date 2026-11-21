@@ -173,19 +173,19 @@ class RunTests(unittest.TestCase):
         self.assertEqual(len(full['cases']), 36)
         self.assertTrue(all(Path(v['workspace']).is_dir() for v in full['cases'].values()))
 
-    def test_session_stdin_is_captured_as_observed_protocol_input(self):
+    def test_policy_analysis_stdin_is_captured_as_observed_protocol_input(self):
         item = self.item('S04')
         def call(args, data=None):
             r = subprocess.run([item['tool'], *args], cwd=item['workspace'], input=data, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
             return json.loads(r.stdout)
-        call(['session', 'open', '--id', 'one', '--apply'])
-        p = call(['session', 'prepare', '--id', 'one', '--text', 'Explain the current code.'])
-        quote = [{'source': 'request', 'quote': p['request']}]
-        response = {'format': 'amh.session-analysis.v1', 'request_digest': p['request_digest'], 'mode': 'review', 'reason': 'Infrastructure fixture', 'evidence': quote,
-                    'assessments': [{'id': c['id'], 'item_revision': c['item_revision'], 'applicability': 'no_match', 'reason': 'Infrastructure fixture', 'evidence': quote} for c in p['candidates']]}
-        handoff = json.dumps({'packet': p, 'response': response})
-        call(['session', 'finish', '--input', '-', '--apply'], handoff)
+        p = call(['policy', 'discover', '--text', 'Explain the current code.'])
+        response = {'format': 'amh.policy-analysis.v1', 'request': p['request'], 'request_digest': p['request_digest'],
+                    'catalog_digest': p['catalog_digest'], 'clarification_questions': [],
+                    'assessments': [{'id': c['id'], 'item_revision': c['item_revision'], 'applicability': 'no_match',
+                                     'reason': 'Infrastructure fixture', 'request_quotes': [p['request']]} for c in p['candidates']]}
+        handoff = json.dumps(response)
+        call(['policy', 'resolve', '--input', '-'], handoff)
         audit = Path(item['private']) / 'audit'
         calls = [json.loads(x) for x in (audit / 'calls.jsonl').read_text().splitlines()]
         self.assertEqual(json.loads((audit / calls[-1]['stdin_file']).read_text()), json.loads(handoff))
@@ -215,29 +215,6 @@ class RunTests(unittest.TestCase):
         self.assertEqual(manifest['observation.json'], qe.sha((result / 'observation.json').read_bytes()))
         self.assertIn('turns/1/observation.json', manifest)
         self.assertEqual(len(qe.read_json(Path(c['cases']['D03']['private']) / 'initial.json')['user_messages']), 3)
-
-    def test_resume_is_an_explicit_same_project_link_without_prior_conversation(self):
-        run = Path(self.tmp.name) / 'resume'
-        c = de.prepare(self.amh, ROOT / 'evals/dialogues.json', run)
-        source = c['cases']['D02']
-        qe.invoke(self.amh, Path(source['workspace']), 'session', 'open', '--id', 'one', '--apply')
-        current = qe.invoke(self.amh, Path(source['workspace']), 'policy', 'list')
-        writing = next(x for x in current['policies'] if x['item']['id'] == 'P-WRITING')
-        change = run / 'pause.json'
-        qe.write_json(change, {'operation': 'PAUSE', 'id': 'P-WRITING', 'item_revision': writing['item']['revision']})
-        qe.invoke(self.amh, Path(source['workspace']), 'policy', 'change', '--file', str(change), '--expected-revision', str(current['revision']), '--reason', 'Fixture policy changed before resume', '--apply')
-        resume = de.prepare_resume(run, self.amh, 'D02', 'D07', 'one', 'Explain the report.')
-        self.assertEqual(resume['workspace'], source['workspace'])
-        self.assertEqual(resume['case']['turns'], ['Explain the report.'])
-        prompt = Path(resume['actor_prompt']).read_text()
-        self.assertNotIn(source['case']['turns'][0], prompt)
-        self.assertNotIn(source['case']['review_note'], prompt)
-        initial = qe.read_json(Path(resume['private']) / 'initial.json')
-        self.assertTrue(initial['resume_link']['prior_conversation_unavailable'])
-        writing = next(x for x in initial['policies']['policies'] if x['item']['id'] == 'P-WRITING')
-        self.assertEqual(writing['item']['lifecycle'], 'paused')
-        with self.assertRaises(FileExistsError):
-            de.prepare_resume(run, self.amh, 'D02', 'D07', 'one', 'Explain again.')
 
     def test_prepare_never_overwrites_an_existing_run(self):
         with self.assertRaises(FileExistsError):

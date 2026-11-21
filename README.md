@@ -4,12 +4,11 @@ A **local-first, model-agnostic control layer** for user-defined goals, principl
 requirements, constraints, and decisions. AMH works with existing agents; it does
 not provide an LLM, agent runner, or mandatory server.
 
-**Status: pre-alpha.** The existing agent now uses conversation sessions to
-retain relevant context and reconsider principles for each request. Simple requests
-need no Task contract or invented completion criteria. Explicit Task files remain
-available for work that needs them. Interpretation and actual compliance remain
-different evidence. See the [P0 boundary](docs/p0.md) and
-[agent integration](docs/agent-requests.md) and [multi-turn evaluation](evals/results/2026-11-17-sessions/report.md).
+**Status: pre-alpha.** An existing agent finds applicable policies for each request
+and reads only the bodies it needs. This path uses no AMH session or per-request
+files. Explicit Task contracts are available for work with defined acceptance
+criteria or checks. See [agent integration](docs/agent-requests.md) and the
+[P0 boundary](docs/p0.md).
 
 ## Native project workflow
 
@@ -22,8 +21,7 @@ amh init --id my-project > init-plan.json
 amh apply --plan init-plan.json
 amh pack install --name development --expected-revision 0 --reason 'Use development policies' --apply
 # In an AGENTS.md-compatible agent, now describe the desired work normally.
-# The current agent maintains one AMH session for the conversation.
-# It reuses appropriate context and changes principles as the requests change.
+# The agent discovers policy conditions and retrieves the selected instructions.
 # Alternatively, explicitly use an existing Codex CLI as the interpreter:
 amh request --text 'Fix the parser bug while preserving API compatibility.' --agent codex --apply
 amh doctor
@@ -41,12 +39,9 @@ Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and th
   policy conditions; AMH validates complete, grounded, snapshot-bound assessments
   and applies lifecycle, scope, dependencies and declared conflicts. Uncertain
   mandatory conditions and unresolved dependencies/conflicts block compilation.
-- **Session context:** one state file per conversation; instructions travel over
-  stdout. Reuse does not rewrite state or create protocol files. Previously excluded
-  methods are reconsidered when the request changes. Sessions remain separate.
-- **Minimal context:** selected principles and relevant conditions are delivered;
-  previously delivered bodies can be reused when still available and appropriate.
-  Lost context or changed policy snapshots require renewed review.
+- **Minimal context:** discovery returns short conditions. The agent can look up
+  a specific body and receives the applicable policies after validation.
+  Lookups write no files. The host manages the conversation.
 - **Safe updates:** reviewed plans are recomputed before application; generated
   edits and symlinks are refused. Only an identified block in an existing
   `AGENTS.md` is managed. Interrupted updates have an explicit recovery path.

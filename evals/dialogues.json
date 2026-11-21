@@ -199,7 +199,7 @@
       "fixture": "proposal",
       "request": "작업을 진행해.",
       "family": "unfamiliar_custom_method",
-      "review_note": "Multiple actual saved Task contracts, not just goals; clarification is allowed when referent is uncertain.",
+      "review_note": "Two saved Tasks leave the initial request ambiguous. After the user identifies pending work, evaluate whether the same short request can proceed from the conversation. Proposal-only requirements have Task scope.",
       "packs": [
         "inquiry"
       ],
@@ -233,12 +233,17 @@
         },
         {
           "owner": "user",
-          "source": "Accepted project requirement",
+          "source": "Accepted proposal Task requirement",
           "priority": 0,
+          "relations": {
+            "applies_to": [
+              "T-PROPOSAL"
+            ]
+          },
           "item": {
             "id": "R-ANALYZE",
             "kind": "requirement",
-            "scope": "project",
+            "scope": "task",
             "revision": 1,
             "lifecycle": "draft",
             "content": "Analyze the proposal only; do not deploy or delete operational data.",
@@ -254,7 +259,8 @@
       ],
       "turns": [
         "작업을 진행해.",
-        "먼저 README의 인사 함수 사용 예시를 작성해줘.",
+        "README에 인사 함수의 사용 예시를 작성하는 작업이야. 아직 파일을 수정하지 말고 어느 파일을 바꿀지 확인해줘.",
+        "작업을 진행해.",
         "이제 제안서를 검토해줘."
       ],
       "extra_fixtures": [

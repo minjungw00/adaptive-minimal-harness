@@ -38,9 +38,9 @@
 - [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
 - [ ] Publish an approved public release for account-free binary downloads after release gates.
 - [x] Initial independent qualitative pilot: 8 fresh actors, 16 two-stage reviews, findings and evidence retained. See [report](../evals/results/2026-11-17-pilot/report.md).
-- [x] Replace mandatory per-request Task creation with conversation state, scoped policy reuse, stdio delivery and optional explicit Task attachments.
-- [x] Preserve session isolation, stale-input guards and deterministic policy constraints; verify unchanged reuse does not write or add files.
-- [x] Initial multi-turn and explicit-resume evaluation: 9 fresh actors, 23 requests, 18 independent reviewers; evidence and remaining limits retained. Stored work alone is not current intent.
+- [x] Read-only natural-language policy lookup and selected-body delivery through stdio.
+- [x] Regression coverage for policy catalogue changes, applicable bodies and unchanged request-time files.
+- [ ] Repeat multi-turn and cross-model qualitative evaluation on the current protocol. Earlier observations remain available as historical evidence.
 - [ ] Broader downstream effectiveness measurement, repeated/cross-model semantic evaluation and rule-removal experiments (P1).
 
 The local write path relies on user filesystem permissions. It is not the

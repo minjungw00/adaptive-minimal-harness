@@ -81,33 +81,14 @@ With `--features approval-request`, `change request --file PATH --proposal FILE
 The local project `apply` command does not write this store. Only the optional
 [protected host](trusted-host.md) consumes signed receipts.
 
-## Conversation sessions
+## Read-only policy lookup
 
-`session open [--id ID] [--apply]` creates a handle; normally the existing agent
-manages it. `session prepare --id ID --text TEXT` reads current policies/context.
-`--known-catalog DIGEST --known-state DIGEST` can omit already available bodies;
-`--refresh` restores full context and requires renewed assessment. Do not connect
-a conversation to a project's latest handle automatically.
+| Command | Input and output |
+| --- | --- |
+| `policy discover --text TEXT` | Returns `amh.policy-discovery.v1` with a body-free candidate list, request and catalogue digests, and the JSON input schema for resolve. |
+| `policy read --id ID --catalog-digest DIGEST` | Returns one active policy from the same user/project catalogue. |
+| `policy resolve --input -\|FILE` | Accepts a single `amh.policy-analysis.v1` object. Use `-` for stdin. Returns selected IDs and instruction text on stdout, or structured clarification questions on stderr with a failing exit status. |
 
-Send `{packet, response}` over stdin to `session finish --input - [--apply]`.
-The response uses `amh.session-analysis.v1`; refer to the packet's response_schema.
-That schema is only the inner response. `analysis` is an accepted alias for the
-outer `response` field; supplying both is rejected. `session finish --help`
-explains the envelope.
-No Task ID or completion criteria are required. A clarification_required JSON
-response uses the error stream/nonzero exit to block action, not to label a
-clarification semantically incorrect. With --apply, its agent_question context is
-retained without activating new work instructions. Unchanged reuse does not write state.
-
-`session inspect --id ID` exports state/freshness. `session attach --id ID --task
-FILE --expected-revision N [--apply]` registers optional work information without
-selecting it. Prepare `--task-id TASK_ID` selects a task scope when contextual
-grounds exist; `--clear-focus` clears it. `session verify --id ID [--run]` uses
-only checks in that explicitly attached/focused Task. `session close --id ID
---expected-revision N [--apply]` closes the session, not its work items.
-
-A mutation without --apply returns a recomputable `amh.session-plan.v1`.
-`session apply --input -|FILE` applies that exact reviewed plan. All commands
-accept --root PATH. Per-session state lives at `.amh/sessions/ID/state.json`;
-instructions use stdout, not shared conversation-specific files. The existing
-`doctor`, `compile`, `sync` and `verify --task` describe the optional Task path.
+All three accept `--root PATH`. A catalogue change requires a fresh discovery.
+There is no Task or conversation state in this path. Use `request`, `compile`,
+`sync` or `verify` when the caller explicitly needs a Task contract.

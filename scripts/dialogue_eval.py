@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fresh-session dialogue support. Records observable events, never semantic scores."""
+"""Multi-turn agent evaluation. Records observable events, never semantic scores."""
 import argparse
 import json
 from pathlib import Path
@@ -64,41 +64,6 @@ def prepare(amh, suite, out):
     return c
 
 
-def prepare_resume(run, amh, source_case, case_id, session_id, request, allow_binary_change=False):
-    """Explicit same-project link for a fresh actor; never infer the latest ID."""
-    import uuid
-    run = Path(run).resolve()
-    c = qe.read_json(run / 'controller.json')
-    if case_id in c['cases']: raise FileExistsError('case already exists')
-    binary_sha = qe.sha(Path(amh).read_bytes())
-    if binary_sha != c['amh_sha256'] and not allow_binary_change: raise ValueError('evaluation binary changed')
-    source = c['cases'][source_case]
-    root = Path(source['workspace'])
-    state = qe.read_json(root / '.amh/sessions' / session_id / 'state.json')
-    if state['root'] != str(root.resolve()) or state['id'] != session_id: raise ValueError('resume link does not match the existing project')
-    directory = run / 'actors' / uuid.uuid4().hex[:12]
-    private = run / 'controller' / case_id
-    private.mkdir(parents=True)
-    tool = qe.make_tool(directory / 'bin', Path(amh).resolve(), private / 'audit')
-    trace = make_trace(directory / 'bin', root, private)
-    case = {**source['case'], 'id': case_id, 'request': request, 'turns': [request], 'resume_from': source_case, 'native_binary_sha256': binary_sha}
-    initial = {'request': request, 'user_messages': [request], 'files': qe.product_files(root),
-               'policies': qe.invoke(Path(amh).resolve(), root, 'policy', 'list'),
-               'current_deployment': qe.deployment(root), 'agent_instructions': (root / 'AGENTS.md').read_text(),
-               'resume_link': {'session_id': session_id, 'prior_conversation_unavailable': True, 'state': state}}
-    qe.write_json(private / 'initial.json', initial)
-    prompt = (f'Work only in {root}. AMH is available at {tool}. '
-              f'This conversation explicitly resumes AMH session {session_id}; prior conversational content is unavailable. '
-              'Do not use network services, other agents, sibling directories, repository sources or unrelated connected tools. '
-              f'Use {trace} exec COMMAND [ARG...] for workspace reads, edits and checks, and the supplied AMH directly for AMH calls. '
-              'Do not inspect wrapper sources or observation storage. Handle this user request, reporting work and actual checks.\n\n' + request)
-    (directory / 'actor-prompt.txt').write_text(prompt, encoding='utf-8')
-    c['cases'][case_id] = {'opaque_id': directory.name, 'case': case, 'workspace': str(root), 'tool': str(tool),
-                         'private': str(private), 'actor_prompt': str(directory / 'actor-prompt.txt')}
-    qe.write_json(run / 'controller.json', c)
-    return c['cases'][case_id]
-
-
 def seal(folder):
     qe.write_json(folder / 'evidence-manifest.json', {p.relative_to(folder).as_posix(): qe.sha(p.read_bytes()) for p in sorted(folder.rglob('*')) if p.is_file() and p != folder / 'evidence-manifest.json'})
 
@@ -153,9 +118,7 @@ def export(run, out):
             target = folder / 'turns' / turn.name
             qe.write_json(target / 'observation.json', portable(qe.read_json(turn / 'observation.json')))
             workspace = turn / 'workspace'
-            states = {p.relative_to(workspace).as_posix(): qe.read_json(p) for p in sorted((workspace / '.amh/sessions').glob('*/state.json'))}
             inventory = {p.relative_to(workspace).as_posix(): {'sha256': qe.sha(p.read_bytes()), 'bytes': p.stat().st_size} for p in sorted(workspace.rglob('*')) if p.is_file() and '__pycache__' not in p.parts}
-            qe.write_json(target / 'session-states.json', portable(states))
             qe.write_json(target / 'file-inventory.json', inventory)
         audit = private / 'result/work-audit'
         if (audit / 'events.jsonl').exists():

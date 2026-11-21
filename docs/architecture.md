@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Native project and conversation-session workflows are implemented; broad behavioral reliability remains under evaluation. Planning documents have no product release version.
+**Status:** Native project policy lookup and explicit Task workflows are implemented; broad behavioral reliability remains under evaluation. Planning documents have no product release version.
 
 AMH is a local-first control layer built around existing agents. It is not an LLM, mandatory server, hosted control plane, or general-purpose multi-agent runner.
 
@@ -34,7 +34,7 @@ The native project path uses `amh-project`: a user-owned TOML event log, typed g
 
 ## Scope control
 
-The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent qualitative pilots cover selected natural-language and agent behaviors. Broad classification measurement, cross-model/unassisted comparisons, semantic conflict analysis, automatic live-session reconciliation and authenticated local approval remain unimplemented or unmeasured.
+The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent qualitative pilots cover selected natural-language and agent behaviors. Broad classification measurement, cross-model/unassisted comparisons, semantic conflict analysis, automatic host context reconciliation and authenticated local approval remain unimplemented or unmeasured.
 
 ## External signer and read-only consumer bridge
 
@@ -62,18 +62,12 @@ are explicit optional interpreter integrations, not a mandatory new runner.
 AMH checks snapshot binding, candidate coverage, quotations, uncertainty and
 structural conflicts; it does not claim that a model judgment is semantic proof.
 
-## Conversation state and delivery
+## Request-based delivery
 
-The default bridge retains an explicit session handle, obtains a current policy/context
-snapshot, and lets the current agent reconsider applicability for each request.
-No required Task or invented completion criteria are introduced for simple messages.
-One atomic session state file stores useful changes; unchanged reuse does not write.
-Instructions and changes are emitted over stdout, so concurrent sessions do not
-replace a common generated instruction file. The shared Task adapter remains an
-opt-in compatibility path and is not another conversation's current intent.
-
-Version/source guards and deterministic policy constraints apply to both paths.
-Semantic reuse, context summaries and interpreted applicability remain model judgments.
-A refresh re-delivers current instructions; it does not prove old text disappeared
-from an agent's memory. Provider session IDs, logs and reset signals are used only
-when a supported environment supplies them; no universal discovery is claimed.
+The default managed bridge starts with a catalogue of conditions and metadata.
+The existing agent uses its available conversation context to judge applicability
+and can retrieve an individual body when necessary. AMH validates the decisions
+against the current policy snapshot, then renders the applicable bodies.
+Lookup and resolution use stdin and stdout and need no per-request files.
+Explicit Task deployment is separately available for defined acceptance criteria
+and executable verification. The host manages conversation state.
