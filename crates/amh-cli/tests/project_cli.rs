@@ -220,7 +220,7 @@ fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
     assert!(!instructions.contains("P-SOCRATIC"));
     assert_eq!(f.ok(&["doctor"])["deployment"], "current");
     let agents = fs::read_to_string(f.0.join("AGENTS.md")).unwrap();
-    assert!(agents.contains("Do not ask users for session IDs, tags"));
+    assert!(agents.contains("amh policy discover"));
 }
 #[test]
 fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
@@ -292,184 +292,128 @@ impl Fixture {
         child.wait_with_output().unwrap()
     }
 }
-fn session_analysis(p: &Value) -> Value {
-    json!({"format":"amh.session-analysis.v1","request_digest":p["request_digest"],"mode":"review","reason":"Explicit protocol fixture","evidence":[{"source":"request","quote":p["request"]}],"assessments":p["candidates"].as_array().unwrap().iter().map(|c|json!({"id":c["id"],"item_revision":c["item_revision"],"applicability":"no_match","reason":"Explicit fixture decision","evidence":[{"source":"request","quote":p["request"]}]})).collect::<Vec<_>>()})
-}
-#[test]
-fn session_stdio_handoff_reuses_context_without_protocol_files_or_task_contract() {
-    let f = Fixture::new();
-    f.ok(&["init", "--id", "conversation", "--apply"]);
-    let opened = f.ok(&["session", "open", "--apply"]);
-    let id = opened["session_id"].as_str().unwrap();
-    let p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        id,
-        "--text",
-        "문장의 오탈자를 고쳐줘.",
-    ]);
-    let r = session_analysis(&p);
-    let out = f.stdin(
-        &["session", "finish", "--input", "-", "--apply"],
-        &json!({"packet":p,"response":r}),
-    );
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let out: Value = serde_json::from_slice(&out.stdout).unwrap();
-    let state_path = f.0.join(format!(".amh/sessions/{id}/state.json"));
-    let before = fs::read(&state_path).unwrap();
-    let p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        id,
-        "--text",
-        "계속해.",
-        "--known-catalog",
-        out["catalog_digest"].as_str().unwrap(),
-        "--known-state",
-        out["state_digest"].as_str().unwrap(),
-    ]);
-    assert!(p["candidates"].is_null());
-    let r = json!({"format":"amh.session-analysis.v1","request_digest":p["request_digest"],"mode":"reuse","reason":"All current conditions remain appropriate","evidence":[{"source":"request","quote":"계속해."}]});
-    let out = f.stdin(
-        &["session", "finish", "--input", "-", "--apply"],
-        &json!({"packet":p,"response":r}),
-    );
-    assert!(out.status.success());
-    let out: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(out["changed"], false);
-    assert_eq!(before, fs::read(state_path).unwrap());
-    assert!(!f.0.join("packet.json").exists());
-    assert!(!f.0.join("analysis.json").exists());
-    assert_eq!(f.ok(&["doctor"])["deployment"], "uncompiled");
-    assert!(f.ok(&["session", "inspect", "--id", id])["state"]["tasks"]
+
+fn policy_analysis(packet: &Value, selected: &[&str]) -> Value {
+    let assessments: Vec<_> = packet["candidates"]
         .as_array()
         .unwrap()
-        .is_empty());
-}
-#[test]
-fn session_previews_apply_over_stdin_and_clarification_returns_a_structured_block() {
-    let f = Fixture::new();
-    f.ok(&["init", "--id", "conversation", "--apply"]);
-    let preview = f.ok(&["session", "open", "--id", "one"]);
-    assert!(!f.0.join(".amh/sessions").exists());
-    let o = f.stdin(&["session", "apply", "--input", "-"], &preview);
-    assert!(o.status.success());
-    let p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        "one",
-        "--text",
-        "작업을 진행해.",
-    ]);
-    let mut r = session_analysis(&p);
-    r["clarification_questions"] = json!(["어떤 대상을 진행할까요?"]);
-    let before = fs::read(f.0.join(".amh/sessions/one/state.json")).unwrap();
-    let o = f.stdin(
-        &["session", "finish", "--input", "-", "--apply"],
-        &json!({"packet":p,"response":r}),
-    );
-    assert!(!o.status.success());
-    let d: Value = serde_json::from_slice(&o.stderr).unwrap();
-    assert_eq!(d["status"], "clarification_required");
-    assert_ne!(
-        before,
-        fs::read(f.0.join(".amh/sessions/one/state.json")).unwrap()
-    );
-    let state = f.ok(&["session", "inspect", "--id", "one"]);
-    assert_eq!(state["state"]["notes"][0]["origin"], "agent_question");
-    assert!(state["state"]["selected"].as_array().unwrap().is_empty());
-}
-#[test]
-fn session_input_refuses_unknown_commands_and_cross_session_packets() {
-    let f = Fixture::new();
-    f.ok(&["init", "--id", "conversation", "--apply"]);
-    f.ok(&["session", "open", "--id", "a", "--apply"]);
-    f.ok(&["session", "open", "--id", "b", "--apply"]);
-    let p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        "a",
-        "--text",
-        "Summarize this.",
-    ]);
-    let mut r = session_analysis(&p);
-    r["checks"] = json!([{"argv":["unrequested-command"]}]);
-    assert!(!f
-        .stdin(
-            &["session", "finish", "--input", "-", "--apply"],
-            &json!({"packet":p,"response":r})
-        )
-        .status
-        .success());
-    let mut p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        "a",
-        "--text",
-        "Summarize this.",
-    ]);
-    let r = session_analysis(&p);
-    p["session_id"] = "b".into();
-    assert!(!f
-        .stdin(
-            &["session", "finish", "--input", "-", "--apply"],
-            &json!({"packet":p,"response":r})
-        )
-        .status
-        .success());
+        .iter()
+        .map(|policy| {
+            let id = policy["id"].as_str().unwrap();
+            let applicability = if selected.contains(&id) {
+                "match"
+            } else {
+                "no_match"
+            };
+            json!({
+                "id": id, "item_revision": policy["item_revision"], "applicability": applicability,
+                "reason": "Compare the requested work to the applicability condition",
+                "request_quotes": [packet["request"]]
+            })
+        })
+        .collect();
+    json!({
+        "format": "amh.policy-analysis.v1", "request": packet["request"],
+        "request_digest": packet["request_digest"], "catalog_digest": packet["catalog_digest"],
+        "assessments": assessments, "clarification_questions": []
+    })
 }
 
 #[test]
-fn session_help_and_analysis_alias_explain_handoff_without_weakening_bindings() {
+fn stateless_cli_reads_selected_bodies_and_leaves_no_request_artifacts() {
     let f = Fixture::new();
-    let help = f.run(&["session", "finish", "--help"]);
-    assert!(help.status.success());
-    let text = String::from_utf8(help.stdout).unwrap();
-    assert!(
-        text.contains("inner response") && text.contains("packet") && text.contains("response")
-    );
-    assert!(!f.0.join(".amh").exists());
-    f.ok(&["init", "--id", "conversation", "--apply"]);
-    f.ok(&["session", "open", "--id", "one", "--apply"]);
-    let p = f.ok(&[
-        "session",
-        "prepare",
-        "--id",
-        "one",
-        "--text",
-        "Explain this.",
+    f.ok(&["init", "--id", "project", "--apply"]);
+    f.ok(&[
+        "pack",
+        "install",
+        "--name",
+        "development",
+        "--expected-revision",
+        "0",
+        "--reason",
+        "Use development policies",
+        "--apply",
     ]);
-    let r = session_analysis(&p);
-    let both = f.stdin(
-        &["session", "finish", "--input", "-", "--apply"],
-        &json!({"packet":p,"response":r,"analysis":r}),
-    );
-    assert!(!both.status.success());
-    let out = f.stdin(
-        &["session", "finish", "--input", "-", "--apply"],
-        &json!({"packet":p,"analysis":r}),
+    let registry = fs::read(f.0.join(".amh/amh.toml")).unwrap();
+    let task_contract = fs::read(f.0.join(".amh/generated/AGENTS.md")).unwrap();
+    let inventory = fs::read_dir(f.0.join(".amh")).unwrap().count();
+    assert!(!f.run(&["session", "open"]).status.success());
+
+    let first = f.ok(&["policy", "discover", "--text", "이 오류를 고쳐줘."]);
+    let candidates = first["candidates"].as_array().unwrap();
+    assert!(!candidates.is_empty());
+    assert!(candidates
+        .iter()
+        .all(|candidate| candidate.get("content").is_none()));
+    let catalogue = first["catalog_digest"].as_str().unwrap();
+    let body = f.ok(&[
+        "policy",
+        "read",
+        "--id",
+        "P-DEBUG",
+        "--catalog-digest",
+        catalogue,
+    ]);
+    assert!(body["item"]["content"]
+        .as_str()
+        .unwrap()
+        .contains("Reproduce the failure"));
+    let outcome = f.stdin(
+        &["policy", "resolve", "--input", "-"],
+        &policy_analysis(&first, &["P-DEBUG", "P-REGRESSION"]),
     );
     assert!(
-        out.status.success(),
+        outcome.status.success(),
         "{}",
-        String::from_utf8_lossy(&out.stderr)
+        String::from_utf8_lossy(&outcome.stderr)
     );
-    let mut other = p.clone();
-    other["request"] = "Different work".into();
-    assert!(!f
-        .stdin(
-            &["session", "finish", "--input", "-", "--apply"],
-            &json!({"packet":other,"analysis":r})
-        )
-        .status
-        .success());
+    let first_result: Value = serde_json::from_slice(&outcome.stdout).unwrap();
+    assert_eq!(first_result["selected"], json!(["P-DEBUG", "P-REGRESSION"]));
+    let instructions = first_result["instructions"].as_str().unwrap();
+    assert!(instructions.contains("Reproduce the failure"));
+    assert!(instructions.contains("Add a regression check"));
+    assert!(!instructions.contains("P-MUTATION"));
+
+    let second = f.ok(&["policy", "discover", "--text", "수정 이유를 설명해줘."]);
+    let outcome = f.stdin(
+        &["policy", "resolve", "--input", "-"],
+        &policy_analysis(&second, &[]),
+    );
+    assert!(
+        outcome.status.success(),
+        "{}",
+        String::from_utf8_lossy(&outcome.stderr)
+    );
+    let second_result: Value = serde_json::from_slice(&outcome.stdout).unwrap();
+    assert_eq!(second_result["selected"], json!([]));
+    assert_eq!(second_result["instructions"], "");
+    assert_eq!(fs::read(f.0.join(".amh/amh.toml")).unwrap(), registry);
+    assert_eq!(
+        fs::read(f.0.join(".amh/generated/AGENTS.md")).unwrap(),
+        task_contract
+    );
+    assert_eq!(fs::read_dir(f.0.join(".amh")).unwrap().count(), inventory);
+    assert!(!f.0.join(".amh/sessions").exists());
+}
+
+#[test]
+fn stateless_cli_reports_clarification_without_writing() {
+    let f = Fixture::new();
+    f.ok(&["init", "--id", "project", "--apply"]);
+    let old_state = f.0.join(".amh/sessions/old/state.json");
+    fs::create_dir_all(old_state.parent().unwrap()).unwrap();
+    fs::write(&old_state, "older user data").unwrap();
+    let packet = f.ok(&["policy", "discover", "--text", "작업을 진행해"]);
+    let mut analysis = policy_analysis(&packet, &[]);
+    analysis["clarification_questions"] = json!(["어떤 작업을 진행할까요?"]);
+    let outcome = f.stdin(&["policy", "resolve", "--input", "-"], &analysis);
+    assert!(!outcome.status.success());
+    let block: Value = serde_json::from_slice(&outcome.stderr).unwrap();
+    assert_eq!(block["status"], "clarification_required");
+    assert_eq!(
+        block["clarification_questions"],
+        analysis["clarification_questions"]
+    );
+    assert_eq!(block["selected"], json!([]));
+    assert_eq!(fs::read_to_string(old_state).unwrap(), "older user data");
 }

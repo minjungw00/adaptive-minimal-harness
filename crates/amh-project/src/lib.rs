@@ -3,16 +3,16 @@
 mod interpreter;
 mod model;
 mod natural;
+mod policy_lookup;
 mod resolve;
-mod session;
 mod verify;
 mod workspace;
 
 pub use interpreter::*;
 pub use model::*;
 pub use natural::*;
+pub use policy_lookup::*;
 pub use resolve::*;
-pub use session::*;
 pub use verify::*;
 pub use workspace::*;
 

@@ -9,6 +9,9 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
+        Self::with_user_root(None)
+    }
+    fn with_user_root(user_root: Option<PathBuf>) -> Self {
         let root = std::env::temp_dir().join(format!(
             "amh-natural-{}-{}",
             std::process::id(),
@@ -21,7 +24,7 @@ impl Fixture {
                 &root,
                 Request::Init {
                     project_id: "test".into(),
-                    user_root: None,
+                    user_root,
                 },
             )
             .unwrap(),
@@ -62,6 +65,130 @@ impl Fixture {
         )
         .unwrap();
     }
+}
+
+fn lookup_analysis(packet: &PolicyDiscovery, selected: &[&str]) -> PolicyAnalysis {
+    PolicyAnalysis {
+        format: "amh.policy-analysis.v1".into(),
+        request: packet.request.clone(),
+        request_digest: packet.request_digest.clone(),
+        catalog_digest: packet.catalog_digest.clone(),
+        assessments: packet
+            .candidates
+            .iter()
+            .map(|p| PolicyAssessment {
+                id: p.id.clone(),
+                item_revision: p.item_revision,
+                applicability: if selected.contains(&p.id.as_str()) {
+                    Applicability::Match
+                } else {
+                    Applicability::NoMatch
+                },
+                reason: "Matched or excluded by the policy's condition".into(),
+                request_quotes: vec![packet.request.clone()],
+            })
+            .collect(),
+        clarification_questions: vec![],
+    }
+}
+
+#[test]
+fn policy_lookup_merges_scopes_and_checks_dependencies_without_a_task() {
+    let user = Fixture::new();
+    let project = Fixture::with_user_root(Some(user.0.clone()));
+    let mut common = policy("P-COMMON", "When editing a report.");
+    common.item.scope = ItemScope::User;
+    user.add(common);
+    let mut local = policy("P-LOCAL", "When the report is intended for publication.");
+    local.relations.depends_on.push("P-COMMON".into());
+    project.add(local);
+    let mut required = policy("R-COST", "unused");
+    required.applicability = None;
+    required.item.kind = ItemKind::Requirement;
+    required.item.details = Some(ItemDetails::Requirement {
+        role: amh_core::RequirementRole::Core,
+        acceptance_criteria: vec!["Keep cost analysis".into()],
+    });
+    project.add(required);
+    let mut task_only = policy("P-TASK", "When editing a report.");
+    task_only.item.scope = ItemScope::Task;
+    task_only.relations.applies_to.push("T-LEGACY".into());
+    project.add(task_only);
+    let packet = discover_policies(&project.0, "이 보고서를 완성해 주세요.").unwrap();
+    assert_eq!(packet.candidates.len(), 2);
+    assert_eq!(packet.candidates[0].scope, ItemScope::User);
+    assert_eq!(packet.candidates[1].scope, ItemScope::Project);
+    assert!(read_policy(&project.0, "P-TASK", &packet.catalog_digest).is_err());
+    let outcome = resolve_policies(
+        &project.0,
+        lookup_analysis(&packet, &["P-COMMON", "P-LOCAL"]),
+    )
+    .unwrap();
+    assert_eq!(outcome.selected, ["P-COMMON", "P-LOCAL", "R-COST"]);
+    assert!(
+        resolve_policies(&project.0, lookup_analysis(&packet, &["P-LOCAL"]))
+            .unwrap_err()
+            .contains("unresolved dependency")
+    );
+}
+
+#[test]
+fn policy_lookup_rejects_wrong_request_and_project_incomplete_assessments_and_policy_changes() {
+    let project = Fixture::new();
+    let other = Fixture::new();
+    for fixture in [&project, &other] {
+        fixture.add(policy("P-A", "When editing a report."));
+    }
+    let packet = discover_policies(&project.0, "보고서를 편집해 주세요.").unwrap();
+    assert!(resolve_policies(&other.0, lookup_analysis(&packet, &["P-A"])).is_err());
+    let mut reply = lookup_analysis(&packet, &["P-A"]);
+    reply.request.push('!');
+    assert!(resolve_policies(&project.0, reply)
+        .unwrap_err()
+        .contains("different request"));
+    let mut reply = lookup_analysis(&packet, &[]);
+    reply.assessments.clear();
+    assert!(resolve_policies(&project.0, reply)
+        .unwrap_err()
+        .contains("incomplete"));
+    let mut reply = lookup_analysis(&packet, &[]);
+    reply.assessments[0].applicability = Applicability::Uncertain;
+    assert!(resolve_policies(&project.0, reply)
+        .unwrap_err()
+        .contains("uncertain mandatory"));
+    let mut reply = lookup_analysis(&packet, &["P-A"]);
+    reply.assessments[0].request_quotes = vec!["fabricated evidence".into()];
+    assert!(resolve_policies(&project.0, reply)
+        .unwrap_err()
+        .contains("exact request quotations"));
+
+    apply(
+        &project.0,
+        &plan(
+            &project.0,
+            Request::Change {
+                expected_revision: 2,
+                reason: "Pause the registered policy".into(),
+                change: PolicyChange::Pause {
+                    id: "P-A".into(),
+                    item_revision: 2,
+                },
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        resolve_policies(&project.0, lookup_analysis(&packet, &["P-A"]))
+            .unwrap_err()
+            .contains("stale policy catalogue")
+    );
+    assert!(read_policy(&project.0, "P-A", &packet.catalog_digest)
+        .unwrap_err()
+        .contains("stale policy catalogue"));
+    let current = discover_policies(&project.0, &packet.request).unwrap();
+    assert!(current.candidates.is_empty());
+    assert!(read_policy(&project.0, "P-A", &current.catalog_digest).is_err());
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -334,7 +461,7 @@ fn recognized_legacy_bridge_upgrades_without_replacing_user_instructions() {
     let path = f.0.join("AGENTS.md");
     fs::write(
         &path,
-        format!("User's existing rules{}", LEGACY_AGENT_BRIDGE),
+        "User's existing rules\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n",
     )
     .unwrap();
     assert!(doctor(&f.0).unwrap().adapter_update_available);
@@ -350,7 +477,7 @@ fn recognized_legacy_bridge_upgrades_without_replacing_user_instructions() {
     apply(&f.0, &p).unwrap();
     let text = fs::read_to_string(&path).unwrap();
     assert!(text.starts_with("User's existing rules"));
-    assert!(text.contains("amh session finish"));
+    assert!(text.contains("amh policy resolve"));
     assert!(!doctor(&f.0).unwrap().adapter_update_available);
     apply(&f.0, &plan(&f.0, Request::Uninstall).unwrap()).unwrap();
     assert_eq!(fs::read_to_string(path).unwrap(), "User's existing rules");

@@ -80,10 +80,23 @@ pub fn catalog_digest(entries: &[Policy]) -> Result<String> {
     ))
 }
 
-fn in_scope(p: &Policy, task_id: &str) -> bool {
+pub(crate) fn in_scope(p: &Policy, task_id: &str) -> bool {
     p.item.lifecycle == Lifecycle::Active
         && (p.relations.applies_to.is_empty()
             || p.relations.applies_to.iter().any(|id| id == task_id))
+}
+
+pub(crate) fn conditional_principle(p: &Policy) -> Option<(PrincipleStrength, &Activation)> {
+    match &p.item.details {
+        Some(ItemDetails::Principle {
+            strength,
+            activation,
+            ..
+        }) if p.applicability.is_some() || !matches!(activation, Activation::Always) => {
+            Some((*strength, activation))
+        }
+        _ => None,
+    }
 }
 
 pub fn policy_cards(entries: &[Policy], task_id: &str) -> Result<Vec<PolicyCard>> {
@@ -97,32 +110,30 @@ pub fn policy_cards(entries: &[Policy], task_id: &str) -> Result<Vec<PolicyCard>
         if !in_scope(p, task_id) {
             continue;
         }
-        if let Some(ItemDetails::Principle {
-            strength,
-            activation,
-            ..
-        }) = &p.item.details
-        {
-            if p.applicability.is_some() || !matches!(activation, Activation::Always) {
-                result.push(PolicyCard {
-                    id: p.item.id.clone(),
-                    item_revision: p.item.revision,
-                    content: p.item.content.clone(),
-                    condition: p.applicability.clone(),
-                    activation: activation.clone(),
-                    strength: *strength,
-                });
-            }
+        if let Some((strength, activation)) = conditional_principle(p) {
+            result.push(PolicyCard {
+                id: p.item.id.clone(),
+                item_revision: p.item.revision,
+                content: p.item.content.clone(),
+                condition: p.applicability.clone(),
+                activation: activation.clone(),
+                strength,
+            });
         }
     }
     result.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(result)
 }
 
-pub fn prepare_request(root: &Path, request: &str, task_id: Option<&str>) -> Result<RequestPacket> {
+pub(crate) fn validate_request_text(request: &str) -> Result<()> {
     if request.trim().is_empty() || request.len() > 64 * 1024 {
         return Err("request must be nonempty and at most 64 KiB".into());
     }
+    Ok(())
+}
+
+pub fn prepare_request(root: &Path, request: &str, task_id: Option<&str>) -> Result<RequestPacket> {
+    validate_request_text(request)?;
     let registry = load(root)?;
     let entries = policies(root)?;
     let id = task_id
@@ -176,12 +187,16 @@ fn response_schema(packet: &RequestPacket) -> Value {
         "catalog_digest":{"type":"string","enum":[packet.catalog_digest]},
         "done_when":{"type":"array","items":{"type":"string"}},
         "clarification_questions":{"type":"array","items":{"type":"string"}},
-        "assessments":{"type":"array","items":{"type":"object","additionalProperties":false,
-            "required":["id","item_revision","applicability","reason","request_quotes"],
-            "properties":{"id":{"type":"string"},"item_revision":{"type":"integer"},
-                "applicability":{"type":"string","enum":["match","no_match","uncertain"]},
-                "reason":{"type":"string"},"request_quotes":{"type":"array","items":{"type":"string"}}}}}
+        "assessments":assessment_schema()
     }})
+}
+
+pub(crate) fn assessment_schema() -> Value {
+    json!({"type":"array","items":{"type":"object","additionalProperties":false,
+        "required":["id","item_revision","applicability","reason","request_quotes"],
+        "properties":{"id":{"type":"string"},"item_revision":{"type":"integer"},
+            "applicability":{"type":"string","enum":["match","no_match","uncertain"]},
+            "reason":{"type":"string"},"request_quotes":{"type":"array","items":{"type":"string"}}}}})
 }
 
 fn validate_response(packet: &RequestPacket, response: &AgentResponse) -> Result<()> {
@@ -200,25 +215,32 @@ fn validate_response(packet: &RequestPacket, response: &AgentResponse) -> Result
     if response.done_when.is_empty() || response.done_when.iter().any(|v| v.trim().is_empty()) {
         return Err("agent response requires nonempty completion criteria".into());
     }
-    validate_assessments(&packet.request, &packet.candidates, &response.assessments)?;
+    validate_assessments(
+        &packet.request,
+        packet
+            .candidates
+            .iter()
+            .map(|p| (p.id.as_str(), (p.item_revision, p.strength))),
+        &response.assessments,
+    )?;
     Ok(())
 }
 
-fn validate_assessments(
+pub(crate) fn validate_assessments<'a>(
     request: &str,
-    candidates: &[PolicyCard],
+    candidates: impl Iterator<Item = (&'a str, (u64, PrincipleStrength))>,
     assessments: &[PolicyAssessment],
 ) -> Result<()> {
-    let expected: BTreeMap<_, _> = candidates.iter().map(|p| (p.id.as_str(), p)).collect();
+    let expected: BTreeMap<_, _> = candidates.collect();
     let mut seen = BTreeSet::new();
     for a in assessments {
-        let card = expected.get(a.id.as_str()).ok_or_else(|| {
+        let &(revision, strength) = expected.get(a.id.as_str()).ok_or_else(|| {
             format!(
                 "unknown, inactive or unconditional policy assessment: {}",
                 a.id
             )
         })?;
-        if !seen.insert(a.id.as_str()) || a.item_revision != card.item_revision {
+        if !seen.insert(a.id.as_str()) || a.item_revision != revision {
             return Err(format!("duplicate or stale assessment: {}", a.id));
         }
         if a.reason.trim().is_empty()
@@ -232,7 +254,7 @@ fn validate_assessments(
                 a.id
             ));
         }
-        if a.applicability == Applicability::Uncertain && card.strength == PrincipleStrength::Must {
+        if a.applicability == Applicability::Uncertain && strength == PrincipleStrength::Must {
             return Err(format!(
                 "uncertain mandatory policy: {} ({})",
                 a.id, a.reason
@@ -301,7 +323,9 @@ pub(crate) fn task_assessments(
     }
     validate_assessments(
         &i.request,
-        &policy_cards(entries, &task.id)?,
+        policy_cards(entries, &task.id)?
+            .iter()
+            .map(|p| (p.id.as_str(), (p.item_revision, p.strength))),
         &i.response.assessments,
     )?;
     Ok(Some(

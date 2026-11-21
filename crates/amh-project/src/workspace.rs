@@ -12,9 +12,16 @@ const REGISTRY: &str = ".amh/amh.toml";
 const GENERATED: &str = ".amh/generated/AGENTS.md";
 const MANIFEST: &str = ".amh/deployment.json";
 const JOURNAL: &str = ".amh/transaction.json";
-pub const LEGACY_AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n";
-pub const TASK_AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH agent workflow for substantive user requests (not AMH protocol calls):\n1. Save the user's verbatim request to a temporary UTF-8 file. Run `amh request --request-file PATH` and save its JSON packet to a temporary file. Do not ask the user for tags or policy IDs.\n2. As the current agent, interpret the request against EVERY candidate's activation condition and exclusions. Return the packet's response_schema with match/no_match/uncertain judgments, reasons and exact request quotations; keep accepted conditions. Do not start a second agent.\n3. Save your response JSON to a temporary file and run `amh request finish --packet PACKET.json --analysis RESPONSE.json --apply`. If AMH reports material uncertainty, conflicting mandatory conditions or clarification questions, resolve those before acting. Do not invent certainty.\n4. Read `.amh/generated/AGENTS.md`, then perform the original user task using the selected principles. Reinterpret materially changed scope instead of reusing a previous classification. Compilation is not completion of the user task.\nThese instructions manage local task context, not authentication or OS permissions.\n<!-- AMH:END -->\n";
-pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH conversation workflow for substantive user requests:\n1. Use one explicit AMH session handle for THIS conversation. If none is known, run `amh session open --apply` and retain its session_id. Never infer a session or current task from the latest project file. Do not ask users for session IDs, tags or policy IDs.\n2. Run `amh session prepare --id ID --text 'VERBATIM REQUEST'`. If the prior context is still available, pass its catalog_digest and state_digest via --known-catalog and --known-state to avoid repeating bodies. If context was lost/compacted/resumed, use --refresh. A new conversation starts a new session unless a connection is explicitly established.\n3. As the current agent, interpret the current request AND conversation context against ALL policy conditions, including previously excluded policies and custom exclusions. Use the packet response_schema; do not start another agent. Reuse only if every cached judgment remains appropriate. Otherwise submit changed assessments, or full coverage when full_review is true or context changes. Preserve source provenance. Add context notes only for useful continuing information, not every message; user_quote must be verbatim, summaries are agent_inference. Do not invent completion criteria for simple requests.\n4. Send {packet: PACKET, response: RESPONSE} as JSON to `amh session finish --input - --apply` using stdin; keep protocol values in memory/pipes, not separate files per request. Read returned instructions and active/removed IDs, then perform the actual user work. A valid clarification request may block action; ask only when materially needed. Deployment is not completion or proof of compliance.\n5. Keep multiple subjects distinct. Stored/attached tasks do not establish current intent. Attach a Task only when needed with `amh session attach --id ID --task FILE --expected-revision N --apply`; select it via prepare --task-id only with contextual grounds, or --clear-focus when changing subjects. Never choose solely because one task exists. Existing explicit compile/sync/verify --task remains optional; read the shared generated Task contract only when intentionally using that explicit contract, not as another conversation's default.\nThese instructions use local filesystem permissions, not authentication or a sandbox. AMH cannot infer every platform's context reset; refresh whenever continuity is uncertain.\n<!-- AMH:END -->\n";
+// Fingerprints identify exact AMH-owned blocks from earlier versions for in-place upgrades.
+const PREVIOUS_BRIDGE_DIGESTS: [&str; 3] = [
+    "8215ac998806b704e1de8cc4991da5116e6651db0cf7be58c2c8bd2a8ef70558",
+    "81a73856a46218644262d0af393c969db2a4068aadfcd12c71f8f0e44116afc5",
+    "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+];
+const BRIDGE_BEGIN: &str = "<!-- AMH:BEGIN -->";
+const BRIDGE_END: &str = "<!-- AMH:END -->";
+const EMPTY_TASK: &str = "# AMH\n\nNo explicit Task is deployed. Use the policy workflow in the project AGENTS.md, or `amh sync` for an explicit Task.\n";
+pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH policy workflow for substantive user requests:\n1. Use the current request and relevant conversation context to identify the intended work. A stored Task alone does not establish current intent. Ask only when missing information materially changes the work.\n2. Before new work or a change in scope, policy, or available context, run `amh policy discover --text 'VERBATIM REQUEST'`. Use the candidate conditions to assess applicability. When a condition is insufficient or missing, read just that policy with `amh policy read --id ID --catalog-digest DIGEST`. Do not ask the user for policy IDs or tags.\n3. Submit the JSON matching response_schema on stdin to `amh policy resolve --input -`. Read the selected instructions and carry out the user's request. Resolve blocking conditions or clarification questions before acting. Treat the selected set as current for this request. Keep protocol data in memory or pipes.\n4. When continuing the same work with the relevant instructions still in context, use them. Rediscover if scope or policies change, or if you need the policy bodies again. Use a compiled Task contract only when the current work explicitly calls for it.\n<!-- AMH:END -->\n";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
@@ -187,15 +194,23 @@ fn decode_deployment(root: &Path) -> Result<Option<Deployment>> {
         .transpose()
 }
 
-fn bridge_valid(agents: &str) -> bool {
-    agents.matches("<!-- AMH:BEGIN -->").count() == 1
-        && agents.matches("<!-- AMH:END -->").count() == 1
-        && (agents.contains(AGENT_BRIDGE)
-            || agents.contains(LEGACY_AGENT_BRIDGE)
-            || agents.contains(TASK_AGENT_BRIDGE))
+fn owned_bridge(agents: &str) -> Option<&str> {
+    let (before, rest) = agents.split_once(BRIDGE_BEGIN)?;
+    let (_, after) = rest.split_once(BRIDGE_END)?;
+    if agents.matches(BRIDGE_BEGIN).count() != 1
+        || agents.matches(BRIDGE_END).count() != 1
+        || !before.ends_with("\n\n")
+        || !after.starts_with('\n')
+    {
+        return None;
+    }
+    let bridge = &agents[before.len() - 2..agents.len() - after.len() + 1];
+    (bridge == AGENT_BRIDGE
+        || PREVIOUS_BRIDGE_DIGESTS.contains(&digest(bridge.as_bytes()).as_str()))
+    .then_some(bridge)
 }
 
-fn check_owned(root: &Path, d: &Deployment) -> Result<()> {
+fn check_owned(root: &Path, d: &Deployment) -> Result<String> {
     let generated = read(root, GENERATED)?.ok_or(
         "managed instructions are missing; preserve files and diagnose before replacing them",
     )?;
@@ -204,10 +219,11 @@ fn check_owned(root: &Path, d: &Deployment) -> Result<()> {
             "managed instructions were edited; preserve or move those edits before syncing".into(),
         );
     }
-    if !bridge_valid(&read(root, "AGENTS.md")?.ok_or("shared AGENTS.md is missing")?) {
+    let agents = read(root, "AGENTS.md")?.ok_or("shared AGENTS.md is missing")?;
+    if owned_bridge(&agents).is_none() {
         return Err("AMH shared instruction block is missing, duplicated, or edited".into());
     }
-    Ok(())
+    Ok(agents)
 }
 
 fn change(
@@ -280,20 +296,34 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                 if &r.project_id != project_id || r.user_root != user_root {
                     return Err("existing project identity/import differs; initialization will not overwrite user configuration".into());
                 }
-                if let Some(d) = decode_deployment(&root)? {
-                    check_owned(&root, &d)?;
-                    let agents = read(&root, "AGENTS.md")?.unwrap();
+                if let Some(mut d) = decode_deployment(&root)? {
+                    let agents = check_owned(&root, &d)?;
+                    let bridge = owned_bridge(&agents).unwrap();
                     change(
                         &root,
                         &mut changes,
                         "AGENTS.md",
-                        Some(
-                            agents
-                                .replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)
-                                .replacen(TASK_AGENT_BRIDGE, AGENT_BRIDGE, 1),
-                        ),
+                        Some(agents.replacen(bridge, AGENT_BRIDGE, 1)),
                         "shared",
                     )?;
+                    let empty_digest = digest(EMPTY_TASK.as_bytes());
+                    if d.task.is_none() && d.generated_digest != empty_digest {
+                        d.generated_digest = empty_digest;
+                        change(
+                            &root,
+                            &mut changes,
+                            GENERATED,
+                            Some(EMPTY_TASK.into()),
+                            "amh_managed",
+                        )?;
+                        change(
+                            &root,
+                            &mut changes,
+                            MANIFEST,
+                            Some(json(&d)?),
+                            "amh_managed",
+                        )?;
+                    }
                 } else {
                     return Err(
                         "project is initialized but adapter is uninstalled; use sync to reinstall"
@@ -311,7 +341,7 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
                     return Err("existing AMH markers require manual conflict resolution".into());
                 }
                 let registry = Registry::new(project_id.clone(), user_root)?;
-                let initial = "# AMH\n\nNo explicit Task is deployed. Follow the session workflow in the project AGENTS.md; sessions do not use this shared Task file. Use `amh sync` only for an explicit Task.\n".to_string();
+                let initial = EMPTY_TASK.to_owned();
                 let deployment = Deployment {
                     format: "amh.deployment.v1".into(),
                     generated_digest: digest(initial.as_bytes()),
@@ -395,13 +425,9 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
             let old = decode_deployment(&root)?;
             let agents = read(&root, "AGENTS.md")?.unwrap_or_default();
             let (agents, created) = if let Some(d) = old {
-                check_owned(&root, &d)?;
-                (
-                    agents
-                        .replacen(LEGACY_AGENT_BRIDGE, AGENT_BRIDGE, 1)
-                        .replacen(TASK_AGENT_BRIDGE, AGENT_BRIDGE, 1),
-                    d.created_agents,
-                )
+                let agents = check_owned(&root, &d)?;
+                let bridge = owned_bridge(&agents).unwrap();
+                (agents.replacen(bridge, AGENT_BRIDGE, 1), d.created_agents)
             } else {
                 if read(&root, GENERATED)?.is_some() || agents.contains("<!-- AMH:") {
                     return Err("unowned adapter files or markers; refusing to overwrite".into());
@@ -436,12 +462,9 @@ pub fn plan(root: &Path, request: Request) -> Result<Plan> {
         Request::Uninstall => {
             load(&root)?;
             if let Some(d) = decode_deployment(&root)? {
-                check_owned(&root, &d)?;
-                let agents = read(&root, "AGENTS.md")?
-                    .unwrap()
-                    .replacen(AGENT_BRIDGE, "", 1)
-                    .replacen(LEGACY_AGENT_BRIDGE, "", 1)
-                    .replacen(TASK_AGENT_BRIDGE, "", 1);
+                let agents = check_owned(&root, &d)?;
+                let bridge = owned_bridge(&agents).unwrap();
+                let agents = agents.replacen(bridge, "", 1);
                 let remaining = if agents.is_empty() && d.created_agents {
                     None
                 } else {
@@ -634,7 +657,7 @@ pub fn doctor(root: &Path) -> Result<Diagnosis> {
     .map(|p| (*p).to_string())
     .collect();
     let adapter_update_available = read(&root, "AGENTS.md")?
-        .is_some_and(|s| s.contains(LEGACY_AGENT_BRIDGE) || s.contains(TASK_AGENT_BRIDGE));
+        .is_some_and(|s| owned_bridge(&s).is_some_and(|bridge| bridge != AGENT_BRIDGE));
     Ok(Diagnosis { adapter_update_available, project_id: registry.project_id, revision: registry.events.len() as u64, deployment, observed: "unknown".into(), note: "Deployment inspection is not behavioral evaluation. Other instruction files are inventoried, not semantically reconciled. Live sessions must reload updated instructions.".into(), instruction_files })
 }
 

@@ -91,7 +91,7 @@ fn render_list(output: &mut String, title: &str, values: &[String]) {
     }
 }
 
-/// Shared policy guards for explicit contracts and lightweight session turns.
+/// Shared policy guards for explicit contracts and request-based policy lookup.
 pub(crate) struct SelectionInput<'a> {
     pub scope_id: &'a str,
     pub items: &'a [Policy],
