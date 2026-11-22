@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "amh-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "amh-project",
  "serde",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "amh-project"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",

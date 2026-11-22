@@ -6,6 +6,51 @@ registered work trees or only to one project. The built-in policy pack is option
 
 **Status: pre-alpha.**
 
+## Install AMH v0.1.0
+
+The [v0.1.0 release](https://github.com/minjungw00/adaptive-minimal-harness/releases/tag/v0.1.0)
+provides native executables. Install Git and make it available on PATH before
+using AMH to register a repository.
+
+| Platform | Download |
+| --- | --- |
+| Linux x64 | [amh-Linux-X64.tar.gz](https://github.com/minjungw00/adaptive-minimal-harness/releases/download/v0.1.0/amh-Linux-X64.tar.gz) |
+| macOS on Apple silicon | [amh-macOS-ARM64.tar.gz](https://github.com/minjungw00/adaptive-minimal-harness/releases/download/v0.1.0/amh-macOS-ARM64.tar.gz) |
+| Windows x64 | [amh-Windows-X64.tar.gz](https://github.com/minjungw00/adaptive-minimal-harness/releases/download/v0.1.0/amh-Windows-X64.tar.gz) |
+
+The release provides [SHA256SUMS](https://github.com/minjungw00/adaptive-minimal-harness/releases/download/v0.1.0/SHA256SUMS)
+for the archives. Packages include [third-party notices](docs/third-party-notices.txt).
+
+On Linux x64, download and verify the archive in a directory where you want to
+extract it, then install the executable into your user bin directory:
+
+```sh
+release_url=https://github.com/minjungw00/adaptive-minimal-harness/releases/download/v0.1.0
+archive=amh-Linux-X64.tar.gz
+
+curl -fLO "$release_url/$archive" &&
+curl -fLO "$release_url/SHA256SUMS" &&
+awk -v archive="$archive" '$2 == archive' SHA256SUMS | sha256sum -c - &&
+tar -xzf "$archive" &&
+mkdir -p "$HOME/.local/bin" &&
+install -m 755 ./amh "$HOME/.local/bin/amh"
+```
+
+Ensure `$HOME/.local/bin` is on PATH. On macOS, download the macOS archive,
+verify its entry in `SHA256SUMS` with `shasum -a 256`, then use the same
+extraction and installation commands. On Windows, compare
+`Get-FileHash .\amh-Windows-X64.tar.gz -Algorithm SHA256` with its entry in
+`SHA256SUMS`, extract the archive with `tar -xzf amh-Windows-X64.tar.gz`, and
+add the directory containing `amh.exe` to your user PATH. Open a new terminal
+and run `amh --version` to confirm it reports `amh 0.1.0`.
+
+To install from source with a current Rust toolchain:
+
+```sh
+cargo install --git https://github.com/minjungw00/adaptive-minimal-harness \
+  --tag v0.1.0 --locked amh-cli
+```
+
 ## Get started
 
 From a Git work tree, with `amh` and Git on PATH:
@@ -32,12 +77,7 @@ Changes preview by default. `--apply` writes to the local AMH home under the
 caller's filesystem permissions. See the [walkthrough](docs/p0.md),
 [CLI reference](docs/cli.md), and [agent integration](docs/agent-requests.md).
 
-## Installation and development
-
-Native `amh` executables are built in CI for Linux, macOS, and Windows. Download
-the artifact for your OS and architecture from the corresponding successful run,
-unpack it, and put the executable on PATH. Version tags prepare a draft release.
-Artifact downloads may require GitHub sign-in.
+## Development
 
 To build and check locally:
 
