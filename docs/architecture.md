@@ -1,8 +1,8 @@
 # Architecture
 
 AMH is a local policy layer for existing agents. Users control policy contents,
-scope and lifecycle. Built-in methods use the same policy format as user-authored
-principles.
+scope and lifecycle. Principles and methods use the same reusable policy record.
+Task goals, specific deliverables and implementation details live with the work.
 
 ## Storage
 

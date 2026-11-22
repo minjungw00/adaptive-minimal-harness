@@ -1,7 +1,7 @@
 # Adaptive Minimal Harness (AMH)
 
-AMH manages user-defined policies locally and gives existing AI agents the
-policies relevant to their current work. Policies can apply across all
+AMH manages reusable user-defined guidance locally and gives existing AI agents
+the principles and methods relevant to their current work. Policies can apply across all
 registered work trees or only to one project. Built-in packs are optional.
 
 **Status: pre-alpha.**

@@ -13,8 +13,8 @@ Register the Git work trees where you want the policies available.
    it can use the returned instructions immediately.
 3. If AMH reports `ready`, the agent assesses the candidate summaries. It can
    read `amh policy read ID --catalog-digest DIGEST` when a condition needs
-   elaboration. An `explicit_only` method requires an explicit request, and
-   activation tags can help interpret the intent of older policy definitions.
+   elaboration. Read any explicit-request requirement directly from the
+   natural-language condition.
 4. Send the judgements to `amh policy read --selection` on stdin. Report
    `match`, `no_match`, or `uncertain` for every `must` candidate. Optional
    candidates may be omitted and are included only on `match`.

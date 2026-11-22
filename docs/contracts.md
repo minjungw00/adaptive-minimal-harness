@@ -16,22 +16,28 @@ issues new item revisions for restored records.
 
 ## Policy records
 
-Each policy has an item, owner, optional source and natural-language
-applicability condition, priority, and declared relations. An item has an ID,
-kind, scope, revision, lifecycle, content and typed details. Principles carry
-a strength and activation, with optional verification guidance. An installed pack records its versioned definitions
-in the history. See the [principle example](../examples/p0/natural-policy.toml),
-[requirement example](../examples/p0/requirement.toml), and [packs](../packs).
+| Field | Purpose |
+| --- | --- |
+| `id`, `scope`, `content` | Identity, user or project scope, and reusable guidance. |
+| `applicability` | Optional natural-language condition with any exclusions. Omit it for always-applicable guidance. |
+| `strength` | `must` (default), `should`, or `may`. Conditional `must` policies require a definite applicability decision. |
+| `revision`, `lifecycle` | Item revision and state. A new policy file defaults to revision 1 and draft. A normal `policy add --apply` activates it. |
+| `source`, `priority`, `replaces` | Optional provenance, delivery order (default 0), and replacement lineage maintained by AMH. |
+| `relations` | Optional `depends_on` and `conflicts_with` references. |
 
-Changes include `ADD`, `MODIFY`, `SET_DETAILS`, `SET_METADATA`,
+See the [conditional example](../examples/p0/natural-policy.toml) and
+[always-applicable example](../examples/p0/evidence-policy.toml). Include
+reusable verification guidance in the policy body.
+
+Changes include `ADD`, `MODIFY`, `SET_STRENGTH`, `SET_METADATA`,
 `SET_APPLICABILITY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `ACTIVATE`, `PAUSE`,
 `REACTIVATE`, and `RETIRE`. Pack installations and restores use
 `INSTALL_PACK` and `RESTORE`. Existing item mutations check the item revision.
 Changes also check the registry revision.
 
 New active IDs must be unique across the common and project policies delivered
-in a work tree. Inactive policies and previously stored task-specific policies
-remain available in management views and do not affect the delivery catalogue.
+in a work tree. Inactive policies remain visible in management views. The
+catalogue contains active guidance.
 
 ## Delivery and plans
 

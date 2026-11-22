@@ -9,7 +9,7 @@ API compatibility and optional mutation testing. Inquiry includes Socratic dialo
 requirements elicitation, research verification, writing, argument evaluation and
 knowledge organization. Each method supplies a natural-language applicability condition and a configurable MUST/SHOULD/MAY strength. Run `amh pack show NAME` to inspect every condition.
 
-These are instructions and verification obligations. Installing TDD does not
+Verification guidance is included in policy text. Installing TDD does not
 establish Red–Green–Refactor adherence. Installing refactoring does not prove
 behavior preservation. Use relevant executed checks and independent review.
 
