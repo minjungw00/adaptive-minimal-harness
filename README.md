@@ -2,7 +2,7 @@
 
 AMH manages reusable user-defined guidance locally and gives existing AI agents
 the principles and methods relevant to their current work. Policies can apply across all
-registered work trees or only to one project. Built-in packs are optional.
+registered work trees or only to one project. The built-in policy pack is optional.
 
 **Status: pre-alpha.**
 
@@ -12,7 +12,7 @@ From a Git work tree, with `amh` and Git on PATH:
 
 ```sh
 amh project add --apply
-amh pack install development --apply
+amh pack install agent-workflow --apply
 amh agent instructions
 ```
 
