@@ -70,5 +70,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          if gh release view "$GITHUB_REF_NAME" --json tagName >/dev/null; then
+            echo "A release already exists for $GITHUB_REF_NAME."
+            exit 0
+          fi
           cat dist/*.sha256 > dist/SHA256SUMS
           gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS --verify-tag --draft --title "$GITHUB_REF_NAME" --notes "Native AMH packages and checksums. Review license, supported platforms and release gates before publishing."
