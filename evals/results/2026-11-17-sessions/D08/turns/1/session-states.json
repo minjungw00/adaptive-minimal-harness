@@ -1,0 +1,116 @@
+{
+  ".amh/sessions/S-bae672e7e223335c36189d56/state.json": {
+    "format": "amh.session.v1",
+    "id": "S-bae672e7e223335c36189d56",
+    "project_id": "workspace",
+    "root": "{RUN_ROOT}/actors/8e87b2e82e79/workspace",
+    "revision": 4,
+    "closed": false,
+    "catalog_digest": "343fcc67388c5b90f59d183abedfd9d6ad679e1ae23b286df12bdb93c8a91fe8",
+    "assessments": [
+      {
+        "id": "P-ARGUMENT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The user requests a one-sentence summary, not an assessment of the report's validity or evidence.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-ELICIT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "A clear summary request does not require discovery of outcomes or acceptance criteria.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-INFERENCE",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The response condenses the existing recommendation and does not derive a new conclusion from observational records.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-KNOWLEDGE",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Summarize the existing report faithfully, preserving the roles of cost analysis and supporting retention evidence.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-RESEARCH",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The task summarizes supplied fictional local records without adding current, uncertain or external claims.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-SOCRATIC",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The requested source and one-sentence format are clear; no material uncertainty requires questions.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      },
+      {
+        "id": "P-TRACE",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "The summary may retain the report's 60% cost share, verified from the supplied monthly costs of 600, 300 and 100.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "앞서 작성한 보고서의 핵심을 한 문장으로 알려줘."
+          }
+        ]
+      }
+    ],
+    "assessment_bindings": {
+      "P-ARGUMENT": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-ELICIT": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-INFERENCE": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-KNOWLEDGE": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-RESEARCH": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-SOCRATIC": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480",
+      "P-TRACE": "1a001639fd1e4b84dc345b43d80006c18e125c199716ebbcdb16b4a717beb480"
+    },
+    "selected": [
+      "P-KNOWLEDGE",
+      "P-TRACE",
+      "R-COST",
+      "R-RETENTION"
+    ],
+    "notes": [],
+    "tasks": [],
+    "focus": null,
+    "delivery_digest": "8be450ad070de8926c28517c221c97d95ff1e1fff395402b54d0bed66c12ab6b"
+  }
+}

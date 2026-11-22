@@ -1,53 +1,56 @@
 # Adaptive Minimal Harness (AMH)
 
-A **local-first, model-agnostic control layer** for user-defined goals, principles, requirements, constraints, and decisions.
+AMH manages reusable user-defined guidance locally and gives existing AI agents
+the principles and methods relevant to their current work. Policies can apply across all
+registered work trees or only to one project. The built-in policy pack is optional.
 
-AMH is designed to select only the conditions relevant to a task and make their application and verification inspectable. It does **not** replace an LLM, coding agent, workflow runner, or test framework.
+**Status: pre-alpha.**
 
-> **Status: early repository bootstrap (pre-alpha).** The planning contracts are being translated into an implementation. The repository is **not yet an installable or policy-enforcing product**.
+## Get started
 
-## Product boundaries
-
-- **Unified management:** different item kinds share identity, scope, version, provenance, and lifecycle metadata without losing their distinct semantics.
-- **Adaptive execution:** task-relevant policies are selected; unrelated skills or procedures are not loaded by default.
-- **Verifiable operation:** distinguish declared policy, generated instructions, deployed configuration, and behavior observed in a particular evaluation.
-- **Portable by design:** local files and standard agent instruction/skill formats first; external runners, MCP, and cloud services remain optional.
-- **User ownership:** project-specific policies and state are not overwritten by package updates.
-
-TDD, refactoring, Socratic questioning, writing practices, and requirement preservation are **examples of configurable principles**, not privileged hard-coded modes.
-
-## Planned use
-
-The native `amh` CLI now supports **read-only state inspection, item retrieval, and change preview**. Project installation, policy compilation, and consumer-facing authenticated approval remain future work. An **optional experimental Linux-only `amh-host`** accepts externally signed receipts and writes only to independently protected state paths, with a separate local audit witness for state rollback detection. It does not sign approvals or provide a user-authentication UI.
+From a Git work tree, with `amh` and Git on PATH:
 
 ```sh
-amh state inspect --file ./state.json
-amh item get --file ./state.json --id R-COST
-amh change preview --file ./state.json --proposal ./proposal.json
-amh manifest inspect --file ./state-manifest.json
+amh project add --apply
+amh pack install agent-workflow --apply
+amh agent instructions
 ```
 
-See the [CLI reference](docs/cli.md), [external signer contract](docs/external-signer.md), [explicit legacy migration](docs/legacy-migration.md), [metadata-only state sharing](docs/state-manifest.md), [protected audit contract](docs/audit.md), [independent witness](docs/external-witness.md), [manual recovery](docs/recovery.md), and [trusted host limitations](docs/trusted-host.md).
+Pack installation is optional. Add the printed guidance to your agent's
+user-level settings, such as `~/.codex/AGENTS.md`. Give the agent your normal
+request. It uses the request and its available context to judge applicability.
+AMH combines and delivers the selected policies, checking the catalogue and
+declared policy relations.
 
-The Rust core now supports **typed item details with structural validation**, explicit validated transitions, replayable history, and a local JSON snapshot store. An optional `signed-approvals` feature checks Ed25519 signatures for exactly scoped changes before writing through the public store mutation API. **End-to-end authorization is not yet integrated**: the host must supply and protect the trusted public key and control filesystem permissions. These are library capabilities only; the consumer installer, policy resolver, task compiler, and authenticated approval UI are not implemented.
+AMH stores registration, policy definitions and change history under `~/.amh`.
+Set `AMH_HOME` to an absolute directory outside Git work trees to use another
+location. Registration leaves the repository and its shared instructions alone.
+Each clone or work tree needs its own registration. Explicitly use
+`amh project add --id ID --apply` to share a project policy set across paths.
 
-See [architecture](docs/architecture.md), [persistence and limits](docs/persistence.md), [approval trust boundary](docs/approvals.md), [contracts](docs/contracts.md), and [roadmap](docs/roadmap.md).
+Changes preview by default. `--apply` writes to the local AMH home under the
+caller's filesystem permissions. See the [walkthrough](docs/p0.md),
+[CLI reference](docs/cli.md), and [agent integration](docs/agent-requests.md).
 
-## Development
+## Installation and development
+
+Native `amh` executables are built in CI for Linux, macOS, and Windows. Download
+the artifact for your OS and architecture from the corresponding successful run,
+unpack it, and put the executable on PATH. Version tags prepare a draft release.
+Artifact downloads may require GitHub sign-in.
+
+To build and check locally:
 
 ```sh
-cargo test --workspace --locked
-cargo test --workspace --all-features --locked
+cargo build -p amh-cli --release --locked
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo run -p amh-cli --locked -- --help
-cargo run -p amh-cli --features approval-request --locked -- --help
-cargo run -p amh-host --locked -- --help
-cargo run -p amh-witness --locked -- --help
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-Commits are separated by **one actual responsibility** and use the repository's **Conventional Commit subject format** `type: description`. Responsibility-level atomic commits are a general working principle; the message format is a repository-level convention.
+See [architecture](docs/architecture.md), [data contracts](docs/contracts.md),
+[development](docs/development.md), and [roadmap](docs/roadmap.md).
 
 ## License
 
-**Not yet selected.** Do not assume a reuse license until one is added.
+A license has yet to be selected. Check the repository for licensing terms before reuse.

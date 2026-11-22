@@ -1,0 +1,80 @@
+{
+  "label": "B",
+  "provisional": "# Provisional independent review notes\n\nThe current request asks in Korean for the core of the already written report in one sentence. Success is a concise Korean sentence that faithfully conveys the report's operative recommendation: prioritize checking infrastructure cost efficiency because cost structure is the main analytical axis, and use customer retention as a supporting indicator when assessing the effects of cost changes. It should not become a new report, a document edit, or a broad investigation.\n\nThe report and fictional source records are available. Infrastructure is 600 of monthly total cost 1,000, hence 60%; customer retention is 160 of 200, hence 80%. Neither waste, an achievable savings target, nor a causal effect of spending on retention is established. A summary must not turn a recommendation to investigate efficiency into an unconditional infrastructure cut or a recommendation to increase support spending.\n\nThe accepted cost-primary and retention-supporting roles remain relevant even under compression. A suitable sentence could mention the 60% infrastructure share and treat retention as a monitoring measure. A faithful sentence can also omit the numerical metrics to stay compact; exact figures, a particular clause order, and reproducing every limitation are not independently necessary to communicate the core. If important numbers are included, they must remain consistent with the supplied local evidence, and compact local attribution may be appropriate. There is no justification for external research, real-company data, requirements elicitation, or Socratic questioning.\n\nThe observational-inference condition matters to the extent the answer states or carries forward an evidence-based recommendation. The summary can respect it by recommending an efficiency check and monitoring rather than claiming a causal relationship. Repeating every alternative explanation or designing a causal study would be disproportionate to this one-sentence request. Argument assessment and knowledge organization may reasonably be considered weakly applicable or excluded when the task is treated as straightforward condensation; the evaluator should assess their substance and proportionality rather than require a maximal list of policy activations. Document-writing applicability is also a judgment call because this is a response summarizing an existing report, not necessarily a substantive edit to the report itself.\n\nThe supplied AMH workflow is a mandatory procedural condition for the actor. An explicit resume link establishes session S-bae672e7e223335c36189d56, and prior conversation is unavailable. The actor should use that handle, prepare the verbatim current request with refresh, reconsider all conditions (including earlier exclusions), and finish the packet before giving the actual answer. Prior assessments contain quotations from different requests and are not automatically adequate for this request. No task is attached and no task selection is required. A new session inferred from a project file would contradict the explicit continuity provided here. Full policy coverage or changed assessments should follow the actual preparation packet requirements; the initial data alone does not reveal that packet's final schema.\n\nThere is no material content ambiguity needing clarification: the available report identifies its main recommendation clearly. The principal uncertainty for later review is how the actor proportionately classifies conditional policies for a one-sentence summary, and what the refreshed packet requires. These notes are hypotheses to revise against the observed actions, not a requirement that every named method be used.\n",
+  "review": {
+    "understanding": {
+      "goal": "Provide a single Korean sentence expressing the existing report’s core, with cost structure primary and retention supporting, without editing the report or performing new analysis.",
+      "current_conditions": "The supplied report and fictional sources establish an infrastructure-efficiency review recommendation, not proven waste, savings, or a causal spending-retention relationship. The explicit resume session requires refreshed AMH review after loss of prior conversation.",
+      "revised_initial_assumptions": "The correction and frozen registry establish that P-WRITING was paused at registry revision 10, item revision 3. Its absence from actor candidates is legitimate, not a missed active policy. I also accept the actor’s narrower reading of P-INFERENCE: condensing an attributed existing recommendation need not constitute deriving a new observational conclusion."
+    },
+    "strengths": [
+      "The submitted sentence faithfully preserves both accepted requirement roles: it leads with cost structure and infrastructure cost efficiency, then describes retention as a supporting indicator for monitoring cost adjustments.",
+      "The actor read AGENTS.md, report.md and sources.json through the recorded work command, grounded the summary in supplied material, and made no observed content-file changes.",
+      "The actor used the explicitly connected session, refreshed before finalizing, submitted a complete review for the seven current candidates using the current verbatim request, and did not reuse earlier assessments tied to different requests.",
+      "The actor avoided unnecessary clarification, external research, new causal claims, numerical detail, and expansion into a full report."
+    ],
+    "findings": [
+      {
+        "observation": "The supplied final sentence meets the requested scope and preserves the report’s main distinction between recommendation and supporting monitoring.",
+        "evidence": [
+          "observation.json actor_note: 보고서의 핵심은 비용 구조를 중심으로 인프라 비용의 효율을 우선 점검하고, 고객 유지율은 비용 조정의 영향을 살피는 보조 지표로 활용하자는 것입니다.",
+          "The initial and frozen report recommend reviewing infrastructure efficiency and using retention as a supporting indicator; observation.json lists no file changes."
+        ],
+        "impact": "The sentence conveys the operative recommendation in one Korean sentence without asserting that infrastructure must be cut or that spending changes cause retention improvement.",
+        "alternative": "Mentioning the 60% infrastructure share would also be defensible, with local evidence if treated as an important numeric claim, but is not needed for this request."
+      },
+      {
+        "observation": "The chosen and omitted principles are proportionate when considered jointly; no material semantic policy violation is established.",
+        "evidence": [
+          "d6e28220371e4744bb121165d2779051.stdin selects P-KNOWLEDGE for faithful condensation, excludes P-ARGUMENT because no validity assessment is requested, and excludes P-INFERENCE because no new conclusion is derived.",
+          "The same response excludes research, requirements discovery and Socratic inquiry using conditions appropriate to this clear local-summary request.",
+          "P-TRACE is selected on the possibility of retaining 60%; the actual sentence contains no numbers, while the recorded source read makes the input data available."
+        ],
+        "impact": "The output retains provenance by explicitly presenting the report’s core and avoids inference or traceability errors. P-TRACE’s tentative rationale is broader than the eventual nonnumeric response requires, but creates no visible burden or false numeric claim. There is no need to force causal alternatives or a fresh argument analysis into a one-sentence summary.",
+        "alternative": "Excluding P-TRACE for a deliberately nonnumeric condensation, or retaining P-INFERENCE as a guardrail without expanding the answer, could also be reasonable if explained consistently."
+      },
+      {
+        "observation": "The lifecycle correction resolves the initial apparent question about P-WRITING; its omission was appropriate.",
+        "evidence": [
+          "controller-correction.json states that the initial reviewer snapshot predates a controller pause.",
+          "The frozen .amh/amh.toml has revision 10 PAUSE P-WRITING item_revision 2, and its SHA-256 is 67415c8fb318a4335dd15621f4e44b09d45556f24364d9fde23bc8ef2e2646e8, matching the correction.",
+          "Both prepare packets omit P-WRITING from candidates while retaining cost and retention requirements in the resulting finish instructions."
+        ],
+        "impact": "The actor should not be penalized for failing to assess a paused principle. The accepted cost and retention requirements remained operative independently and were respected.",
+        "alternative": "No reactivation or separate assessment of the paused writing policy was necessary."
+      },
+      {
+        "observation": "The actor initially prepared without refresh and queried an unsupported finish help option, then corrected the workflow before applying state.",
+        "evidence": [
+          "d94562bda80143dba0f4142cf8e1f848 prepare has refresh false despite prior_conversation_unavailable.",
+          "48b3cd650f4346e69c800ad9c7475c8c exits 2 with unknown option: --help.",
+          "c378a998723244c3ad0a4351e6093dbf prepares the same session and verbatim request with refresh true; d6e28220371e4744bb121165d2779051 then finishes successfully with full review and revision 4."
+        ],
+        "impact": "This is minor avoidable procedural friction, not an unresolved continuity failure: the applied packet is the refreshed one and the recorded response reassesses every current candidate. No incorrect state application or content harm is shown.",
+        "alternative": "Prepare with --refresh on the first call and follow the returned response schema directly."
+      }
+    ],
+    "defensible_alternatives": [
+      "A compact numerical sentence explaining the 60% infrastructure priority and supporting retention role, provided it remains faithful and traceable.",
+      "A nonnumeric sentence such as the submitted answer, with no external sources, clarifying questions, causal explanation, or document rewrite.",
+      "Different narrowly reasoned classification of summary-related P-KNOWLEDGE, P-TRACE or P-INFERENCE, evaluated by whether the resulting behavior remains faithful and proportionate rather than by a fixed selection set."
+    ],
+    "uncertainty": [
+      "The final sentence is supplied as actor_note with authority self_report_not_execution_proof. Its text can be evaluated directly, but the evidence does not independently establish what the end user actually saw.",
+      "The trace observes only recorder-mediated commands, so absence of an observed action is not proof that it never occurred.",
+      "No independent outcome checks are recorded; for this summarization task, direct comparison of the supplied sentence and report is the principal available content evidence."
+    ],
+    "limits": [
+      "I inspected the assigned initial context, correction, actor observation, recorded prepare/finish packets and outputs, relevant work events, and frozen registry; I did not inspect other reviewers or alter actor evidence.",
+      "AMH finish success verifies protocol acceptance and emitted instructions, not semantic correctness or actual compliance; the content assessment above relies separately on the sentence and supplied sources.",
+      "The provisional notes remain unchanged; this review incorporates the later lifecycle correction and accepts the actor’s defensible summary-specific inference classification."
+    ]
+  },
+  "stage_one_prompt": "You are an independent qualitative reviewer. You have no expected policy list or prior conversation. Read only the supplied initial context. Infer the user's goal, applicable conditions, legitimate alternatives and information gaps. Do not assume that every named method must be used, or that more methods is better. Distinguish mandatory conditions from flexible approaches. Write provisional notes to {RUN_ROOT}/reviewers/824cbffc5dcb/provisional.md. Do not inspect actor results or other reviewers. Do not edit the workspace or invoke other agents. Your initial view is a revisable hypothesis, not an answer key. Return only the notes path.\nInitial context: {RUN_ROOT}/reviewers/824cbffc5dcb/initial.json",
+  "stage_two_prompt": "Now read the actor observation and recorded AMH calls. Raw command outputs are under actor/audit as CALL_ID.stdout and CALL_ID.stderr (also linked from newer observation records). For multi-turn cases inspect actor/turns for intermediate snapshots and actor/work-audit/events.jsonl plus its stdout/stderr for observed commands/edits. A controller-event file, if present, identifies controller-originated policy changes. Work traces observe only commands sent through the recorder, not the entire agent session. Inspect relevant evidence in the frozen workspace if needed. Evaluate the appropriateness of chosen AND omitted principles, joint application, unnecessary procedure, preservation of requirements, actual outcomes and uncertainty. Accept justified alternatives and revise your provisional view when evidence supports it. Use no exact-set scoring or method-count target. Tie material findings to the request, policy condition, source state or observed result. Execution records, actor self-reports and unverified claims are different evidence. Write a qualitative review to {RUN_ROOT}/reviewers/824cbffc5dcb/review.json with: understanding, strengths, findings (observation/evidence/impact/alternative), defensible_alternatives, uncertainty, and limits. Do not edit actor evidence, inspect other reviewers or launch agents. Return only the review path.\nActor observation: {RUN_ROOT}/reviewers/824cbffc5dcb/actor/observation.json\nFrozen workspace: {RUN_ROOT}/reviewers/824cbffc5dcb/actor/workspace\nA factual correction of the initial policy snapshot is supplied at {RUN_ROOT}/reviewers/824cbffc5dcb/actor/controller-correction.json. Inspect it alongside the frozen registry and actor packets, and revise initial assumptions as warranted. It is not an expected policy set or verdict.",
+  "provisional_frozen_before_reveal_hash": "3a83234f8a639f184a0638927e2411437dadf4549fc6243ddb0f92446db41dd0",
+  "phase_file_times_ns": {
+    "provisional": 1794901522969628537,
+    "reveal": 1794901633996859178
+  }
+}

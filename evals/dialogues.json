@@ -1,0 +1,228 @@
+{
+  "format": "amh.qualitative-suite.v1",
+  "cases": [
+    {
+      "id": "D01",
+      "fixture": "discount",
+      "request": "이 오류를 고쳐줘.",
+      "family": "single_action_multiple_methods",
+      "review_note": "Assess what work the environment implies, not how many methods were named.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "contract": "calculator",
+      "checks": [
+        [
+          "{python}",
+          "-m",
+          "unittest",
+          "-v"
+        ]
+      ],
+      "turns": [
+        "이 오류를 고쳐줘.",
+        "수정 이유를 설명해줘.",
+        "README에 사용 예시를 추가해줘.",
+        "이제 이 함수의 입력 검증도 점검해줘."
+      ],
+      "work_context": [
+        "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
+      ]
+    },
+    {
+      "id": "D02",
+      "fixture": "report",
+      "request": "이 보고서를 완성해줘.",
+      "family": "single_action_document_methods",
+      "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "turns": [
+        "이 보고서를 완성해줘.",
+        "고객 유지율은 보조 관점으로 유지하면서 결론만 더 짧게 다듬어줘.",
+        "이제 이 메모도 요약해줘."
+      ],
+      "extra_fixtures": [
+        "notes"
+      ],
+      "policies": [
+        {
+          "id": "P-TRACE",
+          "scope": "project",
+          "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction."
+        },
+        {
+          "id": "P-INFERENCE",
+          "scope": "project",
+          "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When deriving conclusions or recommendations from observational evidence."
+        }
+      ],
+      "work_context": [
+        "Keep the cost structure as the main analytical axis.",
+        "Use customer retention as supporting evidence, not a replacement for cost analysis."
+      ]
+    },
+    {
+      "id": "D03",
+      "fixture": "continuation",
+      "request": "작업을 진행해.",
+      "family": "short_request_known_state",
+      "review_note": "Inspect whether the tool exposes enough existing task context; do not supply a private hint.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "current_task": {
+        "id": "WORK-1",
+        "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
+        "done_when": [
+          "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
+          "The existing greeting behavior is preserved"
+        ],
+        "allowed_paths": [
+          "README.md"
+        ],
+        "outputs": [
+          "README.md"
+        ]
+      },
+      "turns": [
+        "작업을 진행해.",
+        "README에 인사 함수 사용 예시를 작성하는 작업을 뜻했어. 기존 함수는 변경하지 마.",
+        "예시에 적힌 출력만 알려줘."
+      ]
+    },
+    {
+      "id": "D04",
+      "fixture": "proposal",
+      "request": "작업을 진행해.",
+      "family": "unfamiliar_custom_method",
+      "review_note": "Two saved Tasks leave the initial request ambiguous. After the user identifies pending work, evaluate whether the same short request can proceed from the conversation. The proposal's action limits are in the saved work request.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "turns": [
+        "작업을 진행해.",
+        "README에 인사 함수의 사용 예시를 작성하는 작업이야. 아직 파일을 수정하지 말고 어느 파일을 바꿀지 확인해줘.",
+        "작업을 진행해.",
+        "이제 제안서를 검토해줘."
+      ],
+      "extra_fixtures": [
+        "continuation"
+      ],
+      "saved_tasks": [
+        {
+          "id": "T-USAGE",
+          "goal": "Add a greet(\"Ada\") example to README.md without changing greeter.py.",
+          "done_when": [
+            "README includes greet(\"Ada\") and Hello, Ada!"
+          ],
+          "allowed_paths": [
+            "README.md"
+          ],
+          "outputs": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "T-PROPOSAL",
+          "goal": "Review proposal.md and explain the operational tradeoffs without deployment or deletion.",
+          "done_when": [
+            "Provide a reasoned review without executing the proposal."
+          ],
+          "constraints": [
+            "Analyze the proposal only; do not deploy or delete operational data."
+          ],
+          "allowed_paths": [],
+          "outputs": []
+        }
+      ],
+      "policies": [
+        {
+          "id": "P-REVERSIBILITY",
+          "scope": "project",
+          "content": "Separate reversible experiments from irreversible commitments; propose a useful low-cost learning step without obscuring irreversible risk.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When reviewing a proposal that mixes reversible and irreversible actions. Exclude summaries without a decision request."
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "fixture": "proofread",
+      "request": "매출 비교 보고서의 어색한 문장만 교정해줘.",
+      "family": "exclusion_and_keywords",
+      "review_note": "Review scope preservation and unnecessary method loading.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "turns": [
+        "매출 비교 보고서의 어색한 문장만 교정해줘.",
+        "이제 이 수치의 비교가 타당한지도 검토해줘.",
+        "검토 내용을 반영하되 새 분석은 추가하지 말고 문장만 다듬어줘."
+      ],
+      "policies": [
+        {
+          "id": "P-COMPARABLE",
+          "scope": "project",
+          "content": "Compare compatible periods, definitions and denominators, and disclose missing values.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When comparing company performance using numeric evidence. Exclude translation and proofreading that preserve facts and analysis."
+        }
+      ],
+      "work_context": [
+        "Preserve all accepted numeric values and analytical conclusions in report.md."
+      ]
+    },
+    {
+      "id": "D06",
+      "fixture": "report",
+      "request": "이 보고서를 완성해줘.",
+      "family": "single_action_document_methods",
+      "review_note": "Assess the same document-writing condition before and after a recorded policy pause. Distinguish fresh delivery from guidance already seen by the agent.",
+      "packs": [
+        "agent-workflow"
+      ],
+      "turns": [
+        "이 보고서를 완성해줘.",
+        "이 보고서의 결론과 권고안을 새로 작성해줘. 비용 분석을 중심으로 하고 고객 유지율은 보조 근거로 써줘.",
+        "앞서 정리한 보고서의 핵심을 설명해줘."
+      ],
+      "pause_before_turn": {
+        "2": [
+          "P-WRITING"
+        ]
+      },
+      "policies": [
+        {
+          "id": "P-TRACE",
+          "scope": "project",
+          "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction."
+        },
+        {
+          "id": "P-INFERENCE",
+          "scope": "project",
+          "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When deriving conclusions or recommendations from observational evidence."
+        }
+      ],
+      "work_context": [
+        "Keep the cost structure as the main analytical axis.",
+        "Use customer retention as supporting evidence, not a replacement for cost analysis."
+      ]
+    }
+  ]
+}

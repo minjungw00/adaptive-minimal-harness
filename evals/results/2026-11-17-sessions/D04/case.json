@@ -1,0 +1,91 @@
+{
+  "id": "D04",
+  "fixture": "proposal",
+  "request": "작업을 진행해.",
+  "family": "unfamiliar_custom_method",
+  "review_note": "Multiple actual saved Task contracts, not just goals; clarification is allowed when referent is uncertain.",
+  "packs": [
+    "inquiry"
+  ],
+  "policies": [
+    {
+      "owner": "user",
+      "source": "User-approved project policy",
+      "priority": 0,
+      "relations": {
+        "conflicts_with": []
+      },
+      "applicability": "When reviewing a proposal that mixes reversible and irreversible actions. Exclude summaries without a decision request.",
+      "item": {
+        "id": "P-REVERSIBILITY",
+        "kind": "principle",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Separate reversible experiments from irreversible commitments; propose a useful low-cost learning step without obscuring irreversible risk.",
+        "details": {
+          "type": "principle",
+          "strength": "must",
+          "activation": {
+            "mode": "always"
+          },
+          "verification": [
+            "Provide evidence appropriate to the work"
+          ]
+        }
+      }
+    },
+    {
+      "owner": "user",
+      "source": "Accepted project requirement",
+      "priority": 0,
+      "item": {
+        "id": "R-ANALYZE",
+        "kind": "requirement",
+        "scope": "project",
+        "revision": 1,
+        "lifecycle": "draft",
+        "content": "Analyze the proposal only; do not deploy or delete operational data.",
+        "details": {
+          "type": "requirement",
+          "role": "core",
+          "acceptance_criteria": [
+            "Analyze the proposal only; do not deploy or delete operational data."
+          ]
+        }
+      }
+    }
+  ],
+  "turns": [
+    "작업을 진행해.",
+    "먼저 README의 인사 함수 사용 예시를 작성해줘.",
+    "이제 제안서를 검토해줘."
+  ],
+  "extra_fixtures": [
+    "continuation"
+  ],
+  "saved_tasks": [
+    {
+      "id": "T-USAGE",
+      "goal": "Add a greet(\"Ada\") example to README.md without changing greeter.py.",
+      "done_when": [
+        "README includes greet(\"Ada\") and Hello, Ada!"
+      ],
+      "allowed_paths": [
+        "README.md"
+      ],
+      "outputs": [
+        "README.md"
+      ]
+    },
+    {
+      "id": "T-PROPOSAL",
+      "goal": "Review proposal.md and explain the operational tradeoffs without deployment or deletion.",
+      "done_when": [
+        "Provide a reasoned review without executing the proposal."
+      ],
+      "allowed_paths": [],
+      "outputs": []
+    }
+  ]
+}

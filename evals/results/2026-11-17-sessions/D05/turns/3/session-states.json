@@ -1,0 +1,205 @@
+{
+  ".amh/sessions/S-3d18805575ce73d9c6f17268/state.json": {
+    "format": "amh.session.v1",
+    "id": "S-3d18805575ce73d9c6f17268",
+    "project_id": "workspace",
+    "root": "{RUN_ROOT}/actors/9cb35497b0e7/workspace",
+    "revision": 1,
+    "closed": false,
+    "catalog_digest": "3acae749398f426666ba148c3a4a3279250c3d7ca71d718813a08e86d9c97f88",
+    "assessments": [
+      {
+        "id": "P-API",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This request only corrects prose; it changes no API or interface.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-ARGUMENT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The user requests proofreading, not assessment or alteration of the accepted argument or analysis.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-COMPARABLE",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The request is proofreading that preserves facts and analysis, explicitly excluded from this condition.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-DEBUG",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "There is no software defect investigation.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-ELICIT",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The proofreading scope is already clear and no project requirements need discovery.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-KNOWLEDGE",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The request edits prose and does not organize sources or knowledge.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-MUTATION",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "No software tests or behavioral assertions are being evaluated.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-REFACTOR",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "There is no code restructuring.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-REGRESSION",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "This is prose correction rather than a software defect fix.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-RESEARCH",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "Pure stylistic editing without new factual claims is excluded.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-REVIEW",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "There is no implementation, diff, or API defect review.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-SOCRATIC",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "The action request is clear; no material goal or criterion needs clarification.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-TDD",
+        "item_revision": 2,
+        "applicability": "no_match",
+        "reason": "Documentation-only edits are explicitly excluded.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      },
+      {
+        "id": "P-WRITING",
+        "item_revision": 2,
+        "applicability": "match",
+        "reason": "Correcting awkward report sentences revises document prose while preserving accepted numbers, conclusions, and scope.",
+        "evidence": [
+          {
+            "source": "request",
+            "quote": "매출 비교 보고서의 어색한 문장만 교정해줘."
+          }
+        ]
+      }
+    ],
+    "assessment_bindings": {
+      "P-API": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-ARGUMENT": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-COMPARABLE": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-DEBUG": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-ELICIT": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-KNOWLEDGE": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-MUTATION": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-REFACTOR": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-REGRESSION": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-RESEARCH": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-REVIEW": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-SOCRATIC": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-TDD": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7",
+      "P-WRITING": "82276e6b5b8f0af9b7659c95e3abed6c8dbf8df36b38c0355bd17f4c7db7bbd7"
+    },
+    "selected": [
+      "P-WRITING",
+      "R-PRESERVE"
+    ],
+    "notes": [],
+    "tasks": [],
+    "focus": null,
+    "delivery_digest": "ee3c1c4e531fa68a43598fdfcb8c1b84ba932681c743a511bfe523f56ae2082e"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "label": "A",
+  "provisional": "# Provisional review notes\n\nThe user asks, in Korean, to correct only awkward wording in the sales comparison report. This is a narrowly scoped proofreading task. The README and accepted requirement independently establish that the numbers and analysis are settled and must be preserved.\n\n## Goal and mandatory boundaries\n\n- Correct Korean spelling, spacing, grammar, and awkward phrasing in `report.md` without adding analysis or factual claims.\n- Preserve the title, company identities, sales values A = 120 and B = 100, the assertion that the comparison concerns the same period, and the statements that analysis and numbers are finalized and only wording work remains.\n- Do not invent units, dates, currencies, definitions, missing data, ratios, recommendations, or a new analytical conclusion.\n- The supplied AMH instructions impose a procedural obligation before doing the task: save the verbatim request, run the request command, assess every candidate against its condition and exclusions with exact quotations, finish/apply the assessment, resolve material uncertainty if reported, and read the generated instructions. This does not itself require applying every candidate principle. No second agent is authorized by that workflow.\n\n## Likely policy applicability\n\n- `R-PRESERVE` is directly applicable and binding.\n- `P-COMPARABLE` explicitly excludes proofreading that preserves facts and analysis. Its always activation setting should not erase that semantic exclusion. The report's topic alone does not make this an analytical comparison task.\n- `P-RESEARCH` explicitly excludes purely stylistic edits without new factual claims. No external verification or citations are needed for this task.\n- `P-WRITING` is the closest candidate, but its applicability refers to drafting or substantive revision. A cautious classification could treat this narrow proofreading as below that threshold; alternatively, a reviewer might view natural sentence revision as document revision. Either interpretation should preserve accepted requirements and avoid unnecessary revision-history framing. Its exact classification is less important than respecting its actual condition and the independently binding preservation requirement.\n- API compatibility, debugging, test quality, refactoring, regression, implementation review, and TDD conditions are absent. A prose typo is not a program defect. Tests, failure reproduction, and mutation testing would add no useful evidence here.\n- Argument evaluation, requirements discovery, knowledge organization, and Socratic inquiry are also absent. The user is not asking to reassess the comparison, discover a project goal, or organize sources. The request and constraints are sufficiently clear to act without questions.\n\n## Legitimate approaches and verification\n\nSeveral Korean phrasings can satisfy the request. Examples of justified changes include `120 이며` to `120이며`, `비교하는것이다` to `비교한다` or `비교하는 것이다`, and `확정됬다` to `확정됐다`. Recasting the period sentence as `이 보고서는 같은 기간의 매출을 비교한다.` preserves the existing meaning. More extensive rewriting is unnecessary but can be acceptable if it retains every accepted statement and does not change tone or scope materially.\n\nA direct edit to the supplied report followed by a brief completion message is the natural workspace action. Presenting the corrected text can also communicate the result, although leaving the file untouched may fall short if the actor is operating as the workspace editor. Verification should consist of reading the final text or reviewing the diff to ensure the numbers and assertions remain intact and only prose changed. No automated test suite or financial research is warranted.\n\n## Information gaps and revisability\n\nThe initial context does not specify a house style, units, or the actual dates behind the same-period statement. These are not blockers for proofreading because the existing facts are accepted. Do not turn those omissions into questions or analysis requirements. Actor evidence may reveal execution constraints or generated instructions that matter; these notes are an initial hypothesis rather than a fixed answer key.\n",
+  "review": {
+    "understanding": {
+      "goal": "Correct only awkward Korean prose in report.md while retaining all accepted numeric values and analytical meaning.",
+      "mandatory_conditions": [
+        "The user limits authorization to sentence correction; README.md reinforces that numbers and analysis are accepted.",
+        "R-PRESERVE requires retaining the values 120 and 100 and every accepted analytical conclusion.",
+        "The local AMH workflow requires a request packet, assessment of every candidate, finish/apply, and reading generated instructions before the underlying work."
+      ],
+      "overall_assessment": "The observed report satisfies the proofreading request. The actor chose a defensible writing-preservation approach, correctly omitted unrelated analytical and engineering methods, and preserved the accepted content. No material defect is established by the supplied evidence.",
+      "revision_of_provisional_view": "The initial notes allowed either interpretation of P-WRITING's substantive-revision threshold. The actual sentence-level recasting makes its selection reasonable: the actor improved phrasing beyond mechanical spacing while preserving requirements. This does not require treating P-WRITING as the only legitimate classification."
+    },
+    "strengths": [
+      {
+        "observation": "The final artifact contains bounded and natural prose corrections.",
+        "evidence": "The initial report's '120 이며' becomes '120이며,'; '이 보고서는 같은 기간을 비교하는것이다.' becomes '이 보고서는 같은 기간의 매출을 비교한다.'; '확정됬다' becomes '확정됐다'. '숫자' to '수치' and '바꾸는' to '다듬는' are context-appropriate stylistic substitutions.",
+        "impact": "The requested awkward wording, spacing and spelling are corrected without widening the task into analysis."
+      },
+      {
+        "observation": "P-WRITING and R-PRESERVE operate together coherently in the result.",
+        "evidence": "The finish/apply output and frozen generated AGENTS.md deliver both items. Comparing the supplied initial text with observation.json's final report shows that the title, company identities, 120 and 100, same-period comparison, finalized analysis and numbers, and remaining wording-work statement are retained.",
+        "impact": "Preservation is demonstrated by the document itself rather than merely by policy selection or the actor's completion claim. The report introduces no ratios, dates, units, financial conclusions or missing-data speculation."
+      },
+      {
+        "observation": "The actor interpreted exclusions semantically rather than triggering policies from the report's topic.",
+        "evidence": "analysis.json marks P-COMPARABLE and P-RESEARCH no_match because this is fact-preserving proofreading and stylistic correction without new factual claims. The final report remains within those exclusions.",
+        "impact": "Avoiding fresh financial comparison and external research protects the accepted analysis and the user's narrow scope. The always activation label on P-COMPARABLE was not incorrectly treated as overriding its explicit proofreading exclusion."
+      },
+      {
+        "observation": "The omitted inquiry and engineering methods were appropriate to the actual work.",
+        "evidence": "analysis.json separately rejects API, debugging, refactoring, regression, test quality, TDD and implementation review because there is no program or interface change; it rejects argument evaluation, requirements discovery, source organization and Socratic questioning because the task is clear and does not request substantive evaluation.",
+        "impact": "The actor avoided irrelevant tests, cause investigations, source work and clarification questions. The absence of those methods is not a shortcoming for this proofreading task."
+      },
+      {
+        "observation": "The recorded AMH procedure supports successful interpretation and application, without being mistaken for task completion.",
+        "evidence": "The audit records request --request-file request.txt and request finish --packet packet.json --analysis analysis.json --apply, both with exit code 0. The analysis assesses all supplied candidates once with the exact Korean request and concrete completion criteria. Finish stdout reports applied_local_plan and preserves R-PRESERVE in generated instructions. report.md subsequently differs from the initial artifact in the requested manner.",
+        "impact": "The required local classification procedure has execution evidence, and the underlying deliverable was actually changed. This procedure was required by the supplied workflow rather than an unnecessary method invented for proofreading."
+      }
+    ],
+    "findings": [],
+    "defensible_alternatives": [
+      {
+        "alternative": "Treat P-WRITING as outside its substantive-revision threshold for a narrowly construed proofreading task, while independently enforcing R-PRESERVE and the user's scope.",
+        "reason": "The threshold admits judgment. Selecting it here is defensible because the actor recasts sentences rather than performing only mechanical formatting, but selecting or omitting it should not itself determine success when the same accepted requirements and editing limits are respected."
+      },
+      {
+        "alternative": "Use different natural Korean phrasings or fewer lexical substitutions.",
+        "reason": "For example, correcting the spacing in '비교하는 것이다' instead of recasting it as '비교한다' could satisfy the task. There is no single required edited sentence, and the observed changes retain meaning."
+      },
+      {
+        "alternative": "Keep AMH request, packet and analysis artifacts in a temporary directory rather than the document root.",
+        "reason": "The workflow calls for temporary files, and their presence in the root adds administrative clutter. Their location has no demonstrated effect on the report, accepted requirements or substantive outcome, so this is a minor hygiene alternative rather than a material failure."
+      }
+    ],
+    "uncertainty": [
+      "The actor states that it compared sentences before and after and checked values and title. That is a self-report; the supplied records do not independently establish the exact verification commands or whether the generated instructions were read. The frozen before/after text nevertheless supports the preservation conclusion directly.",
+      "The final deployment's classification_complete field is false, but the recorded complete assessments and successful applied_local_plan output show the interpretation was applied. The supplied evidence does not justify interpreting that field alone as an unresolved mandatory policy decision.",
+      "No independent outcome checks or semantic verdict were supplied. The language-quality and meaning-preservation conclusions here are the reviewer's inspection of the provided initial and final text."
+    ],
+    "limits": [
+      "Review was confined to this review folder's initial context, provisional notes, actor observation, frozen generated instructions and relevant finish/apply stdout. No sibling reviewer, controller source, development repository or external actor workspace was inspected.",
+      "AMH exit codes prove recorded command execution and the captured application output, not independent semantic correctness, authorization beyond local filesystem permissions, or every unrecorded actor action.",
+      "The accepted sales values and same-period assertion were not researched. Their factual validity is outside this proofreading request and outside this review's outcome claim."
+    ]
+  },
+  "stage_one_prompt": "You are an independent qualitative reviewer. You have no expected policy list or prior conversation. Read only the supplied initial context. Infer the user's goal, applicable conditions, legitimate alternatives and information gaps. Do not assume that every named method must be used, or that more methods is better. Distinguish mandatory conditions from flexible approaches. Write provisional notes to {RUN_ROOT}/reviewers/f1de8537729f/provisional.md. Do not inspect actor results or other reviewers. Do not edit the workspace or invoke other agents. Your initial view is a revisable hypothesis, not an answer key. Return only the notes path.\nInitial context: {RUN_ROOT}/reviewers/f1de8537729f/initial.json",
+  "stage_two_prompt": "Now read the actor observation and recorded AMH calls. Inspect relevant evidence in the frozen workspace if needed. Evaluate the appropriateness of chosen AND omitted principles, joint application, unnecessary procedure, preservation of requirements, actual outcomes and uncertainty. Accept justified alternatives and revise your provisional view when evidence supports it. Use no exact-set scoring or method-count target. Tie material findings to the request, policy condition, source state or observed result. Execution records, actor self-reports and unverified claims are different evidence. Write a qualitative review to {RUN_ROOT}/reviewers/f1de8537729f/review.json with: understanding, strengths, findings (observation/evidence/impact/alternative), defensible_alternatives, uncertainty, and limits. Do not edit actor evidence, inspect other reviewers or launch agents. Return only the review path.\nActor observation: {RUN_ROOT}/reviewers/f1de8537729f/actor/observation.json\nFrozen workspace: {RUN_ROOT}/reviewers/f1de8537729f/actor/workspace",
+  "provisional_frozen_before_reveal_hash": "c4872093a5897c1ca28ab17cc4fe1ba52082caead00059f3153ed27778115ce5",
+  "phase_file_times_ns": {
+    "provisional": 1794889858611669679,
+    "reveal": 1794889955319097040
+  }
+}

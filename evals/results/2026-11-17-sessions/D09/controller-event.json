@@ -1,0 +1,36 @@
+{
+  "actor": "evaluation_controller",
+  "purpose": "Seed a pending clarification through the actual API before a fresh actor, not an observed prior actor reply.",
+  "request": "새로운 작업을 도와줘.",
+  "response": {
+    "format": "amh.session-analysis.v1",
+    "request_digest": "f63d205cfa385765e3c1da2c88eacec77bb0d8e1761807ef63f08248f66e26a8",
+    "mode": "review",
+    "reason": "Controller fixture: the requested work has no established target or outcome.",
+    "evidence": [
+      {
+        "source": "request",
+        "quote": "새로운 작업을 도와줘."
+      }
+    ],
+    "clarification_questions": [
+      "어떤 파일이나 대상을 작업하고, 어떤 결과를 원하나요?"
+    ]
+  },
+  "native_output": {
+    "status": "clarification_required",
+    "session_id": "S-75f91e0a0ef43d2f3884b567",
+    "revision": 3,
+    "state_digest": "eded2c10dd8a803cd03ccaf9f859bd6601bbf00417ee1aad78d3c62488135f74",
+    "catalog_digest": "",
+    "changed": true,
+    "active": [],
+    "removed": [],
+    "instructions": "",
+    "clarification_questions": [
+      "어떤 파일이나 대상을 작업하고, 어떤 결과를 원하나요?"
+    ],
+    "observation": "instructions_emitted_not_behaviorally_verified"
+  },
+  "native_exit_code": 2
+}

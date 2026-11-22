@@ -1,59 +1,43 @@
-# CLI: inspection and change previews
+# CLI reference
 
-**Status:** Implemented for read-only operations. The core engine, consumer installer, and authenticated writes are distinct capabilities.
+Commands default to the current directory when no `--root PATH` is supplied.
+To edit policies shared across all registered work trees, use `--scope user`
+without `--root`. Policy mutations default to project scope.
 
-## Supported
+## User setup and policy management
 
-```sh
-amh --help
-amh --version
-amh state inspect --file ./state.json
-amh manifest inspect --file ./state-manifest.json
-amh item get --file ./state.json --id R-COST
-amh change preview --file ./state.json --proposal ./proposal.json
-```
+| Command | Behavior |
+| --- | --- |
+| `project add [--id ID] [--root PATH]` | Register the work tree. The directory name supplies a new project ID by default. Use `--id` to choose a name or explicitly reuse an existing project. |
+| `project list` | List registered paths and project IDs. |
+| `project remove [--root PATH]` | Remove the binding and retain its policies. If the work tree moved, supply its previously registered path. |
+| `agent instructions` | Print guidance for the user to copy into the host agent's user-level settings. |
+| `policy list [--scope user\|project] [--full]` | Show current policies and registry revisions. The default combines user and project summaries in registered work trees, and shows user summaries elsewhere. `--full` shows complete definitions and pack fingerprints. |
+| `policy add --id ID --text TEXT [--when CONDITION] [--strength must\|should\|may]` | Add active reusable guidance. Strength defaults to `must`. Omit the condition for an always applicable principle. Use `--draft` for an inactive draft. |
+| `policy add --file POLICY.toml` | Add a flat policy record from TOML or JSON. The target registry must match its scope. |
+| `policy change ID --text TEXT` | Edit a policy's text or change its force with `--strength`. Use `--when CONDITION` or `--clear-condition` to edit its condition. Use `--activate`, `--pause`, or `--reactivate` in place of `--text` to change its status. Optional `--item-revision N` checks an earlier observation of the item. |
+| `policy change --file CHANGE.json` | Apply a structured change, such as replacing a policy or editing its declared relations and provenance. |
+| `pack list` / `pack show NAME` | List or inspect built-in packs before installation. |
+| `pack install NAME` or `pack install --file PACK.toml` | Install an optional pack. A custom pack's policies must match the target scope. |
+| `history [--full]` | Show the selected registry's events. `--full` exports its complete history for import. |
+| `rollback --revision N` | Restore the selected registry's policy set at revision N as a new revision. |
+| `policy import --file REGISTRY` | Copy an AMH policy registry into an empty destination. Re-importing identical history is a no-op. |
+| `apply --plan FILE\|-` | Apply a saved JSON plan from a file or stdin. AMH recomputes the change against the same home. |
 
-The CLI emits JSON for state inspection, item retrieval and proposal previews. Errors produce a nonzero exit code. It does **not** modify the state file for any of the above commands.
+Write commands show a summary of the proposed change by default. Use `--apply`
+to make that change or `--plan` to export the complete plan. Save plan and policy
+exports outside shared work trees when they contain personal policy. Policy
+changes capture the current registry revision automatically. To require an
+earlier revision, pass `--expected-revision N`. Use `--reason TEXT` to add
+context to the history.
 
-`state inspect` verifies that the snapshot matches replay of its stored history. It reports legacy entries without typed details, but does not invent or migrate those details. An absent state file is reported as an empty new state with `file_exists: false`. This is not an assertion that an existing project's state was found.
+## Agent commands
 
-The preview's `authorization` is always `not_granted`. A preview is **not** a signed receipt and is not sufficient to authorize a write. It checks expected snapshot revision and structural transition rules.
+| Command | Result |
+| --- | --- |
+| `policy discover [--root PATH]` | Returns `not_registered`, `ready` with candidate summaries and a catalogue identifier, or `resolved` with the unconditional policies when no candidate needs review. |
+| `policy read ID --catalog-digest DIGEST [--root PATH]` | Reads one active policy for assessment. |
+| `policy read --selection [--root PATH]` | Accepts catalogue-bound decisions as JSON on stdin and returns validated policy bodies. |
 
-Example `proposal.json`:
-
-```json
-{
-  "expected_revision": 1,
-  "reason": "Add customer retention as an additional requirement",
-  "change": {
-    "operation": "ADD",
-    "item": {
-      "id": "R-RETENTION",
-      "kind": "requirement",
-      "scope": "project",
-      "revision": 1,
-      "lifecycle": "draft",
-      "content": "Analyze customer retention as a supporting perspective",
-      "replaces": null
-    }
-  }
-}
-```
-
-A review must be grounded in the output's `affected_items` differences and the current accepted requirements. A missing `details` field is a legacy-compatible but less expressive item; see [legacy migration](legacy-migration.md).
-
-## Not supported
-
-- `amh init`, `amh apply`, `amh compile`, online installation, agent integration.
-- Human authentication or issuing signatures.
-- An `approved: true` escape hatch.
-
-For optional Linux-only receipt application through a separate OS-protected host, see [trusted host boundary](trusted-host.md).
-
-## Optional external signing request
-
-With `--features approval-request`, the read-only CLI additionally supports `amh change request --file PATH --proposal FILE --project ID --ttl SECONDS`. It prints an unsigned typed request and a canonical signing message for an **independent** signer. It does not authenticate users, issue signatures, or write state. See [signer contract](external-signer.md).
-
-## Read-only metadata import
-
-`amh manifest inspect --file PATH` validates the shape of an informational-only manifest exported by a trusted operator. It always reports `structurally_valid_untrusted`; validating a JSON structure is **not** a signature check. See [state manifest](state-manifest.md).
+See the [agent integration guide](agent-requests.md) for the selection payload.
+Run `amh <command> --help` for options or `amh --version` for the installed version.

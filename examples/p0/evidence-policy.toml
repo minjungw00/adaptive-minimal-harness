@@ -1,0 +1,4 @@
+id = "P-EVIDENCE"
+scope = "project"
+strength = "must"
+content = "Distinguish checks actually performed from assumptions and unverified claims."

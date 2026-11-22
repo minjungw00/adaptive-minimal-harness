@@ -1,0 +1,42 @@
+{
+  ".amh/amh.toml": {
+    "sha256": "e3874ea0167afa9c7932771fa9da0d773eff44dd73799f96cd959edaa23be807",
+    "bytes": 9062
+  },
+  ".amh/deployment.json": {
+    "sha256": "2568666c876b6c7fe5bd026494ce460900307999d1788e50eb55a2da70927ae8",
+    "bytes": 231
+  },
+  ".amh/generated/AGENTS.md": {
+    "sha256": "49260e065b105d9a0ca200abafe1b6d13084215690e7823582c291f3c9e065fd",
+    "bytes": 176
+  },
+  ".amh/sessions/S-233bf62363874f2a0eda1afa/state.json": {
+    "sha256": "8f7cb52e435547503310447bd6901871733d17fcfc10c3fd84c7a0acd2a7336c",
+    "bytes": 5818
+  },
+  ".amh.lock": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "AGENTS.md": {
+    "sha256": "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
+    "bytes": 2435
+  },
+  "README.md": {
+    "sha256": "dd3c19ce2676d50f3ba5ca9d8398918c19bece3583df3bce283ecb6ca2f87277",
+    "bytes": 143
+  },
+  "notes.md": {
+    "sha256": "9014c4195475c3daf489b634673f5f0efbfbfe23aa671e589a7b3c2c8c8ac7bb",
+    "bytes": 391
+  },
+  "report.md": {
+    "sha256": "9788ec6bcd4e6e2bd63c7e55e5c0e51fd75b5303fe12946d27236ea226515e10",
+    "bytes": 4511
+  },
+  "sources.json": {
+    "sha256": "7ffc62ed423a559911adfe112d05b2f02210317384d15ad4a62adb20589b7b21",
+    "bytes": 337
+  }
+}

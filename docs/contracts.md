@@ -1,69 +1,53 @@
-# Initial data contracts
+# Data contracts
 
-**Status:** Draft — examples are design fixtures, **not yet parsed or enforced by the CLI**. This document does not use a planning version identifier.
+## Storage
 
-## Common item envelope
-
-A goal, principle, requirement, constraint, or decision may share the following identity and governance metadata:
-
-| Field | Meaning |
+| Path relative to AMH home | Contents |
 | --- | --- |
-| `id` | Stable identifier |
-| `kind` | Semantic kind; type-specific validation is required |
-| `revision` | Positive item revision |
-| `scope` | User, project, or task |
-| `owner` | Claimed owner (NOT proof of authorization) |
-| `lifecycle` | Draft, active, paused, superseded, retired |
-| `content` | Human-authored intent |
-| `relations` | Explicit dependencies, conflicts, replacement links |
+| `config.toml` | `amh.config.v1` with `repositories` containing canonical Git work-tree `root` and policy `project` ID. |
+| `user/policies.toml` | `amh.policy-registry.v1` for the user's common policies. |
+| `projects/<id>/policies.toml` | `amh.policy-registry.v1` for policies of one registered project ID. |
+| `.lock` | Serializes changes within the AMH home. |
 
-Goals and requirements express desired outcomes. Principles describe applicable behavior. Constraints identify boundaries. Decisions record authorized choices. These kinds may share a storage protocol, **not identical semantic validation**.
+A policy registry records a project ID and an ordered list of events. An event
+holds its registry revision, reason and typed change. Current policies are
+calculated from the event sequence. Rollback adds a restoration event and
+issues new item revisions for restored records.
 
-## Explicit changes
+## Policy records
 
-Planned operations: `ADD`, `MODIFY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `PAUSE`, `REACTIVATE`, `RETIRE`. Updates carry an expected snapshot revision; changing an important policy or a requirement role requires trusted approval. Later appearance in a conversation is not implicit priority.
+| Field | Purpose |
+| --- | --- |
+| `id`, `scope`, `content` | Identity, user or project scope, and reusable guidance. |
+| `applicability` | Optional natural-language condition with any exclusions. Omit it for always-applicable guidance. |
+| `strength` | `must` (default), `should`, or `may`. Conditional `must` policies require a definite applicability decision. |
+| `revision`, `lifecycle` | Item revision and state. A new policy file defaults to revision 1 and draft. A normal `policy add --apply` activates it. |
+| `source`, `priority`, `replaces` | Optional provenance, delivery order (default 0), and replacement lineage maintained by AMH. |
+| `relations` | Optional `depends_on` and `conflicts_with` references. |
 
-**Implemented in the Rust library:** `ADD`, `MODIFY` (content), `REPLACE` (explicitly links compatible items), `ACTIVATE`, `PAUSE`, `REACTIVATE`, and `RETIRE`. Both snapshot and item revision guards are checked. Successful changes produce replayable events.
+See the [conditional example](../examples/p0/natural-policy.toml) and
+[always-applicable example](../examples/p0/evidence-policy.toml). Include
+reusable verification guidance in the policy body.
 
-**Typed details:** New code can call `ManagedItem::new_typed` to supply kind-specific information. Structural checks cover goal success criteria, principle activation/strength/verification, requirement role and acceptance criteria, constraint enforcement/checks, and decision rationale. `details` remains optional when loading older snapshots. This does **not** validate the semantic quality of user-written criteria.
+Changes include `ADD`, `MODIFY`, `SET_STRENGTH`, `SET_METADATA`,
+`SET_APPLICABILITY`, `REPLACE`, `REMOVE`, `REPRIORITIZE`, `ACTIVATE`, `PAUSE`,
+`REACTIVATE`, and `RETIRE`. Pack installations and restores use
+`INSTALL_PACK` and `RESTORE`. Existing item mutations check the item revision.
+Changes also check the registry revision.
 
-**Optional signed approval verification:** The `signed-approvals` feature provides `ApprovalRequest`, `SignedApproval`, `ApprovalVerifier`, and `SnapshotStore::apply_signed`. Signatures bind an exact change, project ID, expected snapshot revision, justification, and short validity window. This is only secure when an external trusted host pins the project's verification key and protects the store; there is no authenticated approval UI yet. See [approval trust contract](approvals.md).
+New active IDs must be unique across the common and project policies delivered
+in a work tree. Inactive policies remain visible in management views. The
+catalogue contains active guidance.
 
-**Implemented since then:** `SET_DETAILS` supports explicit type-specific migration; the CLI can inspect state and simulate changes without writing. A separate, optional Linux trusted-host binary verifies externally signed receipts using a fixed root-owned trust configuration and protected state root.
+## Delivery and plans
 
-**Not yet implemented:** `REMOVE`, `REPRIORITIZE`, an authenticated human approval or key provisioning UI, signing-key management, source/provenance fields, natural-language policy conflict analysis, the example input schema, and an unprivileged CLI write path. `ItemSnapshot` is still a minimal Rust data model, not the complete planned JSON contract. See [persistence details](persistence.md).
+`policy discover` and `policy read --selection` exchange catalogue-bound policy
+summaries, decisions and text using JSON on stdin/stdout. See the
+[agent integration guide](agent-requests.md) for the fields. The catalogue
+identifier covers the work-tree binding and eligible policy definitions.
 
-## Policy resolution
-
-Activation is scoped to the task. An applicable mandatory condition must not be dropped simply to fit an instruction budget. A resolver should distinguish match, no-match, and uncertain. Explicit unresolved mandatory conflicts require a diagnostic, not silent selection.
-
-## Task contract
-
-When useful, a task describes:
-
-- goal and currently applicable requirements;
-- done criteria;
-- verification;
-- allowed paths and actions;
-- stop conditions and output locations.
-
-A simple task should not be forced into a heavyweight workflow.
-
-## Deployment and evaluation
-
-These are intentionally separate:
-
-1. **desired** — current authorized rule;
-2. **rendered** — generated instruction representation;
-3. **deployed** — inspected target file or configuration;
-4. **observed** — behavior actually evaluated.
-
-Unknown observation must remain unknown. A generated `SKILL.md` or `AGENTS.md` does not establish actual agent compliance.
-
-## Example files
-
-- [TDD principle](../examples/policy-tdd.toml)
-- [Writing task](../examples/task-writing.json)
-- [Requirement change](../examples/change-add-requirement.json)
-
-The examples are draft contracts and must not be mistaken for currently supported CLI inputs.
+A saved plan has format `amh.home-plan.v2`. It contains the home, exact requested
+change, digest of applicable inputs, affected files and changed policy IDs with
+their lifecycle effects. Apply compares a recomputed plan under the home lock.
+The plan permits review and concurrency checks under local filesystem
+permissions.

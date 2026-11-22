@@ -1,6 +1,6 @@
 # Agent working agreement
 
-AMH is a local-first, model-agnostic layer for user-defined goals, principles, requirements, constraints, and decisions.
+AMH is a local-first, model-agnostic layer for reusable user-defined principles and methods.
 
 ## Workflow
 - Use the current task's goal, scope, applicable principles, and acceptance criteria. A later request does not silently replace unrelated valid conditions.

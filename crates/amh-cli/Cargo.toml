@@ -4,15 +4,11 @@ version = "0.0.0"
 edition.workspace = true
 publish = false
 
-[features]
-default = []
-approval-request = ["amh-core/signed-approvals"]
-
 [[bin]]
 name = "amh"
 path = "src/main.rs"
 
 [dependencies]
-amh-core = { path = "../amh-core" }
+amh-project = { path = "../amh-project" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

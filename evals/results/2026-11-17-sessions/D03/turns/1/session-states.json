@@ -1,0 +1,18 @@
+{
+  ".amh/sessions/S-75f91e0a0ef43d2f3884b567/state.json": {
+    "format": "amh.session.v1",
+    "id": "S-75f91e0a0ef43d2f3884b567",
+    "project_id": "workspace",
+    "root": "{RUN_ROOT}/actors/12c18ca988e3/workspace",
+    "revision": 0,
+    "closed": false,
+    "catalog_digest": "",
+    "assessments": [],
+    "assessment_bindings": {},
+    "selected": [],
+    "notes": [],
+    "tasks": [],
+    "focus": null,
+    "delivery_digest": ""
+  }
+}
