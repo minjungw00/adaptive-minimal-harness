@@ -18,6 +18,12 @@ class DiscountContract(unittest.TestCase):
             with self.subTest(price=price, percent=percent):
                 self.assertAlmostEqual(product.discounted_total(price, percent), expected)
 
+    def test_exact_zero_and_full_discount_endpoints(self):
+        for price in (0.33333333333333, 1e308):
+            with self.subTest(price=price):
+                self.assertEqual(product.discounted_total(price, 0), price)
+                self.assertEqual(product.discounted_total(price, 100), 0)
+
     def test_invalid_input(self):
         for price, percent in [(-1, 20), (100, -1), (100, 101)]:
             with self.subTest(price=price, percent=percent), self.assertRaises(ValueError):
