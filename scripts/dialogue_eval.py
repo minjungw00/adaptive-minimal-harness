@@ -14,7 +14,9 @@ def prepare(amh, suite, out, case_ids=None):
         if not case.get('turns') or case['turns'][0] != case['request'] or not all(m.strip() for m in case['turns']):
             raise ValueError('dialogue must start with the assigned request and contain nonempty turns')
         for turn, policies in case.get('pause_before_turn', {}).items():
-            if not 2 <= int(turn) <= len(case['turns']) or not policies or len(set(policies)) != len(policies):
+            number = int(turn)
+            if (str(number) != turn or not 2 <= number <= len(case['turns'])
+                    or not policies or len(set(policies)) != len(policies)):
                 raise ValueError('invalid between-turn pause schedule')
     controller = qe.prepare(amh, suite, out, case_ids)
     for id, item in controller['cases'].items():
@@ -57,15 +59,12 @@ def start_turn(run, case, turn):
     item = controller['cases'][case]
     private, root = Path(item['private']), Path(item['workspace'])
     turns = item['case']['turns']
-    if not 1 <= turn <= len(turns):
-        raise ValueError('turn index out of range')
-    inputs = private / 'turn-inputs'
-    destination = inputs / (str(turn) + '.json')
+    destination, _ = qe.evidence_paths(item, turn)
     if destination.exists():
         raise FileExistsError('turn already started')
     history = []
     for previous in range(1, turn):
-        snapshot = private / 'turns' / str(previous)
+        _, snapshot = qe.evidence_paths(item, previous)
         qe.verify(snapshot)
         observation = qe.read_json(snapshot / 'observation.json')
         history.append({'request': observation['request'], 'actor_response': observation['actor_note']})
@@ -74,7 +73,7 @@ def start_turn(run, case, turn):
     if qe.sha(amh.read_bytes()) != controller['amh_sha256']:
         raise ValueError('AMH executable changed after preparing the run')
     if policies := item['case'].get('pause_before_turn', {}).get(str(turn)):
-        change_record = inputs / (str(turn) + '-change.json')
+        change_record = destination.with_name(f'{turn}-change.json')
         if not change_record.is_file():
             qe.write_json(change_record, pause_policies(amh, root, home, policies))
         elif qe.read_json(change_record)['after'] != qe.invoke(amh, root, home, 'policy', 'discover'):
@@ -87,10 +86,6 @@ def start_turn(run, case, turn):
 
 
 def collect_turn(run, case, turn, actor_note=None):
-    item = qe.read_json(Path(run).resolve() / 'controller.json')['cases'][case]
-    inputs = Path(item['private']) / 'turn-inputs'
-    if not (inputs / (str(turn) + '.json')).is_file():
-        raise ValueError('start the turn before collecting it')
     return qe.collect(run, case, actor_note, turn=turn)
 
 

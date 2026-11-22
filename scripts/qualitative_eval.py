@@ -160,31 +160,58 @@ raise SystemExit(r.returncode)
 
 def make_trace(directory, root, private):
     script = directory / 'work'
-    code = '''import hashlib,json,pathlib,subprocess,sys,time,uuid
-root=pathlib.Path(ROOT)
-audit=pathlib.Path(PRIVATE)/'work-audit';audit.mkdir(exist_ok=True)
+    code = f'''import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+import uuid
+
+root = Path({str(root)!r})
+audit = Path({str(private)!r}) / 'work-audit'
+''' + '''
+audit.mkdir(exist_ok=True)
+
+
 def snapshot():
-    out={}
-    for p in sorted(root.rglob('*')):
-        if not p.is_file() or p.is_symlink() or '__pycache__' in p.parts:continue
-        rel=p.relative_to(root).as_posix()
-        if rel.startswith('.git/') or rel=='.git':continue
-        b=p.read_bytes();out[rel]={'sha256':hashlib.sha256(b).hexdigest()}
-        if len(b)<=262144:
-            try:out[rel]['text']=b.decode('utf-8')
-            except UnicodeDecodeError:pass
-    return out
-if len(sys.argv)<3 or sys.argv[1]!='exec':raise SystemExit('usage: work exec COMMAND [ARG...]')
-id=uuid.uuid4().hex;start=time.time_ns();before=snapshot()
-data=sys.stdin.buffer.read()
-r=subprocess.run(sys.argv[2:],cwd=root,input=data,capture_output=True,timeout=300)
-after=snapshot()
-for name,content in [('stdin',data),('stdout',r.stdout),('stderr',r.stderr)]:
-    (audit/(id+'.'+name)).write_bytes(content)
-record={'id':id,'argv':sys.argv[2:],'started_ns':start,'finished_ns':time.time_ns(),'exit_code':r.returncode,'before':before,'after':after}
-with (audit/'events.jsonl').open('a',encoding='utf-8') as f:f.write(json.dumps(record,ensure_ascii=False)+'\\n')
-sys.stdout.buffer.write(r.stdout);sys.stderr.buffer.write(r.stderr);raise SystemExit(r.returncode)
-'''.replace('ROOT', repr(str(root))).replace('PRIVATE', repr(str(private)))
+    files = {}
+    for path in sorted(root.rglob('*')):
+        if not path.is_file() or path.is_symlink() or '__pycache__' in path.parts:
+            continue
+        relative = path.relative_to(root)
+        if relative.parts[0] == '.git':
+            continue
+        data = path.read_bytes()
+        entry = {'sha256': hashlib.sha256(data).hexdigest()}
+        if len(data) <= 262144:
+            try:
+                entry['text'] = data.decode('utf-8')
+            except UnicodeDecodeError:
+                pass
+        files[relative.as_posix()] = entry
+    return files
+
+
+if len(sys.argv) < 3 or sys.argv[1] != 'exec':
+    raise SystemExit('usage: work exec COMMAND [ARG...]')
+
+event_id = uuid.uuid4().hex
+started = time.time_ns()
+before = snapshot()
+data = sys.stdin.buffer.read()
+result = subprocess.run(sys.argv[2:], cwd=root, input=data, capture_output=True, timeout=300)
+after = snapshot()
+for name, content in [('stdin', data), ('stdout', result.stdout), ('stderr', result.stderr)]:
+    (audit / (event_id + '.' + name)).write_bytes(content)
+record = {'id': event_id, 'argv': sys.argv[2:], 'started_ns': started, 'finished_ns': time.time_ns(),
+          'exit_code': result.returncode, 'before': before, 'after': after}
+with (audit / 'events.jsonl').open('a', encoding='utf-8') as log:
+    log.write(json.dumps(record, ensure_ascii=False) + '\\n')
+sys.stdout.buffer.write(result.stdout)
+sys.stderr.buffer.write(result.stderr)
+raise SystemExit(result.returncode)
+'''
     script.write_text('#!' + sys.executable + '\n' + code, encoding='utf-8')
     script.chmod(0o755)
     return script
@@ -277,18 +304,24 @@ def checks(root, commands):
     return results
 
 
+def evidence_paths(item, turn):
+    private = Path(item['private'])
+    turns = item['case'].get('turns')
+    if turns is not None:
+        if turn is None or not 1 <= turn <= len(turns):
+            raise ValueError('give a valid turn for this dialogue case')
+        return private / 'turn-inputs' / f'{turn}.json', private / 'turns' / str(turn)
+    if turn is not None:
+        raise ValueError('single-request cases have no turn number')
+    return private / 'initial.json', private / 'result'
+
+
 def collect(run, id, actor_note=None, *, turn=None):
     run = Path(run).resolve()
-    controller = read_json(run / 'controller.json')
-    item = controller['cases'][id]
-    private = Path(item['private'])
-    if ('turns' in item['case']) != (turn is not None):
-        raise ValueError('dialogue cases must be collected by turn')
-    if turn is None:
-        destination, initial_path = private / 'result', private / 'initial.json'
-    else:
-        destination = private / 'turns' / str(turn)
-        initial_path = private / 'turn-inputs' / (str(turn) + '.json')
+    item = read_json(run / 'controller.json')['cases'][id]
+    initial_path, destination = evidence_paths(item, turn)
+    if turn is not None and not initial_path.is_file():
+        raise ValueError('start the turn before collecting it')
     if destination.exists():
         raise FileExistsError('evidence already collected: ' + str(destination))
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -347,7 +380,7 @@ def capture(item, result_dir, initial_path, actor_note, turn):
     if (private / 'work-audit').exists():
         shutil.copytree(private / 'work-audit', result_dir / 'work-audit')
     if turn is not None:
-        intervention = private / 'turn-inputs' / (str(turn) + '-change.json')
+        intervention = initial_path.with_name(f'{turn}-change.json')
         if str(turn) in item['case'].get('pause_before_turn', {}) and not intervention.is_file():
             raise ValueError('scheduled policy change has no record')
         if intervention.exists():
@@ -374,17 +407,7 @@ def reviewer(run, id, label, turn=None):
     if key in routing:
         raise FileExistsError('review assignment already exists')
     item = read_json(run / 'controller.json')['cases'][id]
-    private = Path(item['private'])
-    if 'turns' in item['case']:
-        if turn is None or not 1 <= turn <= len(item['case']['turns']):
-            raise ValueError('give a valid turn for dialogue review')
-        source = private / 'turns' / str(turn)
-        context = private / 'turn-inputs' / (str(turn) + '.json')
-    else:
-        if turn is not None:
-            raise ValueError('single-request cases have no turn number')
-        source = private / 'result'
-        context = private / 'initial.json'
+    context, source = evidence_paths(item, turn)
     if not context.is_file():
         raise ValueError('turn must start before review')
     directory = run / 'reviewers' / uuid.uuid4().hex[:12]
@@ -478,13 +501,14 @@ def export_evidence(run, out):
     routing = read_json(run / 'review-routing.json')
     prepared = []
     for id, item in controller['cases'].items():
-        private = Path(item['private'])
         if 'turns' in item['case']:
             for turn in range(1, len(item['case']['turns']) + 1):
                 dataset = Path(id) / 'turns' / str(turn)
-                prepared.append((dataset, reviewed_evidence(private / 'turns' / str(turn), routing, id, turn)))
+                _, source = evidence_paths(item, turn)
+                prepared.append((dataset, reviewed_evidence(source, routing, id, turn)))
         else:
-            prepared.append((Path(id), reviewed_evidence(private / 'result', routing, id, None)))
+            _, source = evidence_paths(item, None)
+            prepared.append((Path(id), reviewed_evidence(source, routing, id, None)))
     out.mkdir(parents=True, exist_ok=False)
     for dataset, files in prepared:
         for name, value in files.items():

@@ -40,6 +40,16 @@ class SuiteTests(unittest.TestCase):
             qe.write_json(p, suite)
             with self.assertRaises(ValueError): qe.load_suite(p)
 
+    def test_dialogue_rejects_a_noncanonical_pause_turn(self):
+        suite = qe.read_json(ROOT / 'evals/dialogues.json')
+        case = next(case for case in suite['cases'] if case['id'] == 'D06')
+        case['pause_before_turn']['02'] = case['pause_before_turn'].pop('2')
+        with tempfile.TemporaryDirectory() as tmp:
+            suite_path = Path(tmp) / 'suite.json'
+            qe.write_json(suite_path, suite)
+            with self.assertRaisesRegex(ValueError, 'invalid between-turn pause schedule'):
+                de.prepare(None, suite_path, Path(tmp) / 'run')
+
 
 class ArchiveTests(unittest.TestCase):
     """Synthetic records here test export integrity, never a model's behavior."""
@@ -235,6 +245,20 @@ class RunTests(unittest.TestCase):
         self.assertEqual(event['after']['observed.txt']['text'], 'observed change')
         self.assertIn('actual output', (audit / (event['id'] + '.stdout')).read_text())
         self.assertNotIn('semantic_verdict', event)
+
+    def test_work_trace_uses_literal_paths_when_the_workspace_contains_private(self):
+        root = Path(self.tmp.name) / 'PRIVATE workspace'
+        root.mkdir()
+        (root / 'example.txt').write_text('example', encoding='utf-8')
+        private = Path(self.item()['private'])
+        tool = qe.make_trace(Path(self.item()['tool']).parent, root, private)
+        result = subprocess.run([tool, 'exec', sys.executable, '-c',
+                                 'from pathlib import Path; print(Path("example.txt").read_text())'],
+                                input=b'', capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b'example\n')
+        event = qe.read_json(private / 'work-audit/events.jsonl')
+        self.assertIn('example.txt', event['after'])
 
     def test_edited_public_tests_cannot_make_a_broken_product_pass(self):
         root = Path(self.item()['workspace'])
