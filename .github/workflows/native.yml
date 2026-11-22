@@ -6,6 +6,11 @@ on:
     tags: ['v[0-9]*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to prepare from main (for example, v0.1.0)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -32,7 +37,19 @@ jobs:
       - name: Build standalone executable
         run: cargo build -p amh-cli --release --locked
       - name: Check executable
-        run: ./target/release/${{ matrix.binary }} --help
+        shell: bash
+        env:
+          AMH_RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+        run: |
+          binary="./target/release/${{ matrix.binary }}"
+          "$binary" --help
+          if [[ -n "$AMH_RELEASE_TAG" ]]; then
+            version=$("$binary" --version | tr -d '\r')
+            if [[ "$version" != "amh ${AMH_RELEASE_TAG#v}" ]]; then
+              echo "Executable version $version does not match $AMH_RELEASE_TAG." >&2
+              exit 1
+            fi
+          fi
       - name: Package executable, examples and documentation
         shell: bash
         run: |
@@ -54,7 +71,10 @@ jobs:
 
   release-draft:
     name: Prepare reviewable native release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' && inputs.release_tag != '')
     needs: native
     runs-on: ubuntu-latest
     permissions:
@@ -69,10 +89,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          AMH_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --json tagName >/dev/null; then
-            echo "A release already exists for $GITHUB_REF_NAME."
+          if [[ ! "$AMH_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?(\+[A-Za-z0-9.-]+)?$ ]]; then
+            echo "Provide a version tag such as v0.1.0." >&2
+            exit 1
+          fi
+          if gh release view "$AMH_RELEASE_TAG" --json tagName >/dev/null 2>&1; then
+            echo "A release already exists for $AMH_RELEASE_TAG."
             exit 0
           fi
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            target=(--verify-tag)
+          else
+            result=0
+            git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" \
+              "refs/tags/$AMH_RELEASE_TAG" || result=$?
+            if [[ "$result" != 2 ]]; then
+              echo "Dispatch requires a new tag. For an existing tag, run the workflow on that tag." >&2
+              exit 1
+            fi
+            target=(--target "$GITHUB_SHA")
+          fi
           cat dist/*.sha256 > dist/SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/SHA256SUMS --verify-tag --draft --title "$GITHUB_REF_NAME" --notes "Native AMH packages and checksums. Review license, supported platforms and release gates before publishing."
+          gh release create "$AMH_RELEASE_TAG" dist/*.tar.gz dist/SHA256SUMS "${target[@]}" \
+            --draft --title "$AMH_RELEASE_TAG" \
+            --notes "Native AMH packages and checksums. Review the release before publishing."
