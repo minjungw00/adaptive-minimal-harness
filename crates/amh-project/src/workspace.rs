@@ -75,11 +75,11 @@ impl Target {
         )
     }
 
-    fn validate(&self, registry: &Registry) -> Result<()> {
+    fn validate(&self, registry: &Registry) -> Result<Vec<Policy>> {
         if registry.project_id != self.registry_id() {
             return Err("policy registry identity does not match its scope".into());
         }
-        registry.policies()?;
+        let current = registry.policies()?;
         // Check introductions even if a later event removed the policy.
         for event in &registry.events {
             let policies: &[Policy] = match &event.change {
@@ -95,7 +95,7 @@ impl Target {
                 return Err("policy scope does not match the selected registry".into());
             }
         }
-        Ok(())
+        Ok(current)
     }
 }
 
@@ -338,19 +338,19 @@ impl Home {
 
     pub fn registry(&self, target: &Target) -> Result<Registry> {
         self.validate_target(target)?;
-        self.read_registry(target, false)
+        self.read_registry(target).map(|(registry, _)| registry)
     }
 
-    fn read_registry(&self, target: &Target, allow_missing_project: bool) -> Result<Registry> {
+    fn read_registry(&self, target: &Target) -> Result<(Registry, Vec<Policy>)> {
         let path = target.registry_path();
-        Self::decode_registry(target, self.read(&path)?.as_deref(), allow_missing_project)
+        Self::decode_registry(target, self.read(&path)?.as_deref(), false)
     }
 
     fn decode_registry(
         target: &Target,
         content: Option<&str>,
         allow_missing_project: bool,
-    ) -> Result<Registry> {
+    ) -> Result<(Registry, Vec<Policy>)> {
         check_id(target.registry_id())?;
         let path = target.registry_path();
         let registry = match content {
@@ -365,16 +365,18 @@ impl Home {
                 ))
             }
         };
-        target.validate(&registry)?;
-        Ok(registry)
+        let policies = target.validate(&registry)?;
+        Ok((registry, policies))
     }
 
     pub fn policies(&self, binding: &Project) -> Result<Vec<Policy>> {
-        let local = self.registry(&Target::Project {
+        let target = Target::Project {
             binding: binding.clone(),
-        })?;
-        let mut entries = self.registry(&Target::User)?.policies()?;
-        entries.extend(local.policies()?);
+        };
+        self.validate_target(&target)?;
+        let (_, local) = self.read_registry(&target)?;
+        let (_, mut entries) = self.read_registry(&Target::User)?;
+        entries.extend(local);
         Ok(entries)
     }
 
@@ -459,21 +461,16 @@ impl Home {
                 let mut checked = BTreeSet::new();
                 for binding in &config.repositories {
                     if checked.insert(&binding.project) {
-                        let local = self.read_registry(
-                            &Target::Project {
-                                binding: binding.clone(),
-                            },
-                            false,
-                        )?;
-                        check(&binding.project, &local.policies()?)?;
+                        let (_, local) = self.read_registry(&Target::Project {
+                            binding: binding.clone(),
+                        })?;
+                        check(&binding.project, &local)?;
                     }
                 }
             }
             Target::Project { binding } => {
-                check(
-                    &binding.project,
-                    &self.read_registry(&Target::User, false)?.policies()?,
-                )?;
+                let (_, common) = self.read_registry(&Target::User)?;
+                check(&binding.project, &common)?;
             }
         }
         Ok(())
@@ -520,8 +517,9 @@ impl Home {
                         binding.project
                     ));
                 }
-                let registry = Self::decode_registry(&target, before.as_deref(), !already_known)?;
-                self.check_new_collisions(&config, &target, &[], &registry.policies()?)?;
+                let (registry, policies) =
+                    Self::decode_registry(&target, before.as_deref(), !already_known)?;
+                self.check_new_collisions(&config, &target, &[], &policies)?;
                 inputs.push(existing.map(to_toml).transpose()?);
                 if before.is_none() {
                     writes.push((path, to_toml(&registry)?));
@@ -552,12 +550,10 @@ impl Home {
                 let path = target.registry_path();
                 self.validate_target(target)?;
                 let before = self.read(&path)?;
-                let current = Self::decode_registry(target, before.as_deref(), false)?;
+                let (current, old) = Self::decode_registry(target, before.as_deref(), false)?;
                 let next =
                     current.changed(*expected_revision, reason.clone(), change.as_ref().clone())?;
-                target.validate(&next)?;
-                let old = current.policies()?;
-                let new = next.policies()?;
+                let new = target.validate(&next)?;
                 self.check_new_collisions(&config, target, &old, &new)?;
                 policies = policy_effects(&old, &new);
                 inputs.push(before);
@@ -567,8 +563,8 @@ impl Home {
                 let path = target.registry_path();
                 self.validate_target(target)?;
                 let before = self.read(&path)?;
-                let current = Self::decode_registry(target, before.as_deref(), false)?;
-                target.validate(registry)?;
+                let (current, _) = Self::decode_registry(target, before.as_deref(), false)?;
+                let new = target.validate(registry)?;
                 inputs.push(before);
                 if &current != registry {
                     if current.revision() != 0 {
@@ -577,7 +573,6 @@ impl Home {
                                 .into(),
                         );
                     }
-                    let new = registry.policies()?;
                     self.check_new_collisions(&config, target, &[], &new)?;
                     policies = policy_effects(&[], &new);
                     writes.push((path, to_toml(registry)?));
@@ -711,28 +706,4 @@ pub fn read_document<T: serde::de::DeserializeOwned>(file: &Path) -> Result<T> {
     } else {
         toml::from_str(&content).map_err(|e| e.to_string())
     }
-}
-
-pub fn pack_locks(registry: &Registry) -> Result<BTreeMap<String, String>> {
-    registry.policies()?;
-    let mut versions = vec![BTreeMap::new()];
-    for event in &registry.events {
-        let mut locks = versions.last().unwrap().clone();
-        match &event.change {
-            PolicyChange::InstallPack { pack } => {
-                locks.insert(
-                    pack.id.clone(),
-                    format!(
-                        "{}:{}",
-                        pack.version,
-                        digest(&serde_json::to_vec(pack).map_err(|e| e.to_string())?)
-                    ),
-                );
-            }
-            PolicyChange::Restore { revision } => locks = versions[*revision as usize].clone(),
-            _ => {}
-        }
-        versions.push(locks);
-    }
-    Ok(versions.pop().unwrap())
 }

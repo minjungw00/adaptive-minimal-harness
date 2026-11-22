@@ -515,7 +515,7 @@ fn policy_list(home: &Home, args: &[String]) -> Result<String, String> {
     let mut policies = Vec::new();
     for target in targets {
         let registry = home.registry(&target)?;
-        let packs = amh_project::pack_locks(&registry)?;
+        let (entries, packs) = registry.policies_and_pack_locks()?;
         let mut summary = json!({
             "scope": scope_of(&target),
             "project_id": registry.project_id,
@@ -534,7 +534,7 @@ fn policy_list(home: &Home, args: &[String]) -> Result<String, String> {
         };
         summary["packs"] = packs;
         registries.push(summary);
-        for policy in registry.policies()? {
+        for policy in entries {
             policies.push(if full {
                 serde_json::to_value(&policy).map_err(|e| e.to_string())?
             } else {

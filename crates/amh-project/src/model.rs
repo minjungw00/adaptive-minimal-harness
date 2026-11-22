@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{digest, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -232,13 +232,36 @@ pub struct Registry {
     pub events: Vec<Event>,
 }
 
+const REGISTRY_FORMAT: &str = "amh.policy-registry.v1";
+
+#[derive(Clone, Default)]
+struct ReplayState<'a> {
+    policies: BTreeMap<String, Policy>,
+    packs: BTreeMap<&'a str, &'a Pack>,
+}
+
+impl ReplayState<'_> {
+    fn pack_locks(&self) -> Result<BTreeMap<String, String>> {
+        self.packs
+            .iter()
+            .map(|(&id, pack)| {
+                let bytes = serde_json::to_vec(pack).map_err(|e| e.to_string())?;
+                Ok((
+                    id.to_owned(),
+                    format!("{}:{}", pack.version, digest(&bytes)),
+                ))
+            })
+            .collect()
+    }
+}
+
 impl Registry {
     pub fn new(project_id: String) -> Result<Self> {
         if project_id.trim().is_empty() {
             return Err("project ID is required".into());
         }
         Ok(Self {
-            format: "amh.policy-registry.v1".into(),
+            format: REGISTRY_FORMAT.into(),
             project_id,
             events: vec![],
         })
@@ -250,43 +273,70 @@ impl Registry {
         self.at(self.revision())
     }
     pub fn at(&self, revision: u64) -> Result<Vec<Policy>> {
-        if self.format != "amh.policy-registry.v1"
+        Ok(self.replay(revision)?.policies.into_values().collect())
+    }
+
+    pub fn policies_and_pack_locks(&self) -> Result<(Vec<Policy>, BTreeMap<String, String>)> {
+        let state = self.replay(self.revision())?;
+        let locks = state.pack_locks()?;
+        Ok((state.policies.into_values().collect(), locks))
+    }
+
+    fn replay(&self, revision: u64) -> Result<ReplayState<'_>> {
+        if self.format != REGISTRY_FORMAT
             || self.project_id.trim().is_empty()
             || revision > self.revision()
         {
             return Err("unsupported or invalid project registry".into());
         }
-        let mut versions: Vec<BTreeMap<String, Policy>> = vec![BTreeMap::new()];
+        let events = &self.events[..revision as usize];
+        // Only revisions referenced by a restore need a snapshot. Keep item
+        // revision counters outside snapshots so removals and restores never rewind them.
+        let restore_points: BTreeSet<_> = events
+            .iter()
+            .filter_map(|event| match event.change {
+                PolicyChange::Restore { revision } => Some(revision),
+                _ => None,
+            })
+            .collect();
+        let mut state = ReplayState::default();
+        let mut snapshots = BTreeMap::new();
+        if restore_points.contains(&0) {
+            snapshots.insert(0, state.clone());
+        }
         let mut seen = BTreeSet::new();
-        for (index, event) in self.events.iter().take(revision as usize).enumerate() {
+        let mut highest = BTreeMap::<String, u64>::new();
+        for (index, event) in events.iter().enumerate() {
             if event.revision != index as u64 + 1 || event.reason.trim().is_empty() {
                 return Err("invalid event sequence or missing reason".into());
             }
-            let mut next = versions.last().unwrap().clone();
             if let PolicyChange::Restore { revision } = &event.change {
-                let previous = versions
-                    .get(*revision as usize)
-                    .ok_or("restore must refer to an earlier revision")?;
-                // A restored item retains its identity but gets a new item revision.
-                next = previous.clone();
-                for policy in next.values_mut() {
-                    let highest = versions
-                        .iter()
-                        .filter_map(|v| v.get(&policy.id))
-                        .map(|p| p.revision)
-                        .max()
-                        .unwrap_or(0);
-                    policy.revision = highest.checked_add(1).ok_or("item revision exhausted")?;
+                state = snapshots
+                    .get(revision)
+                    .ok_or("restore must refer to an earlier revision")?
+                    .clone();
+                for (id, policy) in &mut state.policies {
+                    let revision = highest.get_mut(id).ok_or("unknown restored item")?;
+                    *revision = revision.checked_add(1).ok_or("item revision exhausted")?;
+                    policy.revision = *revision;
                 }
             } else {
-                reduce(&mut next, &mut seen, &event.change)?;
+                reduce(&mut state.policies, &mut seen, &event.change)?;
+                for id in event.change.policy_ids() {
+                    if let Some(policy) = state.policies.get(id) {
+                        policy.validate()?;
+                        highest.insert(policy.id.clone(), policy.revision);
+                    }
+                }
+                if let PolicyChange::InstallPack { pack } = &event.change {
+                    state.packs.insert(&pack.id, pack);
+                }
             }
-            for policy in next.values() {
-                policy.validate()?;
+            if restore_points.contains(&event.revision) {
+                snapshots.insert(event.revision, state.clone());
             }
-            versions.push(next);
         }
-        Ok(versions.pop().unwrap().into_values().collect())
+        Ok(state)
     }
     pub fn changed(&self, expected: u64, reason: String, change: PolicyChange) -> Result<Self> {
         if expected != self.revision() {
@@ -298,7 +348,6 @@ impl Registry {
         if reason.trim().is_empty() {
             return Err("a change reason is required".into());
         }
-        self.policies()?;
         let mut next = self.clone();
         next.events.push(Event {
             revision: expected.checked_add(1).ok_or("revision exhausted")?,
@@ -308,6 +357,10 @@ impl Registry {
         next.policies()?;
         Ok(next)
     }
+}
+
+pub fn pack_locks(registry: &Registry) -> Result<BTreeMap<String, String>> {
+    registry.replay(registry.revision())?.pack_locks()
 }
 
 fn add(

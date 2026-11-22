@@ -182,6 +182,54 @@ fn rollback_creates_a_new_revision() {
 }
 
 #[test]
+fn repeated_restores_replay_pack_versions_and_preserve_item_revision_high_water_marks() {
+    let mut registry = Registry::new("test".into()).unwrap();
+    let install = |version: &str, id: &str| PolicyChange::InstallPack {
+        pack: Pack {
+            id: "example".into(),
+            version: version.into(),
+            policies: vec![principle(id, "code")],
+        },
+    };
+    for change in [
+        install("first", "P-OLD"),
+        PolicyChange::Modify {
+            id: "P-OLD".into(),
+            item_revision: 2,
+            content: "Later content".into(),
+        },
+        PolicyChange::Remove {
+            id: "P-OLD".into(),
+            item_revision: 3,
+        },
+        install("second", "P-NEW"),
+        PolicyChange::Restore { revision: 1 },
+        PolicyChange::Restore { revision: 0 },
+        PolicyChange::Restore { revision: 5 },
+    ] {
+        registry = registry
+            .changed(registry.revision(), "Test replay".into(), change)
+            .unwrap();
+    }
+    let policies = registry.policies().unwrap();
+    assert_eq!(policies.len(), 1);
+    assert_eq!(policies[0].id, "P-OLD");
+    assert_eq!(policies[0].revision, 5);
+    assert_eq!(policies[0].content, principle("P-OLD", "code").content);
+    assert!(pack_locks(&registry).unwrap()["example"].starts_with("first:"));
+    assert_eq!(registry.at(4).unwrap()[0].id, "P-NEW");
+    assert!(registry.at(6).unwrap().is_empty());
+    assert!(registry
+        .changed(
+            7,
+            "Invalid restore".into(),
+            PolicyChange::Restore { revision: 8 }
+        )
+        .unwrap_err()
+        .contains("earlier revision"));
+}
+
+#[test]
 fn pack_is_pinned_and_delivers_baseline_plus_selected_methods() {
     let f = Fixture::new();
     let pack = builtin_pack(BUILTIN_PACK_ID).unwrap();
