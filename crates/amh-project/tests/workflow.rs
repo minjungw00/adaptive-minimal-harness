@@ -208,6 +208,14 @@ fn pack_is_pinned_and_delivers_baseline_plus_selected_methods() {
         combined.selected,
         ["P-API", "P-DEBUG", "P-REGRESSION", "P-WORKING"]
     );
+    for definition in &pack.policies {
+        assert_eq!(
+            combined.instructions.contains(&definition.content),
+            combined.selected.contains(&definition.id),
+            "unexpected delivery of {}",
+            definition.id
+        );
+    }
     assert!(f
         .home
         .plan(f.propose(1, PolicyChange::InstallPack { pack }))

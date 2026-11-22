@@ -284,6 +284,11 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
     let immediate = f.ok(&["policy", "discover"]);
     assert_eq!(immediate["status"], "resolved");
     assert_eq!(immediate["selected"], json!(["P-EVIDENCE"]));
+    let evidence = "Distinguish checks actually performed from assumptions and unverified claims.";
+    assert!(immediate["instructions"]
+        .as_str()
+        .unwrap()
+        .contains(evidence));
     f.ok(&[
         "policy",
         "add",
@@ -307,10 +312,16 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
     let detail = f.ok(&["policy", "read", "P-WRITING", "--catalog-digest", digest]);
     assert_eq!(detail["content"], "Use direct writing.");
     let selection = selection(&discovery, &[("P-WRITING", "match")]);
-    assert_eq!(
-        delivered(&f, &selection)["selected"],
-        json!(["P-EVIDENCE", "P-WRITING"])
-    );
+    let delivery = delivered(&f, &selection);
+    assert_eq!(delivery["selected"], json!(["P-EVIDENCE", "P-WRITING"]));
+    let instructions = delivery["instructions"].as_str().unwrap();
+    assert!(instructions.contains(evidence));
+    assert!(instructions.contains("Use direct writing."));
+    let baseline = delivered(&f, &json!({"catalog_digest": digest, "decisions": []}));
+    assert_eq!(baseline["selected"], json!(["P-EVIDENCE"]));
+    let instructions = baseline["instructions"].as_str().unwrap();
+    assert!(instructions.contains(evidence));
+    assert!(!instructions.contains("Use direct writing."));
     f.ok(&[
         "policy",
         "change",
@@ -327,10 +338,11 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
     let stale = f.stdin(&["policy", "read", "--selection"], &selection);
     assert!(!stale.status.success());
     assert!(String::from_utf8_lossy(&stale.stderr).contains("stale policy catalogue"));
-    assert_eq!(
-        f.ok(&["policy", "discover"])["selected"],
-        json!(["P-EVIDENCE"])
-    );
+    let current = f.ok(&["policy", "discover"]);
+    assert_eq!(current["selected"], json!(["P-EVIDENCE"]));
+    let instructions = current["instructions"].as_str().unwrap();
+    assert!(instructions.contains(evidence));
+    assert!(!instructions.contains("Use direct writing."));
     assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 4);
     assert_eq!(
         fs::read_to_string(f.0.join("AGENTS.md")).unwrap(),
