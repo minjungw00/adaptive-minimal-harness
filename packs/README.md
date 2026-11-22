@@ -2,13 +2,12 @@
 
 `development.toml` and `inquiry.toml` are executable input contracts for
 `amh pack install`; they are not enabled automatically. Install records the exact
-policy definitions, pack ID/version and content digest in the project registry.
+policy definitions, pack ID/version and content digest in the selected registry.
 
 Development includes TDD, refactoring, debugging, regression testing, code review,
 API compatibility and optional mutation testing. Inquiry includes Socratic dialogue,
 requirements elicitation, research verification, writing, argument evaluation and
-knowledge organization. Each method supplies a natural-language applicability condition, explicit activation tags for manual task files, and a configurable
-MUST/SHOULD/MAY strength. Run `amh pack show --name NAME` to inspect every condition.
+knowledge organization. Each method supplies a natural-language applicability condition and a configurable MUST/SHOULD/MAY strength. Run `amh pack show NAME` to inspect every condition.
 
 These are instructions and verification obligations. Installing TDD does not
 establish Red–Green–Refactor adherence. Installing refactoring does not prove

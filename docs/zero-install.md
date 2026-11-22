@@ -21,5 +21,4 @@ system, persistent registry, or proof of compliance.
 >
 > Outputs: [deliverables and locations]
 
-Do not load every policy pack into every conversation. Where the agent supports
-AGENTS.md, the native project workflow can render a task-specific equivalent.
+Do not load every policy pack into every conversation. With the native CLI, an agent can retrieve the policies relevant to its current work.

@@ -1,63 +1,43 @@
 # CLI reference
 
-## Local policy workflow
+Commands default to the current directory when no `--root PATH` is supplied.
+To edit policies shared across all registered work trees, use `--scope user`
+without `--root`. Policy mutations default to project scope.
 
-Git must be on PATH. Commands that accept `--root PATH` use that directory or
-the current directory to identify the registered Git work tree. `AMH_HOME`
-defaults to `~/.amh` and must be outside Git work trees.
+## User setup and policy management
 
 | Command | Behavior |
 | --- | --- |
-| `project add --id ID [--root PATH]` | Register the work tree under a policy project ID. Multiple explicit registrations can use the same ID. |
-| `project list` | List registered roots and project IDs. |
-| `project remove [--root PATH]` | Remove a root's registration and retain its project's policies and history. A moved or deleted tree can be removed using its stored path. |
-| `agent instructions` | Print guidance to add to the current agent's user-level instructions. |
-| `policy list [--scope user]` | Show the selected registry, revision and installed pack fingerprints. Project scope is the default. |
-| `policy add --file FILE --expected-revision N --reason TEXT` | Add a typed draft policy to the selected registry. |
-| `policy change --file FILE --expected-revision N --reason TEXT` | Apply an explicit policy operation. |
-| `policy import --file FILE` | Copy policy history from a previous registry into an empty registry. |
-| `pack list`, `pack show --name NAME`, `pack install` | Inspect or install built-in packs, or install a custom pack with `--file FILE`. Installation takes an expected revision and reason. |
-| `history`, `rollback --revision N --expected-revision N --reason TEXT` | Inspect registry events or restore a policy set as a new revision. |
-| `apply --plan FILE` | Apply a reviewed plan after recomputing it in the same AMH home. |
-| `request --text TEXT`, `request finish --packet FILE --analysis FILE` | Prepare an interpretation packet and produce a validated Task on stdout. The optional `--agent codex` or `--agent-config FILE` runs a selected interpreter. |
-| `compile --task FILE [--budget CHARS]` | Print rendered Task instructions and diagnostics. |
-| `verify --task FILE [--run]` | Preview checks, or run them from the repository root and store evidence under the AMH home. |
+| `project add [--id ID] [--root PATH]` | Register the work tree. The directory name supplies a new project ID by default. Use `--id` to choose a name or explicitly reuse an existing project. |
+| `project list` | List registered paths and project IDs. |
+| `project remove [--root PATH]` | Remove the binding and retain its policies. If the work tree moved, supply its previously registered path. |
+| `agent instructions` | Print guidance for the user to copy into the host agent's user-level settings. |
+| `policy list [--scope user\|project] [--full]` | Show current policies and registry revisions. The default combines user and project summaries in registered work trees, and shows user summaries elsewhere. `--full` shows complete definitions and pack fingerprints. |
+| `policy add --id ID --text TEXT [--when CONDITION] [--strength must\|should\|may]` | Add an active principle. Strength defaults to `must`. Omit the condition for an always applicable principle. Use `--draft` for an inactive draft. |
+| `policy add --file POLICY.toml` | Add a typed policy from TOML or JSON. The target registry must match its scope. |
+| `policy change ID --text TEXT` | Edit a policy's text. Use `--when CONDITION` or `--clear-condition` to edit its condition. Use `--activate`, `--pause`, or `--reactivate` in place of `--text` to change its status. Optional `--item-revision N` checks an earlier observation of the item. |
+| `policy change --file CHANGE.json` | Apply a typed change, such as changing conditions, details, metadata, or priority. |
+| `pack list` / `pack show NAME` | List or inspect built-in packs before installation. |
+| `pack install NAME` or `pack install --file PACK.toml` | Install an optional pack. A custom pack's policies must match the target scope. |
+| `history [--full]` | Show the selected registry's events. `--full` exports its complete history for import. |
+| `rollback --revision N` | Restore the selected registry's policy set at revision N as a new revision. |
+| `policy import --file REGISTRY` | Copy a current or previous AMH policy registry into an empty destination. Re-importing identical history is a no-op. |
+| `apply --plan FILE\|-` | Apply a saved JSON plan from a file or stdin. AMH recomputes the change against the same home. |
 
-Policy and history operations accept `--scope user` to select personal common
-policies. Use `--help` for all supported arguments. Mutations return JSON plans
-by default. Add `--apply` to apply a command immediately. Existing-item changes
-require their item revision and registry changes check the expected registry
-revision. See the [policy contracts](contracts.md).
+Write commands show a summary of the proposed change by default. Use `--apply`
+to make that change or `--plan` to export the complete plan. Save plan and policy
+exports outside shared work trees when they contain personal policy. Policy
+changes capture the current registry revision automatically. To require an
+earlier revision, pass `--expected-revision N`. Use `--reason TEXT` to add
+context to the history.
 
-## Legacy/protected snapshot inspection
+## Agent commands
 
-These existing commands remain read-only and retain their formats:
-
-```sh
-amh state inspect --file state.json
-amh item get --file state.json --id R-COST
-amh change preview --file state.json --proposal proposal.json
-amh manifest inspect --file state-manifest.json
-```
-
-`state inspect` verifies snapshot/history consistency, not authenticity or agent
-behavior. Missing legacy snapshots report `file_exists: false`. `change preview`
-always reports `authorization: not_granted`. Metadata manifests are always
-`structurally_valid_untrusted`.
-
-With `--features approval-request`, `change request --file PATH --proposal FILE
---project ID --ttl SECONDS` prepares an unsigned request for an independent signer.
-The local project `apply` command does not write this store. Only the optional
-[protected host](trusted-host.md) consumes signed receipts.
-
-## Read-only policy lookup
-
-| Command | Input and output |
+| Command | Result |
 | --- | --- |
-| `policy discover --text TEXT` | Returns `amh.policy-discovery.v1` with a body-free candidate list, request and catalogue digests, and the JSON input schema for resolve. |
-| `policy read --id ID --catalog-digest DIGEST` | Returns one active policy from the same user/project catalogue. |
-| `policy resolve --input -\|FILE` | Accepts a single `amh.policy-analysis.v1` object. Use `-` for stdin. Returns selected IDs and instruction text on stdout, or structured clarification questions on stderr with a failing exit status. |
+| `policy discover [--root PATH]` | Returns `not_registered`, `ready` with candidate summaries and a catalogue identifier, or `resolved` with the unconditional policies when no candidate needs review. |
+| `policy read ID --catalog-digest DIGEST [--root PATH]` | Reads one active policy for assessment. |
+| `policy read --selection [--root PATH]` | Accepts catalogue-bound decisions as JSON on stdin and returns validated policy bodies. |
 
-All three accept `--root PATH`. A catalogue change requires a fresh discovery.
-There is no Task or conversation state in this path. Use `request`, `compile`,
-`sync` or `verify` when the caller explicitly needs a Task contract.
+See the [agent integration guide](agent-requests.md) for the selection payload.
+Run `amh <command> --help` for options or `amh --version` for the installed version.
