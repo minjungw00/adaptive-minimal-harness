@@ -178,6 +178,16 @@ class RunTests(unittest.TestCase):
         self.assertEqual(len(full['cases']), 36)
         self.assertTrue(all(Path(v['workspace']).is_dir() for v in full['cases'].values()))
 
+    def test_work_requirements_are_context_instead_of_registry_policies(self):
+        full = qe.prepare(self.amh, qe.DEFAULT_SUITE, Path(self.tmp.name) / 'context', ['S02'])
+        item = full['cases']['S02']
+        initial = qe.read_json(Path(item['private']) / 'initial.json')
+        self.assertIn('cost structure', initial['files']['WORK.md']['text'])
+        self.assertIn('WORK.md', initial['files']['README.md']['text'])
+        for policy in initial['policies']['policies']:
+            self.assertNotIn(policy['id'], ('R-COST', 'R-RETENTION'))
+            self.assertNotIn('item', policy)
+
     def test_policy_selection_stdin_is_captured_as_observed_protocol_input(self):
         item = self.item('S04')
         def call(args, data=None):

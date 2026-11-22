@@ -1,59 +1,94 @@
 use crate::Result;
-use amh_core::{ItemDetails, ItemKind, Lifecycle, ManagedItem};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    User,
+    Project,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Lifecycle {
+    #[default]
+    Draft,
+    Active,
+    Paused,
+    Superseded,
+    Retired,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Strength {
+    #[default]
+    Must,
+    Should,
+    May,
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Relations {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub depends_on: Vec<String>,
-    pub supports: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conflicts_with: Vec<String>,
-    pub applies_to: Vec<String>,
-    pub verified_by: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
-    pub item: ManagedItem,
-    pub owner: String,
+    pub id: String,
+    pub scope: Scope,
+    pub content: String,
     #[serde(default)]
+    pub strength: Strength,
+    #[serde(default = "first_revision")]
+    pub revision: u64,
+    #[serde(default)]
+    pub lifecycle: Lifecycle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     #[serde(default)]
     pub priority: i32,
     #[serde(default)]
     pub relations: Relations,
-    /// Human-authored activation condition for semantic agent discovery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applicability: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<String>,
+}
+
+fn first_revision() -> u64 {
+    1
 }
 
 impl Policy {
     pub fn validate(&self) -> Result<()> {
-        self.item
-            .validate()
-            .map_err(|e| format!("invalid item: {e:?}"))?;
-        if self.owner.trim().is_empty() || self.item.details.is_none() {
-            return Err("project policies require an owner and explicit typed details".into());
+        if self.id.trim().is_empty() || self.content.trim().is_empty() || self.revision == 0 {
+            return Err("policy requires an ID, nonempty content, and a positive revision".into());
         }
-        if let Some(condition) = &self.applicability {
-            if self.item.kind != ItemKind::Principle || condition.trim().is_empty() {
-                return Err(
-                    "natural applicability requires a principle and a nonempty condition".into(),
-                );
-            }
+        if self.replaces.as_deref() == Some(self.id.as_str()) {
+            return Err("a policy cannot replace itself".into());
         }
-        for relation in [
-            &self.relations.depends_on,
-            &self.relations.supports,
-            &self.relations.conflicts_with,
-            &self.relations.applies_to,
-            &self.relations.verified_by,
-        ] {
-            if relation.iter().any(|v| v.trim().is_empty()) {
-                return Err("empty relation reference".into());
-            }
+        if self
+            .applicability
+            .as_ref()
+            .is_some_and(|value| value.trim().is_empty())
+        {
+            return Err("policy applicability must be nonempty when provided".into());
+        }
+        if self
+            .relations
+            .depends_on
+            .iter()
+            .chain(&self.relations.conflicts_with)
+            .any(|id| id.trim().is_empty())
+        {
+            return Err("empty policy relation reference".into());
         }
         Ok(())
     }
@@ -82,15 +117,14 @@ pub enum PolicyChange {
         item_revision: u64,
         content: String,
     },
-    SetDetails {
+    SetStrength {
         id: String,
         item_revision: u64,
-        details: ItemDetails,
+        strength: Strength,
     },
     SetMetadata {
         id: String,
         item_revision: u64,
-        owner: String,
         source: Option<String>,
         relations: Relations,
     },
@@ -142,7 +176,7 @@ impl PolicyChange {
         match self {
             Self::Add { .. } => "add",
             Self::Modify { .. } => "modify",
-            Self::SetDetails { .. } => "set_details",
+            Self::SetStrength { .. } => "set_strength",
             Self::SetMetadata { .. } => "set_metadata",
             Self::SetApplicability { .. } => "set_applicability",
             Self::Replace { .. } => "replace",
@@ -159,12 +193,12 @@ impl PolicyChange {
 
     pub fn policy_ids(&self) -> Vec<&str> {
         match self {
-            Self::Add { policy } => vec![&policy.item.id],
+            Self::Add { policy } => vec![&policy.id],
             Self::Replace {
                 id, replacement, ..
-            } => vec![id, &replacement.item.id],
+            } => vec![id, &replacement.id],
             Self::Modify { id, .. }
-            | Self::SetDetails { id, .. }
+            | Self::SetStrength { id, .. }
             | Self::SetMetadata { id, .. }
             | Self::SetApplicability { id, .. }
             | Self::Remove { id, .. }
@@ -173,9 +207,7 @@ impl PolicyChange {
             | Self::Pause { id, .. }
             | Self::Reactivate { id, .. }
             | Self::Retire { id, .. } => vec![id],
-            Self::InstallPack { pack } => {
-                pack.policies.iter().map(|p| p.item.id.as_str()).collect()
-            }
+            Self::InstallPack { pack } => pack.policies.iter().map(|p| p.id.as_str()).collect(),
             Self::Restore { .. } => vec![],
         }
     }
@@ -240,23 +272,17 @@ impl Registry {
                 for policy in next.values_mut() {
                     let highest = versions
                         .iter()
-                        .filter_map(|v| v.get(&policy.item.id))
-                        .map(|p| p.item.revision)
+                        .filter_map(|v| v.get(&policy.id))
+                        .map(|p| p.revision)
                         .max()
                         .unwrap_or(0);
-                    policy.item.revision =
-                        highest.checked_add(1).ok_or("item revision exhausted")?;
+                    policy.revision = highest.checked_add(1).ok_or("item revision exhausted")?;
                 }
             } else {
                 reduce(&mut next, &mut seen, &event.change)?;
             }
             for policy in next.values() {
                 policy.validate()?;
-                if policy.item.scope == amh_core::ItemScope::Task
-                    && policy.relations.applies_to.is_empty()
-                {
-                    return Err("persisted task policy lacks an applies_to reference".into());
-                }
             }
             versions.push(next);
         }
@@ -290,19 +316,16 @@ fn add(
     policy: &Policy,
 ) -> Result<()> {
     policy.validate()?;
-    if policy.item.scope == amh_core::ItemScope::Task && policy.relations.applies_to.is_empty() {
-        return Err("persisted task policies require explicit applies_to task IDs".into());
-    }
-    if policy.item.revision != 1
-        || !matches!(policy.item.lifecycle, Lifecycle::Draft | Lifecycle::Active)
-        || policy.item.replaces.is_some()
-        || !seen.insert(policy.item.id.clone())
+    if policy.revision != 1
+        || !matches!(policy.lifecycle, Lifecycle::Draft | Lifecycle::Active)
+        || policy.replaces.is_some()
+        || !seen.insert(policy.id.clone())
     {
         return Err(
             "ADD requires a fresh, unique draft or active identity at item revision 1".into(),
         );
     }
-    items.insert(policy.item.id.clone(), policy.clone());
+    items.insert(policy.id.clone(), policy.clone());
     Ok(())
 }
 fn existing<'a>(
@@ -313,17 +336,13 @@ fn existing<'a>(
     let p = items
         .get_mut(id)
         .ok_or_else(|| format!("unknown policy: {id}"))?;
-    if p.item.revision != revision {
+    if p.revision != revision {
         return Err(format!("stale item revision for {id}"));
     }
-    if matches!(p.item.lifecycle, Lifecycle::Retired | Lifecycle::Superseded) {
+    if matches!(p.lifecycle, Lifecycle::Retired | Lifecycle::Superseded) {
         return Err("terminal item cannot be modified".into());
     }
-    p.item.revision = p
-        .item
-        .revision
-        .checked_add(1)
-        .ok_or("item revision exhausted")?;
+    p.revision = p.revision.checked_add(1).ok_or("item revision exhausted")?;
     Ok(p)
 }
 fn status(
@@ -334,10 +353,10 @@ fn status(
     to: Lifecycle,
 ) -> Result<()> {
     let p = existing(items, id, revision)?;
-    if from.is_some_and(|v| v != p.item.lifecycle) {
+    if from.is_some_and(|v| v != p.lifecycle) {
         return Err("invalid lifecycle transition".into());
     }
-    p.item.lifecycle = to;
+    p.lifecycle = to;
     Ok(())
 }
 fn reduce(
@@ -351,27 +370,19 @@ fn reduce(
             id,
             item_revision,
             content,
-        } => existing(items, id, *item_revision)?.item.content = content.clone(),
-        PolicyChange::SetDetails {
+        } => existing(items, id, *item_revision)?.content = content.clone(),
+        PolicyChange::SetStrength {
             id,
             item_revision,
-            details,
-        } => {
-            let p = existing(items, id, *item_revision)?;
-            if p.item.details.as_ref() == Some(details) {
-                return Err("details are unchanged".into());
-            }
-            p.item.details = Some(details.clone());
-        }
+            strength,
+        } => existing(items, id, *item_revision)?.strength = *strength,
         PolicyChange::SetMetadata {
             id,
             item_revision,
-            owner,
             source,
             relations,
         } => {
             let p = existing(items, id, *item_revision)?;
-            p.owner = owner.clone();
             p.source = source.clone();
             p.relations = relations.clone();
         }
@@ -389,7 +400,7 @@ fn reduce(
         } => existing(items, id, *item_revision)?.priority = *priority,
         PolicyChange::Remove { id, item_revision } => {
             let p = items.get(id).ok_or("unknown item")?;
-            if p.item.revision != *item_revision {
+            if p.revision != *item_revision {
                 return Err("stale item revision".into());
             }
             items.remove(id);
@@ -400,18 +411,19 @@ fn reduce(
             replacement,
         } => {
             let old = existing(items, id, *item_revision)?;
-            if old.item.lifecycle != Lifecycle::Active
-                || old.item.kind != replacement.item.kind
-                || old.item.scope != replacement.item.scope
-                || replacement.item.lifecycle != Lifecycle::Draft
+            if old.lifecycle != Lifecycle::Active
+                || old.scope != replacement.scope
+                || replacement.lifecycle != Lifecycle::Draft
             {
-                return Err("REPLACE requires an active original and a new draft of compatible kind and scope".into());
+                return Err(
+                    "REPLACE requires an active original and a new draft in the same scope".into(),
+                );
             }
-            old.item.lifecycle = Lifecycle::Superseded;
+            old.lifecycle = Lifecycle::Superseded;
             add(items, seen, replacement)?;
-            let new = items.get_mut(&replacement.item.id).unwrap();
-            new.item.lifecycle = Lifecycle::Active;
-            new.item.replaces = Some(id.clone());
+            let new = items.get_mut(&replacement.id).unwrap();
+            new.lifecycle = Lifecycle::Active;
+            new.replaces = Some(id.clone());
         }
         PolicyChange::Activate { id, item_revision } => status(
             items,
@@ -446,14 +458,14 @@ fn reduce(
             }
             for entry in &pack.policies {
                 let mut entry = entry.clone();
-                if entry.item.lifecycle != Lifecycle::Draft {
+                if entry.lifecycle != Lifecycle::Draft {
                     return Err("pack policies must start as drafts".into());
                 }
                 entry.source = Some(format!("pack:{}@{}", pack.id, pack.version));
                 add(items, seen, &entry)?;
                 status(
                     items,
-                    &entry.item.id,
+                    &entry.id,
                     1,
                     Some(Lifecycle::Draft),
                     Lifecycle::Active,
@@ -472,14 +484,4 @@ pub fn builtin_pack(id: &str) -> Result<Pack> {
         _ => return Err("unknown pack; available: development, inquiry".into()),
     };
     toml::from_str(source).map_err(|e| e.to_string())
-}
-
-pub fn kind_name(kind: ItemKind) -> &'static str {
-    match kind {
-        ItemKind::Goal => "goal",
-        ItemKind::Principle => "principle",
-        ItemKind::Requirement => "requirement",
-        ItemKind::Constraint => "constraint",
-        ItemKind::Decision => "decision",
-    }
 }

@@ -78,15 +78,15 @@ def seed(amh, root, case, scratch, home):
     invoke(amh, root, home, 'project', 'add', '--id', 'workspace', '--apply')
     for pack in case.get('packs', []):
         invoke(amh, root, home, 'pack', 'install', pack, '--reason', 'Install selected project methods', '--apply')
-    policies = list(case.get('policies', []))
-    for i, goal in enumerate(case.get('goals', [])):
-        policies.append({'owner': 'user', 'source': 'Accepted project goal', 'priority': 0,
-                         'item': {'id': f'G-{i+1}', 'kind': 'goal', 'scope': 'project', 'revision': 1, 'lifecycle': 'draft', 'content': goal,
-                                  'details': {'type': 'goal', 'success_criteria': [goal]}}})
-    for policy in policies:
+    for policy in case.get('policies', []):
         source = scratch / 'policy.json'
         write_json(source, policy)
-        invoke(amh, root, home, 'policy', 'add', '--file', str(source), '--reason', 'Register accepted project condition', '--apply')
+        invoke(amh, root, home, 'policy', 'add', '--file', str(source), '--scope', policy['scope'],
+               '--reason', 'Register reusable guidance', '--apply')
+    if context := case.get('work_context'):
+        (root / 'WORK.md').write_text('# Accepted work context\n\n' + ''.join(f'- {line}\n' for line in context), encoding='utf-8')
+        with (root / 'README.md').open('a', encoding='utf-8') as readme:
+            readme.write('\nAccepted work context is available in WORK.md.\n')
     if task := case.get('current_task'):
         write_json(root / 'saved-tasks' / (task['id'] + '.json'), task)
     for id in case.get('pause', []):

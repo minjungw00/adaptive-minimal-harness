@@ -1,4 +1,3 @@
-use amh_core::{Activation, ItemDetails, ItemKind, ItemScope, ManagedItem, PrincipleStrength};
 use amh_project::*;
 use std::{
     fs,
@@ -80,25 +79,17 @@ impl Drop for Fixture {
 
 fn principle(id: &str, tag: &str) -> Policy {
     Policy {
-        item: ManagedItem::new_typed(
-            id,
-            ItemKind::Principle,
-            ItemScope::Project,
-            "Use this method only when relevant",
-            ItemDetails::Principle {
-                strength: PrincipleStrength::Must,
-                activation: Activation::OnTags {
-                    any: vec![tag.into()],
-                },
-                verification: vec!["Provide execution evidence".into()],
-            },
-        )
-        .unwrap(),
-        owner: "user".into(),
+        id: id.into(),
+        scope: Scope::Project,
+        content: "Use this method only when relevant".into(),
+        strength: Strength::Must,
+        revision: 1,
+        lifecycle: Lifecycle::Draft,
         source: None,
         priority: 0,
         relations: Relations::default(),
-        applicability: None,
+        applicability: Some(tag.into()),
+        replaces: None,
     }
 }
 fn read_matches(home: &Home, root: &std::path::Path, matches: &[&str]) -> PolicyDelivery {
@@ -216,47 +207,27 @@ fn packs_are_pinned_and_socratic_tdd_refactor_are_conditionally_selected() {
 }
 
 #[test]
-fn adding_and_replacing_requirements_preserves_the_other_accepted_roles() {
-    use amh_core::RequirementRole;
-    fn requirement(id: &str, role: RequirementRole) -> Policy {
-        let mut p = principle(id, "unused");
-        p.item.kind = ItemKind::Requirement;
-        p.item.content = format!("Accepted requirement {id}");
-        p.item.details = Some(ItemDetails::Requirement {
-            role,
-            acceptance_criteria: vec![format!("Cover {id}")],
-        });
-        p
-    }
+fn replacing_a_policy_preserves_other_active_guidance() {
     let f = Fixture::new();
+    let mut original = principle("P-ORIGINAL", "report");
+    original.lifecycle = Lifecycle::Active;
+    let mut another = principle("P-ANOTHER", "report");
+    another.lifecycle = Lifecycle::Active;
+    f.change(PolicyChange::Add { policy: original });
     f.change(PolicyChange::Add {
-        policy: requirement("R-COST", RequirementRole::Core),
+        policy: another.clone(),
     });
-    f.change(PolicyChange::Activate {
-        id: "R-COST".into(),
-        item_revision: 1,
-    });
-    let original = f.registry().policies().unwrap()[0].clone();
-    f.change(PolicyChange::Add {
-        policy: requirement("R-RETENTION", RequirementRole::Support),
-    });
-    f.change(PolicyChange::Activate {
-        id: "R-RETENTION".into(),
-        item_revision: 1,
-    });
-    assert_eq!(f.registry().policies().unwrap()[0], original);
-    let c = read_matches(&f.home, &f.root, &[]);
-    assert!(
-        c.instructions.contains("Requirement role: Core")
-            && c.instructions.contains("Requirement role: Support")
-    );
     f.change(PolicyChange::Replace {
-        id: "R-COST".into(),
-        item_revision: 2,
-        replacement: requirement("R-COST-NEW", RequirementRole::Core),
+        id: "P-ORIGINAL".into(),
+        item_revision: 1,
+        replacement: principle("P-NEW", "report"),
     });
-    let c = read_matches(&f.home, &f.root, &[]);
-    assert_eq!(c.selected, vec!["R-COST-NEW", "R-RETENTION"]);
+    let policies = f.registry().policies().unwrap();
+    assert_eq!(policies[0], another);
+    assert_eq!(policies[1].replaces.as_deref(), Some("P-ORIGINAL"));
+    assert_eq!(policies[2].lifecycle, Lifecycle::Superseded);
+    let delivery = read_matches(&f.home, &f.root, &["P-ANOTHER", "P-NEW"]);
+    assert_eq!(delivery.selected, ["P-ANOTHER", "P-NEW"]);
 }
 
 #[test]
@@ -314,7 +285,7 @@ fn user_policies_are_reused_without_cross_project_writes() {
     });
     let before = fs::read(a.home.path().join("projects/other/policies.toml")).unwrap();
     let mut rule = principle("P-USER", "code");
-    rule.item.scope = ItemScope::User;
+    rule.scope = Scope::User;
     for (expected_revision, change) in [
         (0, PolicyChange::Add { policy: rule }),
         (
@@ -402,11 +373,13 @@ fn metadata_and_lifecycle_changes_are_versioned_and_invalid_updates_leave_source
     f.change(PolicyChange::SetMetadata {
         id: "P-1".into(),
         item_revision: 1,
-        owner: "project-user".into(),
         source: Some("Reviewed source".into()),
         relations: Relations::default(),
     });
-    assert_eq!(f.registry().policies().unwrap()[0].owner, "project-user");
+    assert_eq!(
+        f.registry().policies().unwrap()[0].source.as_deref(),
+        Some("Reviewed source")
+    );
     f.change(PolicyChange::Activate {
         id: "P-1".into(),
         item_revision: 2,

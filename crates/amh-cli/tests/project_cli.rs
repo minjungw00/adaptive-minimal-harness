@@ -187,72 +187,93 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
 }
 
 #[test]
-fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
+fn current_v1_import_preserves_event_history() {
     let f = Fixture::new();
     f.ok(&["project", "add", "--id", "source", "--apply"]);
     f.ok(&[
         "pack",
         "install",
         "inquiry",
-        "--expected-revision",
-        "0",
         "--reason",
         "Original reason",
         "--apply",
     ]);
     let original = f.ok(&["history", "--full"]);
-    let mut source = fs::read_to_string(f.1.join("projects/source/policies.toml")).unwrap();
-    source = source.replace("amh.policy-registry.v1", "amh.project-registry.v1");
-    source = source.replace(
-        "project_id = \"source\"",
-        "project_id = \"source\"\nuser_root = \"/unused-local-path\"",
-    );
-    let old_directory = f.0.join(".amh");
-    fs::create_dir(&old_directory).unwrap();
-    let old = old_directory.join("amh.toml");
-    fs::write(&old, &source).unwrap();
-    let agents = f.0.join("AGENTS.md");
-    fs::write(&agents, "User content").unwrap();
+    assert_eq!(original["format"], "amh.policy-registry.v1");
+    let exported = f.2.join("registry.json");
+    let original_bytes = serde_json::to_vec(&original).unwrap();
+    fs::write(&exported, &original_bytes).unwrap();
     f.ok(&["project", "remove", "--apply"]);
-    assert_eq!(f.ok(&["policy", "discover"])["status"], "not_registered");
-    f.ok(&["project", "add", "--id", "destination", "--apply"]);
-    f.ok(&[
-        "policy",
-        "import",
-        "--file",
-        old.to_str().unwrap(),
-        "--apply",
-    ]);
-    let imported = f.ok(&["history", "--full"]);
-    assert_eq!(imported["events"], original["events"]);
-    assert_eq!(imported["project_id"], "destination");
-    fs::write(&old, source.replace("Original reason", "Changed source")).unwrap();
-    let edited = fs::read(&old).unwrap();
+    f.ok(&["project", "add", "--id", "restored", "--apply"]);
+    let source = exported.to_str().unwrap();
+    f.ok(&["policy", "import", "--file", source, "--apply"]);
+    let restored = f.ok(&["history", "--full"]);
+    assert_eq!(restored["project_id"], "restored");
+    assert_eq!(restored["events"], original["events"]);
+    assert_eq!(
+        f.ok(&["policy", "import", "--file", source, "--apply"])["status"],
+        "unchanged"
+    );
+    assert_eq!(fs::read(&exported).unwrap(), original_bytes);
+}
+
+#[test]
+fn previous_typed_v1_fails_closed_and_keeps_the_original_bytes() {
+    let f = Fixture::new();
+    f.ok(&["project", "add", "--apply"]);
+    let registry = f.1.join("projects/repo/policies.toml");
+    let old = r#"format = "amh.policy-registry.v1"
+project_id = "repo"
+[[events]]
+revision = 1
+reason = "Fixture written by previous binary"
+[events.change]
+operation = "ADD"
+[events.change.policy]
+owner = "user"
+[events.change.policy.item]
+id = "P-OLD"
+kind = "principle"
+scope = "project"
+content = "A previously active policy"
+lifecycle = "active"
+revision = 1
+[events.change.policy.item.details]
+type = "principle"
+strength = "must"
+[events.change.policy.item.details.activation]
+mode = "always"
+"#;
+    let source = f.2.join("old.toml");
+    fs::write(&source, old).unwrap();
     assert!(!f
         .run(&[
             "policy",
             "import",
             "--file",
-            old.to_str().unwrap(),
+            source.to_str().unwrap(),
             "--apply"
         ])
         .status
         .success());
-    assert_eq!(f.ok(&["history", "--full"])["events"], original["events"]);
-    assert_eq!(fs::read(&old).unwrap(), edited);
-    let exported = f.2.join("current-registry.json");
-    fs::write(&exported, serde_json::to_vec(&imported).unwrap()).unwrap();
-    f.ok(&["project", "remove", "--apply"]);
-    f.ok(&["project", "add", "--id", "restored", "--apply"]);
-    f.ok(&[
-        "policy",
-        "import",
-        "--file",
-        exported.to_str().unwrap(),
-        "--apply",
-    ]);
-    assert_eq!(f.ok(&["history", "--full"])["events"], original["events"]);
-    assert_eq!(fs::read_to_string(agents).unwrap(), "User content");
+    fs::write(&registry, old).unwrap();
+    for args in [
+        &["policy", "discover"][..],
+        &[
+            "policy",
+            "add",
+            "--id",
+            "P-NEW",
+            "--text",
+            "A new policy",
+            "--apply",
+        ],
+    ] {
+        let result = f.run(args);
+        assert!(!result.status.success());
+        assert!(String::from_utf8_lossy(&result.stderr).contains("invalid policy registry"));
+    }
+    assert_eq!(fs::read(&registry).unwrap(), old.as_bytes());
 }
 
 fn selection(discovery: &Value, decisions: &[(&str, &str)]) -> Value {
@@ -297,12 +318,12 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
         "policy",
         "add",
         "--file",
-        &example("requirement.toml"),
+        &example("evidence-policy.toml"),
         "--apply",
     ]);
     let immediate = f.ok(&["policy", "discover"]);
     assert_eq!(immediate["status"], "resolved");
-    assert_eq!(immediate["selected"], json!(["R-COST"]));
+    assert_eq!(immediate["selected"], json!(["P-EVIDENCE"]));
     f.ok(&[
         "policy",
         "add",
@@ -328,14 +349,29 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
     let selection = selection(&discovery, &[("P-WRITING", "match")]);
     assert_eq!(
         delivered(&f, &selection)["selected"],
-        json!(["P-WRITING", "R-COST"])
+        json!(["P-EVIDENCE", "P-WRITING"])
+    );
+    f.ok(&[
+        "policy",
+        "change",
+        "P-WRITING",
+        "--strength",
+        "must",
+        "--apply",
+    ]);
+    assert_eq!(
+        f.ok(&["policy", "discover"])["candidates"][0]["strength"],
+        "must"
     );
     f.ok(&["policy", "change", "P-WRITING", "--pause", "--apply"]);
     let stale = f.stdin(&["policy", "read", "--selection"], &selection);
     assert!(!stale.status.success());
     assert!(String::from_utf8_lossy(&stale.stderr).contains("stale policy catalogue"));
-    assert_eq!(f.ok(&["policy", "discover"])["selected"], json!(["R-COST"]));
-    assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        f.ok(&["policy", "discover"])["selected"],
+        json!(["P-EVIDENCE"])
+    );
+    assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 4);
     assert_eq!(
         fs::read_to_string(f.0.join("AGENTS.md")).unwrap(),
         "User instructions without newline"

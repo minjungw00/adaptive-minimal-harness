@@ -1,6 +1,6 @@
 //! Policy storage and repository selection in the user's AMH home.
-use crate::{digest, policy_lookup::eligible, Event, Policy, PolicyChange, Registry, Result};
-use amh_core::{ItemScope, Lifecycle};
+use crate::{digest, policy_lookup::eligible, Policy, PolicyChange, Registry, Result};
+use crate::{Lifecycle, Scope};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -18,7 +18,7 @@ const PLAN_FORMAT: &str = "amh.home-plan.v2";
 
 pub const AGENT_GUIDANCE: &str = r#"For substantive work, follow the repository's shared instructions. Identify the work from the request, relevant conversation and project evidence. Ask the user directly when ambiguity matters.
 If AMH is available, run `amh policy discover` from the workspace before new work or a change in scope. If status is not_registered, proceed with the ordinary project instructions. If status is resolved, use the returned instructions.
-If status is ready, judge the conditions using the current work. Use `amh policy read ID --catalog-digest DIGEST` when a summary is insufficient. Treat explicit_only as requiring an explicit request. Treat activation tags as intent hints.
+If status is ready, judge the conditions using the current work. Use `amh policy read ID --catalog-digest DIGEST` when a summary is insufficient. Include a method only when its applicability condition is satisfied.
 Send one JSON object to `amh policy read --selection` on stdin, for example {"catalog_digest":"DIGEST","decisions":[{"id":"ID","applicability":"match"}]}. Report match, no_match or uncertain for every must candidate. Include optional candidates you select as match. Use the returned instructions. Resolve mandatory uncertainty and declared conflicts before relying on an AMH selection.
 Reuse relevant policy text during the same work. Refresh when policy, scope or available context changes.
 "#;
@@ -68,11 +68,10 @@ impl Target {
         }
     }
 
-    fn accepts(&self, scope: ItemScope) -> bool {
+    fn accepts(&self, scope: Scope) -> bool {
         matches!(
             (self, scope),
-            (Self::User, ItemScope::User)
-                | (Self::Project { .. }, ItemScope::Project | ItemScope::Task)
+            (Self::User, Scope::User) | (Self::Project { .. }, Scope::Project)
         )
     }
 
@@ -92,7 +91,7 @@ impl Target {
                 PolicyChange::InstallPack { pack } => &pack.policies,
                 _ => &[],
             };
-            if policies.iter().any(|p| !self.accepts(p.item.scope)) {
+            if policies.iter().any(|p| !self.accepts(p.scope)) {
                 return Err("policy scope does not match the selected registry".into());
             }
         }
@@ -432,15 +431,11 @@ impl Home {
         old: &[Policy],
         new: &[Policy],
     ) -> Result<()> {
-        let before: BTreeSet<_> = old
-            .iter()
-            .filter(|p| eligible(p))
-            .map(|p| &p.item.id)
-            .collect();
+        let before: BTreeSet<_> = old.iter().filter(|p| eligible(p)).map(|p| &p.id).collect();
         let introduced: BTreeSet<_> = new
             .iter()
             .filter(|p| eligible(p))
-            .map(|p| &p.item.id)
+            .map(|p| &p.id)
             .filter(|id| !before.contains(id))
             .collect();
         if introduced.is_empty() {
@@ -450,11 +445,11 @@ impl Home {
             if let Some(policy) = other
                 .iter()
                 .filter(|p| eligible(p))
-                .find(|p| introduced.contains(&p.item.id))
+                .find(|p| introduced.contains(&p.id))
             {
                 return Err(format!(
                     "active policy {} would exist in both user and project {project} scopes",
-                    policy.item.id
+                    policy.id
                 ));
             }
             Ok(())
@@ -667,8 +662,8 @@ impl Home {
 }
 
 fn policy_effects(old: &[Policy], new: &[Policy]) -> Vec<PolicyEffect> {
-    let old: BTreeMap<_, _> = old.iter().map(|p| (&p.item.id, p)).collect();
-    let new: BTreeMap<_, _> = new.iter().map(|p| (&p.item.id, p)).collect();
+    let old: BTreeMap<_, _> = old.iter().map(|p| (&p.id, p)).collect();
+    let new: BTreeMap<_, _> = new.iter().map(|p| (&p.id, p)).collect();
     let ids: BTreeSet<_> = old.keys().chain(new.keys()).copied().collect();
     ids.into_iter()
         .filter_map(|id| {
@@ -676,8 +671,8 @@ fn policy_effects(old: &[Policy], new: &[Policy]) -> Vec<PolicyEffect> {
             let after = new.get(id);
             (before != after).then(|| PolicyEffect {
                 id: id.clone(),
-                before: before.map(|p| p.item.lifecycle),
-                after: after.map(|p| p.item.lifecycle),
+                before: before.map(|p| p.lifecycle),
+                after: after.map(|p| p.lifecycle),
             })
         })
         .collect()
@@ -699,26 +694,9 @@ fn to_toml<T: Serialize>(value: &T) -> Result<String> {
 }
 
 pub fn import_registry(file: &Path, target: &Target) -> Result<Registry> {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct PreviousRegistry {
-        format: String,
-        project_id: String,
-        #[serde(rename = "user_root")]
-        _user_root: Option<PathBuf>,
-        #[serde(default)]
-        events: Vec<Event>,
-    }
-    let source: PreviousRegistry = read_document(file)?;
-    if !matches!(
-        source.format.as_str(),
-        "amh.project-registry.v1" | "amh.policy-registry.v1"
-    ) || source.project_id.trim().is_empty()
-    {
-        return Err("expected an AMH policy registry".into());
-    }
-    let mut registry = Registry::new(target.registry_id().into())?;
-    registry.events = source.events;
+    let mut registry: Registry = read_document(file)?;
+    registry.policies()?;
+    registry.project_id = target.registry_id().into();
     target.validate(&registry)?;
     Ok(registry)
 }

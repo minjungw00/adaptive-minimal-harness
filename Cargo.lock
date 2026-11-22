@@ -6,16 +6,7 @@ version = 4
 name = "amh-cli"
 version = "0.0.0"
 dependencies = [
- "amh-core",
  "amh-project",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "amh-core"
-version = "0.0.0"
-dependencies = [
  "serde",
  "serde_json",
 ]
@@ -24,7 +15,6 @@ dependencies = [
 name = "amh-project"
 version = "0.0.0"
 dependencies = [
- "amh-core",
  "serde",
  "serde_json",
  "sha2",

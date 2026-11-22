@@ -1,6 +1,7 @@
 //! Read-only policy catalogue and validated delivery for the current agent.
-use crate::{digest, render::render_policies, Home, Policy, Project, Result};
-use amh_core::{Activation, ItemDetails, ItemScope, Lifecycle, PrincipleStrength};
+use crate::{
+    digest, render::render_policies, Home, Lifecycle, Policy, Project, Result, Scope, Strength,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -10,12 +11,9 @@ use std::{
 #[derive(Debug, Serialize)]
 pub struct Candidate {
     pub id: String,
-    scope: ItemScope,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    condition: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    activation: Option<Activation>,
-    strength: PrincipleStrength,
+    scope: Scope,
+    condition: String,
+    strength: Strength,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,33 +60,18 @@ pub struct PolicyDelivery {
 }
 
 pub(crate) fn eligible(policy: &Policy) -> bool {
-    policy.item.lifecycle == Lifecycle::Active
-        && policy.item.scope != ItemScope::Task
-        && policy.relations.applies_to.is_empty()
-}
-
-fn conditional(policy: &Policy) -> Option<(PrincipleStrength, &Activation)> {
-    match &policy.item.details {
-        Some(ItemDetails::Principle {
-            strength,
-            activation,
-            ..
-        }) if policy.applicability.is_some() || !matches!(activation, Activation::Always) => {
-            Some((*strength, activation))
-        }
-        _ => None,
-    }
+    policy.lifecycle == Lifecycle::Active
 }
 
 fn snapshot(home: &Home, binding: &Project) -> Result<(Vec<Policy>, String)> {
     let mut entries = home.policies(binding)?;
     entries.retain(eligible);
-    entries.sort_by(|a, b| a.item.id.cmp(&b.item.id));
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
     for pair in entries.windows(2) {
-        if pair[0].item.id == pair[1].item.id {
+        if pair[0].id == pair[1].id {
             return Err(format!(
                 "active policy {} exists in both user and project {} scopes",
-                pair[0].item.id, binding.project
+                pair[0].id, binding.project
             ));
         }
     }
@@ -104,16 +87,11 @@ pub fn discover_policies(home: &Home, directory: &Path) -> Result<Discovery> {
     let candidates = entries
         .iter()
         .filter_map(|p| {
-            let (strength, activation) = conditional(p)?;
             Some(Candidate {
-                id: p.item.id.clone(),
-                scope: p.item.scope,
-                condition: p.applicability.clone(),
-                // Keep explicit-only and tag-only activation information.
-                activation: (p.applicability.is_none()
-                    || matches!(activation, Activation::ExplicitOnly))
-                .then(|| activation.clone()),
-                strength,
+                id: p.id.clone(),
+                scope: p.scope,
+                condition: p.applicability.clone()?,
+                strength: p.strength,
             })
         })
         .collect::<Vec<_>>();
@@ -144,7 +122,7 @@ pub fn read_policy(
 ) -> Result<Policy> {
     current_catalog(home, directory, catalog_digest)?
         .into_iter()
-        .find(|p| p.item.id == id)
+        .find(|p| p.id == id)
         .ok_or_else(|| format!("unknown, inactive or out-of-scope policy: {id}"))
 }
 
@@ -169,13 +147,13 @@ fn deliver(entries: &[Policy], decisions: &[Decision]) -> Result<PolicyDelivery>
     }
     let mut chosen = Vec::new();
     for policy in entries {
-        let id = policy.item.id.as_str();
-        let Some((strength, _)) = conditional(policy) else {
+        let id = policy.id.as_str();
+        if policy.applicability.is_none() {
             chosen.push(policy);
             continue;
-        };
+        }
         let decision = remaining.remove(id);
-        if strength == PrincipleStrength::Must {
+        if policy.strength == Strength::Must {
             match decision {
                 None => return Err(format!("missing decision for mandatory policy: {id}")),
                 Some(Applicability::Uncertain) => {
@@ -193,27 +171,27 @@ fn deliver(entries: &[Policy], decisions: &[Decision]) -> Result<PolicyDelivery>
             "unknown, inactive or unconditional policy decision: {id}"
         ));
     }
-    let ids: BTreeSet<_> = chosen.iter().map(|p| p.item.id.as_str()).collect();
+    let ids: BTreeSet<_> = chosen.iter().map(|p| p.id.as_str()).collect();
     for p in &chosen {
         for id in &p.relations.depends_on {
             if !ids.contains(id.as_str()) {
                 return Err(format!(
                     "unresolved dependency: {} requires active applicable {id}",
-                    p.item.id
+                    p.id
                 ));
             }
         }
         for id in &p.relations.conflicts_with {
             if ids.contains(id.as_str()) {
-                return Err(format!("unresolved conflict: {} versus {id}", p.item.id));
+                return Err(format!("unresolved conflict: {} versus {id}", p.id));
             }
         }
     }
-    chosen.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.item.id.cmp(&b.item.id)));
+    chosen.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
     let mut instructions = String::new();
     render_policies(&mut instructions, &chosen);
     Ok(PolicyDelivery {
-        selected: chosen.into_iter().map(|p| p.item.id.clone()).collect(),
+        selected: chosen.into_iter().map(|p| p.id.clone()).collect(),
         instructions: instructions.trim_start().to_owned(),
     })
 }

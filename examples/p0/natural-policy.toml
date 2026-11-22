@@ -1,20 +1,6 @@
-owner = "user"
+id = "P-COMPARABLE"
+scope = "project"
+content = "Use comparable periods, definitions, and denominators; disclose missing values before comparing performance.\n\nCheck that compared values use compatible periods and definitions"
+strength = "must"
 source = "User-defined comparison practice"
 applicability = "Apply when comparing or ranking company performance on numeric evidence. Exclude translation, proofreading, and stylistic changes that leave facts and analysis unchanged."
-priority = 0
-
-[item]
-id = "P-COMPARABLE"
-kind = "principle"
-scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Use comparable periods, definitions, and denominators; disclose missing values before comparing performance."
-
-[item.details]
-type = "principle"
-strength = "must"
-verification = ["Check that compared values use compatible periods and definitions"]
-
-[item.details.activation]
-mode = "always"

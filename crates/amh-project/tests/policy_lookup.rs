@@ -1,4 +1,3 @@
-use amh_core::{Activation, ItemDetails, ItemKind, ItemScope, ManagedItem, PrincipleStrength};
 use amh_project::*;
 use std::{
     fs,
@@ -48,12 +47,12 @@ impl Fixture {
         self.home.apply(&self.home.plan(request).unwrap()).unwrap();
     }
     fn add(&self, policy: Policy) {
-        let target = if policy.item.scope == ItemScope::User {
+        let target = if policy.scope == Scope::User {
             Target::User
         } else {
             self.target()
         };
-        let id = policy.item.id.clone();
+        let id = policy.id.clone();
         let revision = self.home.registry(&target).unwrap().revision();
         for (expected_revision, change) in [
             (revision, PolicyChange::Add { policy }),
@@ -103,32 +102,26 @@ impl Drop for Fixture {
 
 fn policy(id: &str, condition: &str) -> Policy {
     Policy {
-        item: ManagedItem::new_typed(
-            id,
-            ItemKind::Principle,
-            ItemScope::Project,
-            "Explain the applicable user principle",
-            ItemDetails::Principle {
-                strength: PrincipleStrength::Must,
-                activation: Activation::Always,
-                verification: vec!["Check the resulting work".into()],
-            },
-        )
-        .unwrap(),
-        owner: "user".into(),
+        id: id.into(),
+        scope: Scope::Project,
+        content: "Use this method only when relevant".into(),
+        strength: Strength::Must,
+        revision: 1,
+        lifecycle: Lifecycle::Draft,
         source: None,
         priority: 0,
         relations: Relations::default(),
         applicability: Some(condition.into()),
+        replaces: None,
     }
 }
 
 #[test]
-fn merges_scopes_and_unconditional_requirements_and_detects_declared_relations() {
+fn merges_scopes_and_unconditional_guidance_and_detects_declared_relations() {
     use Applicability::{Match, NoMatch};
     let fixture = Fixture::new();
     let mut common = policy("P-COMMON", "When editing a report.");
-    common.item.scope = ItemScope::User;
+    common.scope = Scope::User;
     fixture.add(common);
 
     let mut local = policy("P-LOCAL", "When the report is intended for publication.");
@@ -139,18 +132,10 @@ fn merges_scopes_and_unconditional_requirements_and_detects_declared_relations()
     exclusive.relations.conflicts_with.push("P-LOCAL".into());
     fixture.add(exclusive);
 
-    let mut required = policy("R-COST", "unused");
-    required.applicability = None;
-    required.item.kind = ItemKind::Requirement;
-    required.item.details = Some(ItemDetails::Requirement {
-        role: amh_core::RequirementRole::Core,
-        acceptance_criteria: vec!["Keep cost analysis".into()],
-    });
-    fixture.add(required);
-    let mut old = policy("P-TASK", "When editing a report.");
-    old.item.scope = ItemScope::Task;
-    old.relations.applies_to.push("T-LEGACY".into());
-    fixture.add(old);
+    let mut baseline = policy("P-EVIDENCE", "unused");
+    baseline.applicability = None;
+    baseline.content = "Distinguish checked facts from assumptions.".into();
+    fixture.add(baseline);
 
     let Discovery::Ready {
         catalog_digest,
@@ -170,7 +155,7 @@ fn merges_scopes_and_unconditional_requirements_and_detects_declared_relations()
             ],
         )
         .unwrap();
-    assert_eq!(result.selected, ["P-COMMON", "P-LOCAL", "R-COST"]);
+    assert_eq!(result.selected, ["P-COMMON", "P-EVIDENCE", "P-LOCAL"]);
     assert!(fixture
         .read(
             &catalog_digest,
@@ -201,10 +186,7 @@ fn expects_mandatory_decisions_but_optional_candidates_can_be_omitted() {
     let fixture = Fixture::new();
     fixture.add(policy("P-MANDATORY", "When editing a report."));
     let mut optional = policy("P-OPTIONAL", "When starting a draft.");
-    let Some(ItemDetails::Principle { strength, .. }) = optional.item.details.as_mut() else {
-        panic!("expected principle");
-    };
-    *strength = PrincipleStrength::Should;
+    optional.strength = Strength::Should;
     fixture.add(optional);
 
     let Discovery::Ready { catalog_digest, .. } = fixture.discovery() else {

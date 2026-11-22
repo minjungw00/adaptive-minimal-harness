@@ -1,7 +1,7 @@
-use amh_core::{
-    Activation, ItemDetails, ItemKind, ItemScope, Lifecycle, ManagedItem, PrincipleStrength,
+use amh_project::{
+    builtin_pack, Home, Lifecycle, Policy, PolicyChange, Project, Registry, Request, Scope,
+    Strength, Target,
 };
-use amh_project::{builtin_pack, Home, Policy, PolicyChange, Project, Registry, Request, Target};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use std::{
@@ -19,8 +19,8 @@ const USAGE: &[(&str, &str, &str)] = &[
     ("policy discover", "[--root PATH]", "List conditional candidates or deliver unconditional policies when there are no candidates."),
     ("policy read", "ID --catalog-digest DIGEST [--root PATH]\n    amh policy read --selection [--root PATH]", "Read one policy for assessment or deliver a validated selection from JSON on stdin."),
     ("policy add", "(--id ID --text TEXT [--when CONDITION] [--strength must|should|may] | --file FILE) [--draft] [change options]", "Add an active policy. Use --draft to add it without activating it."),
-    ("policy change", "(ID [--item-revision N] (--text TEXT | --when CONDITION | --clear-condition | --activate | --pause | --reactivate) | --file FILE) [change options]", "Edit policy text or lifecycle. Use a change file for detailed operations."),
-    ("policy import", "--file REGISTRY [--scope user|project] [--root PATH] [--apply | --plan]", "Copy history from an AMH registry into an empty registry."),
+    ("policy change", "(ID [--item-revision N] (--text TEXT | --strength must|should|may | --when CONDITION | --clear-condition | --activate | --pause | --reactivate) | --file FILE) [change options]", "Edit policy text, condition, strength, or lifecycle. Use a change file for detailed operations."),
+    ("policy import", "--file REGISTRY [--scope user|project] [--root PATH] [--apply | --plan]", "Copy history from a current-format AMH registry into an empty registry."),
     ("pack list", "", "List built-in policy packs."),
     ("pack show", "NAME", "Show the policies in a built-in pack before installation."),
     ("pack install", "(NAME | --file FILE) [change options]", "Install a built-in or custom policy pack."),
@@ -360,11 +360,11 @@ pub fn run(args: &[String]) -> Result<String, String> {
                 (Some(id), false) => {
                     let policy = amh_project::read_policy(&home, f.root(), id, f.required("--catalog-digest")?)?;
                     json(&json!({
-                        "id": policy.item.id,
-                        "scope": policy.item.scope,
-                        "content": policy.item.content,
+                        "id": policy.id,
+                        "scope": policy.scope,
+                        "content": policy.content,
                         "condition": policy.applicability,
-                        "details": policy.item.details,
+                        "strength": policy.strength,
                         "depends_on": policy.relations.depends_on,
                         "conflicts_with": policy.relations.conflicts_with,
                     }))
@@ -397,7 +397,7 @@ pub fn run(args: &[String]) -> Result<String, String> {
                 (Some(name), None) => {
                     let mut pack = builtin_pack(name)?;
                     for policy in &mut pack.policies {
-                        policy.item.scope = scope;
+                        policy.scope = scope;
                     }
                     pack
                 }
@@ -405,10 +405,10 @@ pub fn run(args: &[String]) -> Result<String, String> {
                 _ => return Err("provide a built-in pack name or --file".into()),
             };
             for policy in &pack.policies {
-                if policy.item.scope != scope {
+                if policy.scope != scope {
                     return Err(format!(
                         "policy {} does not match the target scope",
-                        policy.item.id
+                        policy.id
                     ));
                 }
             }
@@ -491,10 +491,10 @@ fn read_stdin<T: DeserializeOwned>() -> Result<T, String> {
     serde_json::from_slice(&input).map_err(|e| e.to_string())
 }
 
-fn scope_of(target: &Target) -> ItemScope {
+fn scope_of(target: &Target) -> Scope {
     match target {
-        Target::User => ItemScope::User,
-        Target::Project { .. } => ItemScope::Project,
+        Target::User => Scope::User,
+        Target::Project { .. } => Scope::Project,
     }
 }
 
@@ -539,11 +539,10 @@ fn policy_list(home: &Home, args: &[String]) -> Result<String, String> {
                 serde_json::to_value(&policy).map_err(|e| e.to_string())?
             } else {
                 json!({
-                    "id": policy.item.id,
-                    "kind": policy.item.kind,
-                    "scope": policy.item.scope,
-                    "lifecycle": policy.item.lifecycle,
-                    "revision": policy.item.revision,
+                    "id": policy.id,
+                    "scope": policy.scope,
+                    "lifecycle": policy.lifecycle,
+                    "revision": policy.revision,
                     "source": policy.source,
                 })
             });
@@ -569,39 +568,30 @@ fn policy_add(home: &Home, args: &[String]) -> Result<String, String> {
         }
         amh_project::read_document::<Policy>(Path::new(file))?
     } else {
-        let strength = match f.values.get("--strength").copied().unwrap_or("must") {
-            "must" => PrincipleStrength::Must,
-            "should" => PrincipleStrength::Should,
-            "may" => PrincipleStrength::May,
-            _ => return Err("strength must be must, should or may".into()),
-        };
         Policy {
-            item: ManagedItem::new_typed(
-                f.required("--id")?,
-                ItemKind::Principle,
-                scope,
-                f.required("--text")?,
-                ItemDetails::Principle {
-                    strength,
-                    activation: Activation::Always,
-                    verification: vec![],
-                },
-            )
-            .map_err(|e| format!("invalid policy: {e:?}"))?,
-            owner: "user".into(),
+            id: f.required("--id")?.into(),
+            scope,
+            content: f.required("--text")?.into(),
+            strength: f
+                .values
+                .get("--strength")
+                .map_or(Ok(Strength::Must), |value| parse_strength(value))?,
+            revision: 1,
+            lifecycle: Lifecycle::Draft,
+            replaces: None,
             source: None,
             priority: 0,
             relations: Default::default(),
             applicability: f.values.get("--when").map(|value| value.to_string()),
         }
     };
-    if policy.item.scope != scope {
+    if policy.scope != scope {
         return Err("new policy scope does not match the target registry".into());
     }
-    if !matches!(policy.item.lifecycle, Lifecycle::Draft | Lifecycle::Active) {
+    if !matches!(policy.lifecycle, Lifecycle::Draft | Lifecycle::Active) {
         return Err("new policy must be draft or active".into());
     }
-    policy.item.lifecycle = if f.switches.contains("--draft") {
+    policy.lifecycle = if f.switches.contains("--draft") {
         Lifecycle::Draft
     } else {
         Lifecycle::Active
@@ -614,11 +604,18 @@ fn policy_change(home: &Home, args: &[String]) -> Result<String, String> {
     let (id, flags) = position(args);
     let f = change_flags(
         flags,
-        &["--file", "--text", "--when", "--item-revision"],
+        &[
+            "--file",
+            "--text",
+            "--when",
+            "--item-revision",
+            "--strength",
+        ],
         &["--activate", "--pause", "--reactivate", "--clear-condition"],
     )?;
     let operations = [
         "--text",
+        "--strength",
         "--when",
         "--clear-condition",
         "--activate",
@@ -648,14 +645,19 @@ fn policy_change(home: &Home, args: &[String]) -> Result<String, String> {
         let policy = registry
             .policies()?
             .into_iter()
-            .find(|p| p.item.id == id)
+            .find(|p| p.id == id)
             .ok_or_else(|| format!("unknown policy in the selected scope: {id}"))?;
-        let item_revision = f.number("--item-revision")?.unwrap_or(policy.item.revision);
+        let item_revision = f.number("--item-revision")?.unwrap_or(policy.revision);
         match operations.as_slice() {
             ["--text"] => PolicyChange::Modify {
                 id,
                 item_revision,
                 content: f.required("--text")?.into(),
+            },
+            ["--strength"] => PolicyChange::SetStrength {
+                id,
+                item_revision,
+                strength: parse_strength(f.required("--strength")?)?,
             },
             ["--when"] => PolicyChange::SetApplicability {
                 id,
@@ -676,4 +678,13 @@ fn policy_change(home: &Home, args: &[String]) -> Result<String, String> {
         }
     };
     change(home, &f, target, registry.revision(), operation)
+}
+
+fn parse_strength(value: &str) -> Result<Strength, String> {
+    match value {
+        "must" => Ok(Strength::Must),
+        "should" => Ok(Strength::Should),
+        "may" => Ok(Strength::May),
+        _ => Err("strength must be must, should or may".into()),
+    }
 }

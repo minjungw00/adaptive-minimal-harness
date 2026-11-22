@@ -2,134 +2,50 @@ id = "development"
 version = "0.2.0"
 
 [[policies]]
-owner = "user"
-applicability = "When changing testable observable program behavior or fixing a defect. Exclude explanations, documentation-only edits, formatting, and behavior-preserving refactoring."
-priority = 0
-[policies.item]
 id = "P-TDD"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Use Red–Green–Refactor for testable behavior changes. Demonstrate the failing test before implementation, then passing tests."
-[policies.item.details]
-type = "principle"
+content = "Use Red–Green–Refactor for testable behavior changes. Demonstrate the failing test before implementation, then passing tests.\n\nRecord the failing-before and passing-after commands and results."
 strength = "must"
-verification = ["Record the failing-before and passing-after commands and results."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.behavior_change", "code.bug_fix"]
+applicability = "When changing testable observable program behavior or fixing a defect. Exclude explanations, documentation-only edits, formatting, and behavior-preserving refactoring."
 
 [[policies]]
-owner = "user"
-applicability = "When improving internal code structure while preserving observable behavior. Identify separately requested behavior changes instead of calling them refactoring."
-priority = 0
-[policies.item]
 id = "P-REFACTOR"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Preserve observable behavior while improving structure. Reclassify intended behavior changes before proceeding."
-[policies.item.details]
-type = "principle"
+content = "Preserve observable behavior while improving structure. Reclassify intended behavior changes before proceeding.\n\nCompare relevant behavior before and after the refactor."
 strength = "must"
-verification = ["Compare relevant behavior before and after the refactor."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.refactor"]
+applicability = "When improving internal code structure while preserving observable behavior. Identify separately requested behavior changes instead of calling them refactoring."
 
 [[policies]]
-owner = "user"
-applicability = "When investigating an unexplained defect or failing behavior and identifying its cause. Exclude requests that only explain already established results."
-priority = 0
-[policies.item]
 id = "P-DEBUG"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Reproduce the failure and test a concrete cause before changing code."
-[policies.item.details]
-type = "principle"
+content = "Reproduce the failure and test a concrete cause before changing code.\n\nRecord reproduction and the check that distinguishes the proposed cause."
 strength = "should"
-verification = ["Record reproduction and the check that distinguishes the proposed cause."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.debugging"]
+applicability = "When investigating an unexplained defect or failing behavior and identifying its cause. Exclude requests that only explain already established results."
 
 [[policies]]
-owner = "user"
-applicability = "When fixing a defect whose recurrence can be checked by a meaningful automated regression test."
-priority = 0
-[policies.item]
 id = "P-REGRESSION"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Add a regression check at the layer where the defect occurred."
-[policies.item.details]
-type = "principle"
+content = "Add a regression check at the layer where the defect occurred.\n\nShow the check detects the original failure."
 strength = "should"
-verification = ["Show the check detects the original failure."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.bug_fix"]
+applicability = "When fixing a defect whose recurrence can be checked by a meaningful automated regression test."
 
 [[policies]]
-owner = "user"
-applicability = "When reviewing an implementation, diff, or API for defects and regressions. Exclude work that merely drafts explanatory prose."
-priority = 0
-[policies.item]
 id = "P-REVIEW"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Review correctness and regressions against accepted requirements. Prioritize actionable findings with evidence."
-[policies.item.details]
-type = "principle"
+content = "Review correctness and regressions against accepted requirements. Prioritize actionable findings with evidence.\n\nLink findings to a concrete trigger and affected behavior."
 strength = "should"
-verification = ["Link findings to a concrete trigger and affected behavior."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.review"]
+applicability = "When reviewing an implementation, diff, or API for defects and regressions. Exclude work that merely drafts explanatory prose."
 
 [[policies]]
-owner = "user"
-applicability = "When changing an API or externally consumed interface with existing compatibility expectations."
-priority = 0
-[policies.item]
 id = "P-API"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Preserve supported API compatibility or explicitly document and authorize the breaking change."
-[policies.item.details]
-type = "principle"
+content = "Preserve supported API compatibility or explicitly document and authorize the breaking change.\n\nCheck affected callers and compatibility expectations."
 strength = "must"
-verification = ["Check affected callers and compatibility expectations."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.api_change"]
+applicability = "When changing an API or externally consumed interface with existing compatibility expectations."
 
 [[policies]]
-owner = "user"
-applicability = "When evaluating or strengthening the ability of tests to detect behavior defects and mutation testing would provide useful evidence."
-priority = 0
-[policies.item]
 id = "P-MUTATION"
-kind = "principle"
 scope = "project"
-revision = 1
-lifecycle = "draft"
-content = "Use mutation testing when it helps detect weak behavioral assertions."
-[policies.item.details]
-type = "principle"
+content = "Use mutation testing when it helps detect weak behavioral assertions.\n\nReport executed mutations and meaningful survivors when performed."
 strength = "may"
-verification = ["Report executed mutations and meaningful survivors when performed."]
-[policies.item.details.activation]
-mode = "on_tags"
-any = ["code.test_quality"]
+applicability = "When evaluating or strengthening the ability of tests to detect behavior defects and mutation testing would provide useful evidence."

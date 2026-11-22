@@ -10,28 +10,6 @@
       "packs": [
         "development"
       ],
-      "policies": [
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-API",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior.",
-            "details": {
-              "type": "requirement",
-              "role": "core",
-              "acceptance_criteria": [
-                "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
-              ]
-            }
-          }
-        }
-      ],
       "checks": [
         [
           "{python}",
@@ -45,6 +23,9 @@
         "수정 이유를 설명해줘.",
         "README에 사용 예시를 추가해줘.",
         "이제 이 함수의 입력 검증도 점검해줘."
+      ],
+      "work_context": [
+        "Preserve the public discounted_total(price, percent) interface and its invalid-input ValueError behavior."
       ]
     },
     {
@@ -56,102 +37,6 @@
       "packs": [
         "inquiry"
       ],
-      "policies": [
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-COST",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Keep the cost structure as the main analytical axis.",
-            "details": {
-              "type": "requirement",
-              "role": "core",
-              "acceptance_criteria": [
-                "Keep the cost structure as the main analytical axis."
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-RETENTION",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
-            "details": {
-              "type": "requirement",
-              "role": "support",
-              "acceptance_criteria": [
-                "Use customer retention as supporting evidence, not a replacement for cost analysis."
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
-          "item": {
-            "id": "P-TRACE",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When deriving conclusions or recommendations from observational evidence.",
-          "item": {
-            "id": "P-INFERENCE",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        }
-      ],
       "turns": [
         "이 보고서를 완성해줘.",
         "고객 유지율은 보조 관점으로 유지하면서 결론만 더 짧게 다듬어줘.",
@@ -159,6 +44,28 @@
       ],
       "extra_fixtures": [
         "notes"
+      ],
+      "policies": [
+        {
+          "id": "P-TRACE",
+          "scope": "project",
+          "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction."
+        },
+        {
+          "id": "P-INFERENCE",
+          "scope": "project",
+          "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When deriving conclusions or recommendations from observational evidence."
+        }
+      ],
+      "work_context": [
+        "Keep the cost structure as the main analytical axis.",
+        "Use customer retention as supporting evidence, not a replacement for cost analysis."
       ]
     },
     {
@@ -199,35 +106,6 @@
       "packs": [
         "inquiry"
       ],
-      "policies": [
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When reviewing a proposal that mixes reversible and irreversible actions. Exclude summaries without a decision request.",
-          "item": {
-            "id": "P-REVERSIBILITY",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Separate reversible experiments from irreversible commitments; propose a useful low-cost learning step without obscuring irreversible risk.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        }
-      ],
       "turns": [
         "작업을 진행해.",
         "README에 인사 함수의 사용 예시를 작성하는 작업이야. 아직 파일을 수정하지 말고 어느 파일을 바꿀지 확인해줘.",
@@ -263,6 +141,16 @@
           "allowed_paths": [],
           "outputs": []
         }
+      ],
+      "policies": [
+        {
+          "id": "P-REVERSIBILITY",
+          "scope": "project",
+          "content": "Separate reversible experiments from irreversible commitments; propose a useful low-cost learning step without obscuring irreversible risk.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When reviewing a proposal that mixes reversible and irreversible actions. Exclude summaries without a decision request."
+        }
       ]
     },
     {
@@ -275,59 +163,23 @@
         "development",
         "inquiry"
       ],
-      "policies": [
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When comparing company performance using numeric evidence. Exclude translation and proofreading that preserve facts and analysis.",
-          "item": {
-            "id": "P-COMPARABLE",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Compare compatible periods, definitions and denominators, and disclose missing values.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-PRESERVE",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Preserve all accepted numeric values and analytical conclusions in report.md.",
-            "details": {
-              "type": "requirement",
-              "role": "core",
-              "acceptance_criteria": [
-                "Preserve all accepted numeric values and analytical conclusions in report.md."
-              ]
-            }
-          }
-        }
-      ],
       "turns": [
         "매출 비교 보고서의 어색한 문장만 교정해줘.",
         "이제 이 수치의 비교가 타당한지도 검토해줘.",
         "검토 내용을 반영하되 새 분석은 추가하지 말고 문장만 다듬어줘."
+      ],
+      "policies": [
+        {
+          "id": "P-COMPARABLE",
+          "scope": "project",
+          "content": "Compare compatible periods, definitions and denominators, and disclose missing values.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When comparing company performance using numeric evidence. Exclude translation and proofreading that preserve facts and analysis."
+        }
+      ],
+      "work_context": [
+        "Preserve all accepted numeric values and analytical conclusions in report.md."
       ]
     },
     {
@@ -339,102 +191,6 @@
       "packs": [
         "inquiry"
       ],
-      "policies": [
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-COST",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Keep the cost structure as the main analytical axis.",
-            "details": {
-              "type": "requirement",
-              "role": "core",
-              "acceptance_criteria": [
-                "Keep the cost structure as the main analytical axis."
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "Accepted project requirement",
-          "priority": 0,
-          "item": {
-            "id": "R-RETENTION",
-            "kind": "requirement",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Use customer retention as supporting evidence, not a replacement for cost analysis.",
-            "details": {
-              "type": "requirement",
-              "role": "support",
-              "acceptance_criteria": [
-                "Use customer retention as supporting evidence, not a replacement for cost analysis."
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction.",
-          "item": {
-            "id": "P-TRACE",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        },
-        {
-          "owner": "user",
-          "source": "User-approved project policy",
-          "priority": 0,
-          "relations": {
-            "conflicts_with": []
-          },
-          "applicability": "When deriving conclusions or recommendations from observational evidence.",
-          "item": {
-            "id": "P-INFERENCE",
-            "kind": "principle",
-            "scope": "project",
-            "revision": 1,
-            "lifecycle": "draft",
-            "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.",
-            "details": {
-              "type": "principle",
-              "strength": "must",
-              "activation": {
-                "mode": "always"
-              },
-              "verification": [
-                "Provide evidence appropriate to the work"
-              ]
-            }
-          }
-        }
-      ],
       "turns": [
         "이 보고서를 완성해줘.",
         "이 보고서에서 결론 문장만 더 명확하게 다듬어줘.",
@@ -444,7 +200,29 @@
         "2": [
           "P-WRITING"
         ]
-      }
+      },
+      "policies": [
+        {
+          "id": "P-TRACE",
+          "scope": "project",
+          "content": "Distinguish source facts from calculations and cite the local evidence for important numbers.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When an analytical document contains numeric statements or derived metrics, verify against supplied source records. Exclude purely stylistic correction."
+        },
+        {
+          "id": "P-INFERENCE",
+          "scope": "project",
+          "content": "Separate correlation, assumptions and causal claims; describe limits and a credible alternative explanation.\n\nProvide evidence appropriate to the work",
+          "strength": "must",
+          "source": "User-approved project policy",
+          "applicability": "When deriving conclusions or recommendations from observational evidence."
+        }
+      ],
+      "work_context": [
+        "Keep the cost structure as the main analytical axis.",
+        "Use customer retention as supporting evidence, not a replacement for cost analysis."
+      ]
     }
   ]
 }
