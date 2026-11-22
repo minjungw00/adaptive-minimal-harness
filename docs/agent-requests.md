@@ -19,14 +19,16 @@ Register the Git work trees where you want the policies available.
    `match`, `no_match`, or `uncertain` for every `must` candidate. Optional
    candidates may be omitted and are included only on `match`.
 
-Example selection:
+Example selection for a delegated interface change with no authority check
+needed. Replace the digest and assess each mandatory candidate from the current
+discovery response.
 
 ```json
 {
   "catalog_digest": "DIGEST_FROM_DISCOVER",
   "decisions": [
     {"id": "P-API", "applicability": "match"},
-    {"id": "P-DEBUG", "applicability": "no_match"}
+    {"id": "P-AUTHORITY", "applicability": "no_match"}
   ]
 }
 ```
