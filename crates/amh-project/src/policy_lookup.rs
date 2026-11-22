@@ -87,10 +87,10 @@ pub fn discover_policies(home: &Home, directory: &Path) -> Result<Discovery> {
     let candidates = entries
         .iter()
         .filter_map(|p| {
-            Some(Candidate {
+            p.applicability.as_ref().map(|condition| Candidate {
                 id: p.id.clone(),
                 scope: p.scope,
-                condition: p.applicability.clone()?,
+                condition: condition.clone(),
                 strength: p.strength,
             })
         })
@@ -188,10 +188,9 @@ fn deliver(entries: &[Policy], decisions: &[Decision]) -> Result<PolicyDelivery>
         }
     }
     chosen.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
-    let mut instructions = String::new();
-    render_policies(&mut instructions, &chosen);
+    let instructions = render_policies(&chosen);
     Ok(PolicyDelivery {
         selected: chosen.into_iter().map(|p| p.id.clone()).collect(),
-        instructions: instructions.trim_start().to_owned(),
+        instructions,
     })
 }

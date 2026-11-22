@@ -1,7 +1,8 @@
 use crate::Policy;
 use std::fmt::Write;
 
-pub(crate) fn render_policies(content: &mut String, chosen: &[&Policy]) {
+pub(crate) fn render_policies(chosen: &[&Policy]) -> String {
+    let mut content = String::new();
     for p in chosen {
         let _ = writeln!(
             content,
@@ -22,4 +23,5 @@ pub(crate) fn render_policies(content: &mut String, chosen: &[&Policy]) {
         }
         content.push('\n');
     }
+    content
 }
