@@ -288,7 +288,7 @@ pub fn run(args: &[String]) -> Result<String, String> {
         }
         "pack list" => {
             Flags::parse(rest, &[], &[])?;
-            return json(&["development", "inquiry"]);
+            return json(&[amh_project::BUILTIN_PACK_ID]);
         }
         "pack show" => {
             let (name, args) = position(rest);

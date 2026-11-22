@@ -461,7 +461,9 @@ fn reduce(
                 if entry.lifecycle != Lifecycle::Draft {
                     return Err("pack policies must start as drafts".into());
                 }
-                entry.source = Some(format!("pack:{}@{}", pack.id, pack.version));
+                entry
+                    .source
+                    .get_or_insert_with(|| format!("pack:{}@{}", pack.id, pack.version));
                 add(items, seen, &entry)?;
                 status(
                     items,
@@ -477,11 +479,11 @@ fn reduce(
     Ok(())
 }
 
+pub const BUILTIN_PACK_ID: &str = "agent-workflow";
+
 pub fn builtin_pack(id: &str) -> Result<Pack> {
-    let source = match id {
-        "development" => include_str!("../../../packs/development.toml"),
-        "inquiry" => include_str!("../../../packs/inquiry.toml"),
-        _ => return Err("unknown pack; available: development, inquiry".into()),
-    };
-    toml::from_str(source).map_err(|e| e.to_string())
+    if id != BUILTIN_PACK_ID {
+        return Err(format!("unknown pack; available: {BUILTIN_PACK_ID}"));
+    }
+    toml::from_str(include_str!("../../../packs/agent-workflow.toml")).map_err(|e| e.to_string())
 }

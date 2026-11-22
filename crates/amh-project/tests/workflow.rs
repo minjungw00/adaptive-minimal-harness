@@ -182,28 +182,36 @@ fn rollback_creates_a_new_revision() {
 }
 
 #[test]
-fn packs_are_pinned_and_socratic_tdd_refactor_are_conditionally_selected() {
+fn pack_is_pinned_and_delivers_baseline_plus_selected_methods() {
     let f = Fixture::new();
-    f.change(PolicyChange::InstallPack {
-        pack: builtin_pack("development").unwrap(),
-    });
-    f.change(PolicyChange::InstallPack {
-        pack: builtin_pack("inquiry").unwrap(),
-    });
-    assert_eq!(pack_locks(&f.registry()).unwrap().len(), 2);
-    for id in ["P-WRITING", "P-SOCRATIC", "P-TDD", "P-REFACTOR"] {
-        assert_eq!(read_matches(&f.home, &f.root, &[id]).selected, [id]);
+    let pack = builtin_pack(BUILTIN_PACK_ID).unwrap();
+    f.change(PolicyChange::InstallPack { pack: pack.clone() });
+    let registry = f.registry();
+    let installed = registry.policies().unwrap();
+    assert_eq!(installed.len(), 21);
+    assert!(
+        pack_locks(&registry).unwrap()[BUILTIN_PACK_ID].starts_with(&format!("{}:", pack.version))
+    );
+    for definition in &pack.policies {
+        let policy = installed.iter().find(|p| p.id == definition.id).unwrap();
+        assert_eq!(policy.source, definition.source);
+        assert_eq!(policy.lifecycle, Lifecycle::Active);
     }
-    assert!(read_matches(&f.home, &f.root, &[]).selected.is_empty());
-    let p = f.home.plan(Request::Change {
-        target: f.target(),
-        expected_revision: 2,
-        reason: "Reinstall".into(),
-        change: Box::new(PolicyChange::InstallPack {
-            pack: builtin_pack("development").unwrap(),
-        }),
-    });
-    assert!(p.is_err()); // Reinstall cannot overwrite user-customized pack policies.
+    for id in ["P-WRITING", "P-SOCRATIC", "P-TDD", "P-REFACTOR"] {
+        let mut expected = [id, "P-WORKING"];
+        expected.sort_unstable();
+        assert_eq!(read_matches(&f.home, &f.root, &[id]).selected, expected);
+    }
+    assert_eq!(read_matches(&f.home, &f.root, &[]).selected, ["P-WORKING"]);
+    let combined = read_matches(&f.home, &f.root, &["P-DEBUG", "P-REGRESSION", "P-API"]);
+    assert_eq!(
+        combined.selected,
+        ["P-API", "P-DEBUG", "P-REGRESSION", "P-WORKING"]
+    );
+    assert!(f
+        .home
+        .plan(f.propose(1, PolicyChange::InstallPack { pack }))
+        .is_err());
 }
 
 #[test]

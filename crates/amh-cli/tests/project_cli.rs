@@ -131,7 +131,7 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
     f.ok(&[
         "pack",
         "install",
-        "development",
+        "agent-workflow",
         "--scope",
         "user",
         "--expected-revision",
@@ -189,15 +189,34 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
 #[test]
 fn import_preserves_event_history() {
     let f = Fixture::new();
+    assert_eq!(f.ok(&["pack", "list"]), json!(["agent-workflow"]));
+    let pack = f.ok(&["pack", "show", "agent-workflow"]);
+    let policies = pack["policies"].as_array().unwrap();
+    assert_eq!(policies.len(), 21);
+    assert_eq!(
+        policies
+            .iter()
+            .filter(|policy| policy.get("applicability").is_none())
+            .map(|policy| policy["id"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["P-WORKING"]
+    );
     f.ok(&["project", "add", "--id", "source", "--apply"]);
     f.ok(&[
         "pack",
         "install",
-        "inquiry",
+        "agent-workflow",
         "--reason",
         "Original reason",
         "--apply",
     ]);
+    let discovery = f.ok(&["policy", "discover"]);
+    assert_eq!(discovery["candidates"].as_array().unwrap().len(), 20);
+    assert!(discovery["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|candidate| candidate.get("content").is_none()));
     let original = f.ok(&["history", "--full"]);
     assert_eq!(original["format"], "amh.policy-registry.v1");
     let exported = f.2.join("registry.json");
@@ -325,11 +344,11 @@ fn user_setup_and_delivery_use_no_task_or_request_files() {
 fn policy_setup_rejects_new_cross_scope_duplicates_and_leaves_active_view_fresh() {
     let f = Fixture::new();
     f.ok(&["project", "add", "--apply"]);
-    let pending = f.ok(&["pack", "install", "development", "--plan"]);
+    let pending = f.ok(&["pack", "install", "agent-workflow", "--plan"]);
     f.ok(&[
         "pack",
         "install",
-        "development",
+        "agent-workflow",
         "--scope",
         "user",
         "--apply",
@@ -338,7 +357,7 @@ fn policy_setup_rejects_new_cross_scope_duplicates_and_leaves_active_view_fresh(
     assert!(!rejected.status.success());
     assert!(String::from_utf8_lossy(&rejected.stderr).contains("both user and project repo scopes"));
     let before = f.ok(&["policy", "discover"]);
-    let fail = f.run(&["pack", "install", "development", "--apply"]);
+    let fail = f.run(&["pack", "install", "agent-workflow", "--apply"]);
     assert!(!fail.status.success());
     let message = String::from_utf8_lossy(&fail.stderr);
     assert!(message.contains("both user and project repo scopes"));

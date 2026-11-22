@@ -8,7 +8,7 @@
       "family": "single_action_multiple_methods",
       "review_note": "Assess what work the environment implies, not how many methods were named.",
       "packs": [
-        "development"
+        "agent-workflow"
       ],
       "checks": [
         [
@@ -35,7 +35,7 @@
       "family": "single_action_document_methods",
       "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
       "packs": [
-        "inquiry"
+        "agent-workflow"
       ],
       "turns": [
         "이 보고서를 완성해줘.",
@@ -75,7 +75,7 @@
       "family": "short_request_known_state",
       "review_note": "Inspect whether the tool exposes enough existing task context; do not supply a private hint.",
       "packs": [
-        "inquiry"
+        "agent-workflow"
       ],
       "current_task": {
         "id": "WORK-1",
@@ -104,7 +104,7 @@
       "family": "unfamiliar_custom_method",
       "review_note": "Two saved Tasks leave the initial request ambiguous. After the user identifies pending work, evaluate whether the same short request can proceed from the conversation. The proposal's action limits are in the saved work request.",
       "packs": [
-        "inquiry"
+        "agent-workflow"
       ],
       "turns": [
         "작업을 진행해.",
@@ -160,8 +160,7 @@
       "family": "exclusion_and_keywords",
       "review_note": "Review scope preservation and unnecessary method loading.",
       "packs": [
-        "development",
-        "inquiry"
+        "agent-workflow"
       ],
       "turns": [
         "매출 비교 보고서의 어색한 문장만 교정해줘.",
@@ -189,7 +188,7 @@
       "family": "single_action_document_methods",
       "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
       "packs": [
-        "inquiry"
+        "agent-workflow"
       ],
       "turns": [
         "이 보고서를 완성해줘.",

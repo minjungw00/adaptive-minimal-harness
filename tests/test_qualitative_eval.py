@@ -19,12 +19,12 @@ import dialogue_eval as de
 class SuiteTests(unittest.TestCase):
     def test_cases_are_diverse_without_a_fixed_selected_set_oracle(self):
         suite = qe.load_suite(qe.DEFAULT_SUITE)
-        self.assertEqual(len(suite['cases']), 36)
+        self.assertEqual(len(suite['cases']), 40)
         families = {c['family'] for c in suite['cases']}
         for name in ['single_action_multiple_methods', 'single_action_document_methods',
                      'short_request_known_state', 'short_request_no_state',
                      'multiple_unprioritized_goals', 'declared_policy_conflict',
-                     'untrusted_source_instructions', 'unfamiliar_custom_method']:
+                     'untrusted_source_instructions', 'unfamiliar_custom_method', 'learning_intent']:
             self.assertIn(name, families)
         self.assertFalse(any(k.startswith('expected_') for c in suite['cases'] for k in c))
 
@@ -175,7 +175,7 @@ class RunTests(unittest.TestCase):
 
     def test_every_scenario_can_be_initialized_without_model_answers(self):
         full = qe.prepare(self.amh, qe.DEFAULT_SUITE, Path(self.tmp.name) / 'all')
-        self.assertEqual(len(full['cases']), 36)
+        self.assertEqual(len(full['cases']), 40)
         self.assertTrue(all(Path(v['workspace']).is_dir() for v in full['cases'].values()))
 
     def test_work_requirements_are_context_instead_of_registry_policies(self):
