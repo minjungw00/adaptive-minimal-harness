@@ -1,19 +1,11 @@
-//! User-owned project workflow. This is deliberately separate from the optional
-//! protected host: local plans provide review and concurrency checks, not authentication.
-mod interpreter;
+//! User-owned policy storage and read-only delivery.
 mod model;
-mod natural;
 mod policy_lookup;
-mod resolve;
-mod verify;
+mod render;
 mod workspace;
 
-pub use interpreter::*;
 pub use model::*;
-pub use natural::*;
 pub use policy_lookup::*;
-pub use resolve::*;
-pub use verify::*;
 pub use workspace::*;
 
 pub type Result<T> = std::result::Result<T, String>;

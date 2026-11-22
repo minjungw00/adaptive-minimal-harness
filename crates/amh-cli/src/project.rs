@@ -1,98 +1,107 @@
-use amh_project::{builtin_pack, Home, Policy, PolicyChange, Project, Request, Target};
-use serde::Serialize;
+use amh_core::{
+    Activation, ItemDetails, ItemKind, ItemScope, Lifecycle, ManagedItem, PrincipleStrength,
+};
+use amh_project::{builtin_pack, Home, Policy, PolicyChange, Project, Registry, Request, Target};
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::json;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::Read,
     path::{Path, PathBuf},
 };
 
-pub const HELP: &str = "LOCAL POLICY WORKFLOW (AMH_HOME defaults to ~/.amh):
-    amh project add --id ID [--root PATH] [--apply]
-    amh project list
-    amh project remove [--root REGISTERED_PATH] [--apply]
-    amh agent instructions
-    amh policy list [--scope user|project] [--root PATH]
-    amh policy discover --text TEXT [--root PATH]
-    amh policy read --id ID --catalog-digest DIGEST [--root PATH]
-    amh policy resolve --input -|FILE [--root PATH]
-    amh policy add --file FILE --expected-revision N --reason TEXT [--scope user|project] [--root PATH] [--apply]
-    amh policy change --file FILE --expected-revision N --reason TEXT [--scope user|project] [--root PATH] [--apply]
-    amh policy import --file PREVIOUS_REGISTRY [--scope user|project] [--root PATH] [--apply]
-    amh pack list
-    amh pack show --name development|inquiry
-    amh pack install (--name NAME | --file FILE) --expected-revision N --reason TEXT [--scope user|project] [--root PATH] [--apply]
-    amh history [--scope user|project] [--root PATH]
-    amh rollback --revision N --expected-revision N --reason TEXT [--scope user|project] [--root PATH] [--apply]
-    amh apply --plan PLAN.json
-    amh request (--text TEXT | --request-file FILE) [--task-id ID] [--agent codex | --agent-config FILE] [--root PATH]
-    amh request finish --packet FILE --analysis FILE [--root PATH]
-    amh compile --task FILE [--budget CHARS] [--root PATH]
-    amh verify --task FILE [--run] [--root PATH]
+const USAGE: &[(&str, &str, &str)] = &[
+    ("project add", "[--id ID] [--root PATH] [--apply | --plan]", "Register a Git work tree. Explicitly supply an existing ID to share its policies."),
+    ("project list", "", "List registered work trees and their project IDs."),
+    ("project remove", "[--root PATH] [--apply | --plan]", "Unregister a work tree and keep its policies."),
+    ("agent instructions", "", "Print guidance to add to the agent's user-level settings."),
+    ("policy list", "[--scope user|project] [--root PATH] [--full]", "Show policy summaries for this project and the user. An explicit scope selects one registry."),
+    ("policy discover", "[--root PATH]", "List conditional candidates or deliver unconditional policies when there are no candidates."),
+    ("policy read", "ID --catalog-digest DIGEST [--root PATH]\n    amh policy read --selection [--root PATH]", "Read one policy for assessment or deliver a validated selection from JSON on stdin."),
+    ("policy add", "(--id ID --text TEXT [--when CONDITION] [--strength must|should|may] | --file FILE) [--draft] [change options]", "Add an active policy. Use --draft to add it without activating it."),
+    ("policy change", "(ID [--item-revision N] (--text TEXT | --when CONDITION | --clear-condition | --activate | --pause | --reactivate) | --file FILE) [change options]", "Edit policy text or lifecycle. Use a change file for detailed operations."),
+    ("policy import", "--file REGISTRY [--scope user|project] [--root PATH] [--apply | --plan]", "Copy history from an AMH registry into an empty registry."),
+    ("pack list", "", "List built-in policy packs."),
+    ("pack show", "NAME", "Show the policies in a built-in pack before installation."),
+    ("pack install", "(NAME | --file FILE) [change options]", "Install a built-in or custom policy pack."),
+    ("history", "[--scope user|project] [--root PATH] [--full]", "Show policy change history. Use --full for a portable registry export."),
+    ("rollback", "--revision N [change options]", "Restore an earlier policy set as a new revision."),
+    ("apply", "--plan FILE|-", "Apply a saved plan to the same AMH home after checking relevant state."),
+];
 
-Review and apply writes only in AMH home. Explicit Task checks run from the work tree with --run.
-";
-
+#[derive(Default)]
 struct Flags<'a> {
     values: BTreeMap<&'a str, &'a str>,
     switches: BTreeSet<&'a str>,
 }
+
 impl<'a> Flags<'a> {
     fn parse(args: &'a [String], values: &[&str], switches: &[&str]) -> Result<Self, String> {
-        let mut result = Self {
-            values: BTreeMap::new(),
-            switches: BTreeSet::new(),
-        };
-        let mut i = 0;
-        while i < args.len() {
-            let flag = args[i].as_str();
+        let mut result = Self::default();
+        let mut args = args.iter().map(String::as_str);
+        while let Some(flag) = args.next() {
             if switches.contains(&flag) {
                 if !result.switches.insert(flag) {
                     return Err(format!("duplicate flag: {flag}"));
                 }
-                i += 1;
-            } else if values.contains(&flag) {
-                let value = args
-                    .get(i + 1)
-                    .ok_or_else(|| format!("missing value for {flag}"))?;
-                if value.is_empty()
-                    || value.starts_with("--")
-                    || result.values.insert(flag, value).is_some()
-                {
-                    return Err(format!("duplicate or empty option: {flag}"));
+            } else if let Some((name, value)) = flag.split_once('=') {
+                if !values.contains(&name) {
+                    return Err(format!("unknown option: {name}"));
                 }
-                i += 2;
+                result.insert(name, value)?;
+            } else if values.contains(&flag) {
+                let value = args.next()
+                    .filter(|s| !s.starts_with("--"))
+                    .ok_or_else(|| format!("missing value for {flag}; use {flag}=VALUE for a value starting with --"))?;
+                result.insert(flag, value)?;
             } else {
                 return Err(format!("unknown option: {flag}"));
             }
         }
         Ok(result)
     }
+
+    fn insert(&mut self, name: &'a str, value: &'a str) -> Result<(), String> {
+        if value.is_empty() || self.values.insert(name, value).is_some() {
+            return Err(format!("duplicate or empty option: {name}"));
+        }
+        Ok(())
+    }
+
     fn required(&self, key: &str) -> Result<&str, String> {
         self.values
             .get(key)
             .copied()
             .ok_or_else(|| format!("required option: {key}"))
     }
-    fn number(&self, key: &str) -> Result<u64, String> {
-        self.required(key)?
-            .parse()
-            .map_err(|_| format!("{key} must be a nonnegative integer"))
-    }
-    fn root(&self) -> &Path {
-        Path::new(self.values.get("--root").copied().unwrap_or("."))
-    }
-    fn budget(&self) -> Result<Option<usize>, String> {
+
+    fn number(&self, key: &str) -> Result<Option<u64>, String> {
         self.values
-            .get("--budget")
-            .map(|s| {
-                s.parse()
-                    .map_err(|_| "budget must be a nonnegative character count".into())
+            .get(key)
+            .map(|value| {
+                value
+                    .parse()
+                    .map_err(|_| format!("{key} must be a nonnegative integer"))
             })
             .transpose()
     }
+
+    fn root(&self) -> &Path {
+        Path::new(self.values.get("--root").copied().unwrap_or("."))
+    }
 }
+
+fn position(args: &[String]) -> (Option<&str>, &[String]) {
+    match args.split_first() {
+        Some((value, rest)) if !value.starts_with('-') => (Some(value), rest),
+        _ => (None, args),
+    }
+}
+
 fn json(value: &impl Serialize) -> Result<String, String> {
     serde_json::to_string_pretty(value).map_err(|e| e.to_string())
 }
+
 fn home() -> Result<Home, String> {
     let path = match std::env::var_os("AMH_HOME") {
         Some(path) => PathBuf::from(path),
@@ -117,98 +126,218 @@ fn target(home: &Home, f: &Flags<'_>) -> Result<Target, String> {
 }
 
 fn mutation(home: &Home, f: &Flags<'_>, request: Request) -> Result<String, String> {
-    let plan = home.plan(request)?;
-    if f.switches.contains("--apply") {
-        home.apply(&plan)?;
-        json(&serde_json::json!({"status":"applied_local_plan", "plan":plan}))
-    } else {
-        json(&plan)
+    let apply = f.switches.contains("--apply");
+    let export = f.switches.contains("--plan");
+    if apply && export {
+        return Err("select --apply or --plan".into());
     }
+    let plan = home.plan(request)?;
+    if export {
+        return json(&plan);
+    }
+    if apply {
+        home.apply(&plan)?;
+    }
+    mutation_summary(&plan, apply)
+}
+
+fn mutation_summary(plan: &amh_project::Plan, apply: bool) -> Result<String, String> {
+    let (operation, target, revision) = match &plan.request {
+        Request::Register { binding, .. } => ("register", json!(binding), None),
+        Request::Unregister { binding } => ("unregister", json!(binding), None),
+        Request::Import { target, registry } => {
+            ("import", json!(target), Some(registry.revision()))
+        }
+        Request::Change {
+            target,
+            expected_revision,
+            change,
+            ..
+        } => (
+            change.operation(),
+            json!(target),
+            expected_revision.checked_add(1),
+        ),
+    };
+    let mut output = json!({
+        "status": if apply { "applied" } else { "preview" },
+        "operation": operation,
+        "target": target,
+        "policies": plan.policies,
+    });
+    if let Some(revision) = revision {
+        output["revision"] = json!(revision);
+    }
+    if let Request::Change { change, .. } = &plan.request {
+        if let PolicyChange::Restore { revision } = change.as_ref() {
+            output["restored_revision"] = json!(revision);
+        }
+    }
+    if plan.files.is_empty() {
+        output["status"] = json!("unchanged");
+    }
+    json(&output)
+}
+
+const CHANGE_VALUES: &[&str] = &["--root", "--scope", "--expected-revision", "--reason"];
+
+fn change_flags<'a>(
+    args: &'a [String],
+    values: &[&str],
+    switches: &[&str],
+) -> Result<Flags<'a>, String> {
+    Flags::parse(
+        args,
+        &[CHANGE_VALUES, values].concat(),
+        &[&["--apply", "--plan"][..], switches].concat(),
+    )
 }
 
 fn change(
     home: &Home,
     f: &Flags<'_>,
     target: Target,
+    snapshot_revision: u64,
     change: PolicyChange,
 ) -> Result<String, String> {
+    let expected_revision = f
+        .number("--expected-revision")?
+        .unwrap_or(snapshot_revision);
+    let reason = f.values.get("--reason").map_or_else(
+        || change.operation().replace('_', " "),
+        |reason| (*reason).to_owned(),
+    );
     mutation(
         home,
         f,
         Request::Change {
             target,
-            expected_revision: f.number("--expected-revision")?,
-            reason: f.required("--reason")?.into(),
+            expected_revision,
+            reason,
             change: Box::new(change),
         },
     )
 }
 
-pub fn run(args: &[String]) -> Option<Result<String, String>> {
-    let first = args.first()?.as_str();
-    [
-        "project", "agent", "policy", "pack", "request", "compile", "verify", "apply", "history",
-        "rollback",
-    ]
-    .contains(&first)
-    .then(|| execute(args))
+fn usage(path: &str) -> String {
+    let mut output = String::new();
+    if path.is_empty() {
+        output.push_str("AMH — Adaptive Minimal Harness\n\nUsage: amh <command>\n\n");
+    }
+    for (command, arguments, description) in USAGE {
+        if path.is_empty()
+            || *command == path
+            || command
+                .strip_prefix(path)
+                .is_some_and(|suffix| suffix.starts_with(' '))
+        {
+            output.push_str(&format!(
+                "    amh {command} {arguments}\n        {description}\n"
+            ));
+        }
+    }
+    if path.is_empty()
+        || matches!(
+            path,
+            "policy" | "policy add" | "policy change" | "pack" | "pack install" | "rollback"
+        )
+    {
+        output.push_str("\nChange options: [--scope user|project] [--root PATH] [--reason TEXT]\n    [--expected-revision N] [--apply | --plan]\n");
+    }
+    if path.is_empty() {
+        output.push_str("\n    amh --help | --version\n\nAMH_HOME defaults to ~/.amh. Changes preview by default.\n");
+    }
+    output.trim_end().to_owned()
 }
 
-fn execute(args: &[String]) -> Result<String, String> {
-    let command = args[0].as_str();
-    let (sub, rest) = if ["agent", "project", "policy", "pack"].contains(&command) {
-        (
-            args.get(1).ok_or("missing subcommand")?.as_str(),
-            &args[2..],
-        )
-    } else {
-        ("", &args[1..])
+pub fn run(args: &[String]) -> Result<String, String> {
+    let is_help = |arg: &str| matches!(arg, "-h" | "--help");
+    let Some((command, rest)) = args.split_first() else {
+        return Ok(usage(""));
     };
-    match (command, sub) {
-        ("agent", "instructions") => {
+    if args.len() == 1 {
+        match command.as_str() {
+            "-h" | "--help" => return Ok(usage("")),
+            "-V" | "--version" => return Ok(format!("amh {}", env!("CARGO_PKG_VERSION"))),
+            _ => {}
+        }
+    }
+    let (path, rest) = if matches!(command.as_str(), "agent" | "project" | "policy" | "pack") {
+        match rest.split_first() {
+            Some((sub, tail)) if !is_help(sub) => (format!("{command} {sub}"), tail),
+            Some((sub, [])) if is_help(sub) => return Ok(usage(command)),
+            _ => {
+                return Err(format!(
+                    "choose a {command} subcommand; run amh {command} --help"
+                ))
+            }
+        }
+    } else {
+        (command.clone(), rest)
+    };
+    if !USAGE.iter().any(|(command, _, _)| *command == path) {
+        return Err("unsupported command; run amh --help".into());
+    }
+    if rest.len() == 1 && is_help(&rest[0]) {
+        return Ok(usage(&path));
+    }
+    match path.as_str() {
+        "agent instructions" => {
             Flags::parse(rest, &[], &[])?;
             return Ok(amh_project::AGENT_GUIDANCE.into());
         }
-        ("pack", "list") => {
+        "pack list" => {
             Flags::parse(rest, &[], &[])?;
             return json(&["development", "inquiry"]);
         }
-        ("pack", "show") => {
-            let f = Flags::parse(rest, &["--name"], &[])?;
-            return json(&builtin_pack(f.required("--name")?)?);
+        "pack show" => {
+            let (name, args) = position(rest);
+            Flags::parse(args, &[], &[])?;
+            return json(&builtin_pack(name.ok_or("provide a pack name")?)?);
         }
         _ => {}
     }
+
     let home = home()?;
-    match (command, sub) {
-        ("project", "add") => {
-            let f = Flags::parse(rest, &["--root", "--id"], &["--apply"])?;
+    match path.as_str() {
+        "project add" => {
+            let f = Flags::parse(rest, &["--root", "--id"], &["--apply", "--plan"])?;
             let root =
                 amh_project::git_root(f.root())?.ok_or("project add requires a Git work tree")?;
-            let binding = Project {
-                root,
-                project: f.required("--id")?.into(),
+            let (project, new_project) = match f.values.get("--id") {
+                Some(id) => (id.to_string(), false),
+                None => match home.project(&root)? {
+                    Some(binding) => (binding.project, false),
+                    None => (Home::project_id_for(&root)?, true),
+                },
             };
-            mutation(&home, &f, Request::Register { binding })
+            mutation(
+                &home,
+                &f,
+                Request::Register {
+                    binding: Project { root, project },
+                    new_project,
+                },
+            )
         }
-        ("project", "list") => {
+        "project list" => {
             Flags::parse(rest, &[], &[])?;
-            json(&home.config()?)
+            json(&json!({"repositories": home.config()?.repositories}))
         }
-        ("project", "remove") => {
-            let f = Flags::parse(rest, &["--root"], &["--apply"])?;
+        "project remove" => {
+            let f = Flags::parse(rest, &["--root"], &["--apply", "--plan"])?;
             let exists = f.root().try_exists().map_err(|e| e.to_string())?;
             let path = if exists {
                 std::fs::canonicalize(f.root()).map_err(|e| e.to_string())?
             } else {
                 std::path::absolute(f.root()).map_err(|e| e.to_string())?
             };
-            let exact = home
+            let binding = match home
                 .config()?
                 .repositories
                 .into_iter()
-                .find(|entry| entry.root == path);
-            let binding = match exact {
+                .find(|entry| entry.root == path)
+            {
                 Some(binding) => binding,
                 None if exists => home.require_project(f.root())?,
                 None => {
@@ -219,220 +348,332 @@ fn execute(args: &[String]) -> Result<String, String> {
             };
             mutation(&home, &f, Request::Unregister { binding })
         }
-        ("policy", "list") => {
-            let f = Flags::parse(rest, &["--root", "--scope"], &[])?;
-            let registry = home.registry(&target(&home, &f)?)?;
-            json(
-                &serde_json::json!({"revision":registry.revision(), "policies":registry.policies()?, "pack_locks":amh_project::pack_locks(&registry)?}),
-            )
+        "policy list" => policy_list(&home, rest),
+        "policy discover" => {
+            let f = Flags::parse(rest, &["--root"], &[])?;
+            json(&amh_project::discover_policies(&home, f.root())?)
         }
-        ("policy", "discover") => {
-            let f = Flags::parse(rest, &["--root", "--text"], &[])?;
-            match amh_project::discover_policies(&home, f.root(), f.required("--text")?)? {
-                Some(packet) => json(&packet),
-                None => json(&serde_json::json!({"status":"not_registered"})),
+        "policy read" => {
+            let (id, flags) = position(rest);
+            let f = Flags::parse(flags, &["--root", "--catalog-digest"], &["--selection"])?;
+            match (id, f.switches.contains("--selection")) {
+                (Some(id), false) => {
+                    let policy = amh_project::read_policy(&home, f.root(), id, f.required("--catalog-digest")?)?;
+                    json(&json!({
+                        "id": policy.item.id,
+                        "scope": policy.item.scope,
+                        "content": policy.item.content,
+                        "condition": policy.applicability,
+                        "details": policy.item.details,
+                        "depends_on": policy.relations.depends_on,
+                        "conflicts_with": policy.relations.conflicts_with,
+                    }))
+                }
+                (None, true) if !f.values.contains_key("--catalog-digest") => {
+                    let selection = read_stdin()?;
+                    json(&amh_project::read_selection(&home, f.root(), selection)?)
+                }
+                _ => Err("select a policy ID with --catalog-digest, or use --selection with JSON on stdin".into()),
             }
         }
-        ("policy", "read") => {
-            let f = Flags::parse(rest, &["--root", "--id", "--catalog-digest"], &[])?;
-            json(&amh_project::read_policy(
-                &home,
-                f.root(),
-                f.required("--id")?,
-                f.required("--catalog-digest")?,
-            )?)
-        }
-        ("policy", "resolve") => {
-            let f = Flags::parse(rest, &["--root", "--input"], &[])?;
-            let analysis = input_json(f.required("--input")?)?;
-            let result = amh_project::resolve_policies(&home, f.root(), analysis)?;
-            let output = json(&result)?;
-            if result.clarification_questions.is_empty() {
-                Ok(output)
-            } else {
-                Err(output)
-            }
-        }
-        ("policy", "add" | "change") => {
+        "policy add" => policy_add(&home, rest),
+        "policy change" => policy_change(&home, rest),
+        "policy import" => {
             let f = Flags::parse(
                 rest,
-                &[
-                    "--root",
-                    "--scope",
-                    "--file",
-                    "--expected-revision",
-                    "--reason",
-                ],
-                &["--apply"],
+                &["--root", "--scope", "--file"],
+                &["--apply", "--plan"],
             )?;
-            let target = target(&home, &f)?;
-            let source = Path::new(f.required("--file")?);
-            let operation = if sub == "add" {
-                PolicyChange::Add {
-                    policy: amh_project::read_document::<Policy>(source)?,
-                }
-            } else {
-                amh_project::read_document(source)?
-            };
-            change(&home, &f, target, operation)
-        }
-        ("policy", "import") => {
-            let f = Flags::parse(rest, &["--root", "--scope", "--file"], &["--apply"])?;
             let target = target(&home, &f)?;
             let registry = amh_project::import_registry(Path::new(f.required("--file")?), &target)?;
             mutation(&home, &f, Request::Import { target, registry })
         }
-        ("pack", "install") => {
-            let f = Flags::parse(
-                rest,
-                &[
-                    "--root",
-                    "--name",
-                    "--file",
-                    "--scope",
-                    "--expected-revision",
-                    "--reason",
-                ],
-                &["--apply"],
-            )?;
+        "pack install" => {
+            let (name, flags) = position(rest);
+            let f = change_flags(flags, &["--file"], &[])?;
             let target = target(&home, &f)?;
-            let mut pack = match (f.values.get("--name"), f.values.get("--file")) {
-                (Some(name), None) => builtin_pack(name)?,
+            let scope = scope_of(&target);
+            let pack = match (name, f.values.get("--file")) {
+                (Some(name), None) => {
+                    let mut pack = builtin_pack(name)?;
+                    for policy in &mut pack.policies {
+                        policy.item.scope = scope;
+                    }
+                    pack
+                }
                 (None, Some(file)) => amh_project::read_document(Path::new(file))?,
-                _ => return Err("select exactly one of --name or --file".into()),
+                _ => return Err("provide a built-in pack name or --file".into()),
             };
-            if f.values.contains_key("--scope") {
-                let scope = if matches!(target, Target::User) {
-                    amh_core::ItemScope::User
-                } else {
-                    amh_core::ItemScope::Project
-                };
-                for policy in &mut pack.policies {
-                    policy.item.scope = scope;
+            for policy in &pack.policies {
+                if policy.item.scope != scope {
+                    return Err(format!(
+                        "policy {} does not match the target scope",
+                        policy.item.id
+                    ));
                 }
             }
-            change(&home, &f, target, PolicyChange::InstallPack { pack })
-        }
-        ("history", _) => {
-            let f = Flags::parse(rest, &["--root", "--scope"], &[])?;
-            json(&home.registry(&target(&home, &f)?)?)
-        }
-        ("rollback", _) => {
-            let f = Flags::parse(
-                rest,
-                &[
-                    "--root",
-                    "--scope",
-                    "--revision",
-                    "--expected-revision",
-                    "--reason",
-                ],
-                &["--apply"],
-            )?;
+            let revision = home.registry(&target)?.revision();
             change(
                 &home,
                 &f,
-                target(&home, &f)?,
-                PolicyChange::Restore {
-                    revision: f.number("--revision")?,
-                },
+                target,
+                revision,
+                PolicyChange::InstallPack { pack },
             )
         }
-        ("apply", _) => {
-            let f = Flags::parse(rest, &["--plan"], &[])?;
-            let plan = amh_project::read_document(Path::new(f.required("--plan")?))?;
-            home.apply(&plan)?;
-            json(&serde_json::json!({"status":"applied_local_plan"}))
-        }
-        ("request", _) => execute_request(&home, rest),
-        ("compile", _) => {
-            let f = Flags::parse(rest, &["--root", "--task", "--budget"], &[])?;
-            let binding = home.require_project(f.root())?;
-            let task = amh_project::read_document(Path::new(f.required("--task")?))?;
-            json(&amh_project::compile(&home, &binding, &task, f.budget()?)?)
-        }
-        ("verify", _) => {
-            let f = Flags::parse(rest, &["--root", "--task"], &["--run"])?;
-            let binding = home.require_project(f.root())?;
-            let evidence = amh_project::verify(
-                &home,
-                &binding,
-                Path::new(f.required("--task")?),
-                f.switches.contains("--run"),
-            )?;
-            let output = json(&evidence)?;
-            if evidence.all_checks_passed == Some(false) {
-                Err(output)
-            } else {
-                Ok(output)
+        "history" => {
+            let f = Flags::parse(rest, &["--root", "--scope"], &["--full"])?;
+            let registry = home.registry(&target(&home, &f)?)?;
+            if f.switches.contains("--full") {
+                return json(&registry);
             }
+            let events: Vec<_> = registry
+                .events
+                .iter()
+                .map(|event| {
+                    let change = &event.change;
+                    let mut summary = json!({
+                        "revision": event.revision,
+                        "reason": event.reason,
+                        "operation": change.operation(),
+                        "policies": change.policy_ids(),
+                    });
+                    if let PolicyChange::Restore { revision } = change {
+                        summary["restored_revision"] = json!(revision);
+                    }
+                    summary
+                })
+                .collect();
+            json(
+                &json!({"project_id": registry.project_id, "revision": registry.revision(), "events": events}),
+            )
         }
-        _ => Err("unsupported policy workflow command; run amh --help".into()),
+        "rollback" => {
+            let f = change_flags(rest, &["--revision"], &[])?;
+            let target = target(&home, &f)?;
+            let revision = f
+                .number("--revision")?
+                .ok_or("required option: --revision")?;
+            let current = home.registry(&target)?.revision();
+            change(
+                &home,
+                &f,
+                target,
+                current,
+                PolicyChange::Restore { revision },
+            )
+        }
+        "apply" => {
+            let f = Flags::parse(rest, &["--plan"], &[])?;
+            let source = f.required("--plan")?;
+            let plan = if source == "-" {
+                read_stdin()?
+            } else {
+                amh_project::read_document(Path::new(source))?
+            };
+            home.apply(&plan)?;
+            mutation_summary(&plan, true)
+        }
+        _ => unreachable!("command was checked against the usage list"),
     }
 }
 
-fn execute_request(home: &Home, args: &[String]) -> Result<String, String> {
-    if args.first().is_some_and(|s| s == "finish") {
-        let f = Flags::parse(&args[1..], &["--root", "--packet", "--analysis"], &[])?;
-        let packet = amh_project::read_document(Path::new(f.required("--packet")?))?;
-        let response = amh_project::read_document(Path::new(f.required("--analysis")?))?;
-        let binding = home.require_project(f.root())?;
-        return json(&amh_project::interpret_request(
-            home, &binding, &packet, response,
-        )?);
+fn read_stdin<T: DeserializeOwned>() -> Result<T, String> {
+    const LIMIT: u64 = 2 * 1024 * 1024;
+    let mut input = Vec::new();
+    std::io::stdin()
+        .take(LIMIT + 1)
+        .read_to_end(&mut input)
+        .map_err(|e| e.to_string())?;
+    if input.len() as u64 > LIMIT {
+        return Err("JSON input exceeds 2 MiB".into());
     }
-    let f = Flags::parse(
-        args,
-        &[
-            "--root",
-            "--text",
-            "--request-file",
-            "--task-id",
-            "--agent",
-            "--agent-config",
-        ],
-        &[],
-    )?;
-    let text = match (f.values.get("--text"), f.values.get("--request-file")) {
-        (Some(text), None) => (*text).to_string(),
-        (None, Some(file)) => std::fs::read_to_string(file).map_err(|e| e.to_string())?,
-        _ => return Err("select exactly one of --text or --request-file".into()),
-    };
-    let binding = home.require_project(f.root())?;
-    let packet =
-        amh_project::prepare_request(home, &binding, &text, f.values.get("--task-id").copied())?;
-    let config = match (f.values.get("--agent"), f.values.get("--agent-config")) {
-        (None, None) => None,
-        (Some(&"codex"), None) => Some(amh_project::InterpreterConfig::codex()),
-        (None, Some(file)) => Some(amh_project::read_document(Path::new(file))?),
-        _ => return Err("select --agent codex or one explicit --agent-config file".into()),
-    };
-    if let Some(config) = config {
-        let response = amh_project::run_interpreter(home, &packet, &config)?;
-        json(&amh_project::interpret_request(
-            home, &binding, &packet, response,
-        )?)
-    } else {
-        json(&packet)
+    serde_json::from_slice(&input).map_err(|e| e.to_string())
+}
+
+fn scope_of(target: &Target) -> ItemScope {
+    match target {
+        Target::User => ItemScope::User,
+        Target::Project { .. } => ItemScope::Project,
     }
 }
-fn input_json<T: serde::de::DeserializeOwned>(file: &str) -> Result<T, String> {
-    use std::io::Read;
-    let mut bytes = Vec::new();
-    if file == "-" {
-        std::io::stdin()
-            .take(2 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
+
+fn policy_list(home: &Home, args: &[String]) -> Result<String, String> {
+    let f = Flags::parse(args, &["--root", "--scope"], &["--full"])?;
+    let targets = if f.values.contains_key("--scope") {
+        vec![target(home, &f)?]
+    } else if let Some(binding) = home.project(f.root())? {
+        vec![Target::User, Target::Project { binding }]
+    } else if f.values.contains_key("--root") {
+        return Err("repository is not registered; run amh project add".into());
     } else {
-        std::fs::File::open(file)
-            .map_err(|e| e.to_string())?
-            .take(2 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
+        vec![Target::User]
+    };
+
+    let full = f.switches.contains("--full");
+    let mut registries = Vec::new();
+    let mut policies = Vec::new();
+    for target in targets {
+        let registry = home.registry(&target)?;
+        let packs = amh_project::pack_locks(&registry)?;
+        let mut summary = json!({
+            "scope": scope_of(&target),
+            "project_id": registry.project_id,
+            "revision": registry.revision(),
+        });
+        let packs = if full {
+            json!(packs)
+        } else {
+            let versions: BTreeMap<_, _> = packs
+                .iter()
+                .filter_map(|(name, lock)| {
+                    lock.rsplit_once(':').map(|(version, _)| (name, version))
+                })
+                .collect();
+            json!(versions)
+        };
+        summary["packs"] = packs;
+        registries.push(summary);
+        for policy in registry.policies()? {
+            policies.push(if full {
+                serde_json::to_value(&policy).map_err(|e| e.to_string())?
+            } else {
+                json!({
+                    "id": policy.item.id,
+                    "kind": policy.item.kind,
+                    "scope": policy.item.scope,
+                    "lifecycle": policy.item.lifecycle,
+                    "revision": policy.item.revision,
+                    "source": policy.source,
+                })
+            });
+        }
     }
-    if bytes.len() > 2 * 1024 * 1024 {
-        return Err("policy analysis input exceeds 2 MiB".into());
+    json(&json!({"registries": registries, "policies": policies}))
+}
+
+fn policy_add(home: &Home, args: &[String]) -> Result<String, String> {
+    let f = change_flags(
+        args,
+        &["--file", "--id", "--text", "--when", "--strength"],
+        &["--draft"],
+    )?;
+    let target = target(home, &f)?;
+    let scope = scope_of(&target);
+    let mut policy = if let Some(file) = f.values.get("--file") {
+        if ["--id", "--text", "--when", "--strength"]
+            .iter()
+            .any(|key| f.values.contains_key(key))
+        {
+            return Err("use --file or direct policy fields".into());
+        }
+        amh_project::read_document::<Policy>(Path::new(file))?
+    } else {
+        let strength = match f.values.get("--strength").copied().unwrap_or("must") {
+            "must" => PrincipleStrength::Must,
+            "should" => PrincipleStrength::Should,
+            "may" => PrincipleStrength::May,
+            _ => return Err("strength must be must, should or may".into()),
+        };
+        Policy {
+            item: ManagedItem::new_typed(
+                f.required("--id")?,
+                ItemKind::Principle,
+                scope,
+                f.required("--text")?,
+                ItemDetails::Principle {
+                    strength,
+                    activation: Activation::Always,
+                    verification: vec![],
+                },
+            )
+            .map_err(|e| format!("invalid policy: {e:?}"))?,
+            owner: "user".into(),
+            source: None,
+            priority: 0,
+            relations: Default::default(),
+            applicability: f.values.get("--when").map(|value| value.to_string()),
+        }
+    };
+    if policy.item.scope != scope {
+        return Err("new policy scope does not match the target registry".into());
     }
-    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+    if !matches!(policy.item.lifecycle, Lifecycle::Draft | Lifecycle::Active) {
+        return Err("new policy must be draft or active".into());
+    }
+    policy.item.lifecycle = if f.switches.contains("--draft") {
+        Lifecycle::Draft
+    } else {
+        Lifecycle::Active
+    };
+    let revision = home.registry(&target)?.revision();
+    change(home, &f, target, revision, PolicyChange::Add { policy })
+}
+
+fn policy_change(home: &Home, args: &[String]) -> Result<String, String> {
+    let (id, flags) = position(args);
+    let f = change_flags(
+        flags,
+        &["--file", "--text", "--when", "--item-revision"],
+        &["--activate", "--pause", "--reactivate", "--clear-condition"],
+    )?;
+    let operations = [
+        "--text",
+        "--when",
+        "--clear-condition",
+        "--activate",
+        "--pause",
+        "--reactivate",
+    ]
+    .into_iter()
+    .filter(|key| f.switches.contains(key) || f.values.contains_key(key))
+    .collect::<Vec<_>>();
+    let target = target(home, &f)?;
+    let registry: Registry = home.registry(&target)?;
+    let operation = if let Some(file) = f.values.get("--file") {
+        if id.is_some() || !operations.is_empty() || f.values.contains_key("--item-revision") {
+            return Err("use --file or a direct policy change".into());
+        }
+        let change: PolicyChange = amh_project::read_document(Path::new(file))?;
+        match change {
+            PolicyChange::Add { .. } => return Err("use policy add for ADD".into()),
+            PolicyChange::InstallPack { .. } => {
+                return Err("use pack install for INSTALL_PACK".into())
+            }
+            PolicyChange::Restore { .. } => return Err("use rollback for RESTORE".into()),
+            _ => change,
+        }
+    } else {
+        let id = id.ok_or("provide a policy ID or --file")?.to_owned();
+        let policy = registry
+            .policies()?
+            .into_iter()
+            .find(|p| p.item.id == id)
+            .ok_or_else(|| format!("unknown policy in the selected scope: {id}"))?;
+        let item_revision = f.number("--item-revision")?.unwrap_or(policy.item.revision);
+        match operations.as_slice() {
+            ["--text"] => PolicyChange::Modify {
+                id,
+                item_revision,
+                content: f.required("--text")?.into(),
+            },
+            ["--when"] => PolicyChange::SetApplicability {
+                id,
+                item_revision,
+                applicability: Some(f.required("--when")?.into()),
+            },
+            ["--clear-condition"] => PolicyChange::SetApplicability {
+                id,
+                item_revision,
+                applicability: None,
+            },
+            ["--activate"] => PolicyChange::Activate { id, item_revision },
+            ["--pause"] => PolicyChange::Pause { id, item_revision },
+            ["--reactivate"] => PolicyChange::Reactivate { id, item_revision },
+            _ => {
+                return Err("supply exactly one policy change; run amh policy change --help".into())
+            }
+        }
+    };
+    change(home, &f, target, registry.revision(), operation)
 }

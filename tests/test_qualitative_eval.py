@@ -178,19 +178,18 @@ class RunTests(unittest.TestCase):
         self.assertEqual(len(full['cases']), 36)
         self.assertTrue(all(Path(v['workspace']).is_dir() for v in full['cases'].values()))
 
-    def test_policy_analysis_stdin_is_captured_as_observed_protocol_input(self):
+    def test_policy_selection_stdin_is_captured_as_observed_protocol_input(self):
         item = self.item('S04')
         def call(args, data=None):
             r = subprocess.run([item['tool'], *args], cwd=item['workspace'], input=data, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
             return json.loads(r.stdout)
-        p = call(['policy', 'discover', '--text', 'Explain the current code.'])
-        response = {'format': 'amh.policy-analysis.v1', 'request': p['request'], 'request_digest': p['request_digest'],
-                    'catalog_digest': p['catalog_digest'], 'clarification_questions': [],
-                    'assessments': [{'id': c['id'], 'item_revision': c['item_revision'], 'applicability': 'no_match',
-                                     'reason': 'Infrastructure fixture', 'request_quotes': [p['request']]} for c in p['candidates']]}
+        discovery = call(['policy', 'discover'])
+        response = {'catalog_digest': discovery['catalog_digest'],
+                    'decisions': [{'id': c['id'], 'applicability': 'no_match'}
+                                  for c in discovery['candidates'] if c['strength'] == 'must']}
         handoff = json.dumps(response)
-        call(['policy', 'resolve', '--input', '-'], handoff)
+        call(['policy', 'read', '--selection'], handoff)
         audit = Path(item['private']) / 'audit'
         calls = [json.loads(x) for x in (audit / 'calls.jsonl').read_text().splitlines()]
         self.assertEqual(json.loads((audit / calls[-1]['stdin_file']).read_text()), json.loads(handoff))

@@ -1,6 +1,6 @@
 //! Policy storage and repository selection in the user's AMH home.
-use crate::{digest, resolve, Compilation, Event, Policy, PolicyChange, Registry, Result, Task};
-use amh_core::ItemScope;
+use crate::{digest, policy_lookup::eligible, Event, Policy, PolicyChange, Registry, Result};
+use amh_core::{ItemScope, Lifecycle};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -14,14 +14,13 @@ use std::{
 const CONFIG: &str = "config.toml";
 const USER_POLICIES: &str = "user/policies.toml";
 const CONFIG_FORMAT: &str = "amh.config.v1";
-const PLAN_FORMAT: &str = "amh.home-plan.v1";
+const PLAN_FORMAT: &str = "amh.home-plan.v2";
 
-pub const AGENT_GUIDANCE: &str = r#"For substantive work, follow the repository's shared instructions. Identify the intended work from the request, relevant conversation, and available project evidence. Ask only when missing information affects the work.
-If the amh CLI is available, run `amh policy discover --text 'VERBATIM REQUEST'` from the workspace before acting on new work or a change in scope.
-If discovery returns not_registered, continue with the ordinary project instructions.
-For a registered repository, assess every candidate using the current request and relevant conversation. When a condition is insufficient, retrieve that policy with `amh policy read --id ID --catalog-digest DIGEST`.
-Submit the JSON matching response_schema to `amh policy resolve --input -`. Apply the returned instructions. Resolve material ambiguity, stale policies, or declared conflicts before relying on an AMH selection.
-Keep protocol data in pipes or memory. Reuse still-relevant bodies during the same work and rediscover when scope, policy, or available context changes.
+pub const AGENT_GUIDANCE: &str = r#"For substantive work, follow the repository's shared instructions. Identify the work from the request, relevant conversation and project evidence. Ask the user directly when ambiguity matters.
+If AMH is available, run `amh policy discover` from the workspace before new work or a change in scope. If status is not_registered, proceed with the ordinary project instructions. If status is resolved, use the returned instructions.
+If status is ready, judge the conditions using the current work. Use `amh policy read ID --catalog-digest DIGEST` when a summary is insufficient. Treat explicit_only as requiring an explicit request. Treat activation tags as intent hints.
+Send one JSON object to `amh policy read --selection` on stdin, for example {"catalog_digest":"DIGEST","decisions":[{"id":"ID","applicability":"match"}]}. Report match, no_match or uncertain for every must candidate. Include optional candidates you select as match. Use the returned instructions. Resolve mandatory uncertainty and declared conflicts before relying on an AMH selection.
+Reuse relevant policy text during the same work. Refresh when policy, scope or available context changes.
 "#;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +105,8 @@ impl Target {
 pub enum Request {
     Register {
         binding: Project,
+        #[serde(default)]
+        new_project: bool,
     },
     Unregister {
         binding: Project,
@@ -130,6 +131,15 @@ pub struct Plan {
     pub request: Request,
     pub source_digest: String,
     pub files: Vec<String>,
+    pub policies: Vec<PolicyEffect>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyEffect {
+    pub id: String,
+    pub before: Option<Lifecycle>,
+    pub after: Option<Lifecycle>,
 }
 
 #[derive(Debug)]
@@ -395,11 +405,83 @@ impl Home {
         Ok(current)
     }
 
-    pub(crate) fn create_storage_dir(&self, path: &str) -> Result<PathBuf> {
-        let path = self.storage_path(path)?;
-        Self::require_private_location(&path)?;
-        create_private_dir(&path)?;
-        Ok(path)
+    pub fn project_id_for(root: &Path) -> Result<String> {
+        let name = root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("cannot infer a project ID; provide --id")?;
+        let id: String = name
+            .chars()
+            .map(|c| match c {
+                'a'..='z' | '0'..='9' | '-' | '_' => c,
+                'A'..='Z' => c.to_ascii_lowercase(),
+                _ => '-',
+            })
+            .collect();
+        if !valid_id(&id) || !id.bytes().any(|c| c.is_ascii_alphanumeric()) {
+            return Err("cannot infer a valid project ID; provide --id".into());
+        }
+        Ok(id)
+    }
+
+    // Compare before and after so older conflicting installations can be repaired.
+    fn check_new_collisions(
+        &self,
+        config: &Config,
+        target: &Target,
+        old: &[Policy],
+        new: &[Policy],
+    ) -> Result<()> {
+        let before: BTreeSet<_> = old
+            .iter()
+            .filter(|p| eligible(p))
+            .map(|p| &p.item.id)
+            .collect();
+        let introduced: BTreeSet<_> = new
+            .iter()
+            .filter(|p| eligible(p))
+            .map(|p| &p.item.id)
+            .filter(|id| !before.contains(id))
+            .collect();
+        if introduced.is_empty() {
+            return Ok(());
+        }
+        let check = |project: &str, other: &[Policy]| -> Result<()> {
+            if let Some(policy) = other
+                .iter()
+                .filter(|p| eligible(p))
+                .find(|p| introduced.contains(&p.item.id))
+            {
+                return Err(format!(
+                    "active policy {} would exist in both user and project {project} scopes",
+                    policy.item.id
+                ));
+            }
+            Ok(())
+        };
+        match target {
+            Target::User => {
+                let mut checked = BTreeSet::new();
+                for binding in &config.repositories {
+                    if checked.insert(&binding.project) {
+                        let local = self.read_registry(
+                            &Target::Project {
+                                binding: binding.clone(),
+                            },
+                            false,
+                        )?;
+                        check(&binding.project, &local.policies()?)?;
+                    }
+                }
+            }
+            Target::Project { binding } => {
+                check(
+                    &binding.project,
+                    &self.read_registry(&Target::User, false)?.policies()?,
+                )?;
+            }
+        }
+        Ok(())
     }
 
     pub fn plan(&self, request: Request) -> Result<Plan> {
@@ -408,12 +490,15 @@ impl Home {
 
     fn prepare(&self, request: Request) -> Result<(Plan, Vec<(String, String)>)> {
         Self::require_private_location(&self.path)?;
-        let config_source = self.read(CONFIG)?;
-        let mut config = self.decode_config(config_source.as_deref())?;
-        let mut inputs = vec![config_source];
+        let mut config = self.config()?;
+        let mut inputs = vec![];
         let mut writes = vec![];
+        let mut policies = vec![];
         match &request {
-            Request::Register { binding } => {
+            Request::Register {
+                binding,
+                new_project,
+            } => {
                 check_id(&binding.project)?;
                 self.outside(&binding.root)?;
                 if git_root(&binding.root)?.as_ref() != Some(&binding.root) {
@@ -434,7 +519,15 @@ impl Home {
                     .repositories
                     .iter()
                     .any(|p| p.project == binding.project);
+                if *new_project && (already_known || before.is_some()) {
+                    return Err(format!(
+                        "project ID {} already exists; use --id explicitly to share it or choose another ID",
+                        binding.project
+                    ));
+                }
                 let registry = Self::decode_registry(&target, before.as_deref(), !already_known)?;
+                self.check_new_collisions(&config, &target, &[], &registry.policies()?)?;
+                inputs.push(existing.map(to_toml).transpose()?);
                 if before.is_none() {
                     writes.push((path, to_toml(&registry)?));
                 }
@@ -452,6 +545,7 @@ impl Home {
                 if config.repositories.len() == previous_count {
                     return Err("repository registration no longer exists".into());
                 }
+                inputs.push(Some(to_toml(binding)?));
                 writes.push((CONFIG.into(), to_toml(&config)?));
             }
             Request::Change {
@@ -463,12 +557,14 @@ impl Home {
                 let path = target.registry_path();
                 self.validate_target(target)?;
                 let before = self.read(&path)?;
-                let next = Self::decode_registry(target, before.as_deref(), false)?.changed(
-                    *expected_revision,
-                    reason.clone(),
-                    change.as_ref().clone(),
-                )?;
+                let current = Self::decode_registry(target, before.as_deref(), false)?;
+                let next =
+                    current.changed(*expected_revision, reason.clone(), change.as_ref().clone())?;
                 target.validate(&next)?;
+                let old = current.policies()?;
+                let new = next.policies()?;
+                self.check_new_collisions(&config, target, &old, &new)?;
+                policies = policy_effects(&old, &new);
                 inputs.push(before);
                 writes.push((path, to_toml(&next)?));
             }
@@ -486,6 +582,9 @@ impl Home {
                                 .into(),
                         );
                     }
+                    let new = registry.policies()?;
+                    self.check_new_collisions(&config, target, &[], &new)?;
+                    policies = policy_effects(&[], &new);
                     writes.push((path, to_toml(registry)?));
                 }
             }
@@ -496,6 +595,7 @@ impl Home {
             request,
             source_digest: digest(&serde_json::to_vec(&inputs).map_err(|e| e.to_string())?),
             files: writes.iter().map(|(path, _)| path.clone()).collect(),
+            policies,
         };
         Ok((plan, writes))
     }
@@ -566,6 +666,23 @@ impl Home {
     }
 }
 
+fn policy_effects(old: &[Policy], new: &[Policy]) -> Vec<PolicyEffect> {
+    let old: BTreeMap<_, _> = old.iter().map(|p| (&p.item.id, p)).collect();
+    let new: BTreeMap<_, _> = new.iter().map(|p| (&p.item.id, p)).collect();
+    let ids: BTreeSet<_> = old.keys().chain(new.keys()).copied().collect();
+    ids.into_iter()
+        .filter_map(|id| {
+            let before = old.get(id);
+            let after = new.get(id);
+            (before != after).then(|| PolicyEffect {
+                id: id.clone(),
+                before: before.map(|p| p.item.lifecycle),
+                after: after.map(|p| p.item.lifecycle),
+            })
+        })
+        .collect()
+}
+
 fn create_private_dir(path: &Path) -> Result<()> {
     let mut builder = fs::DirBuilder::new();
     builder.recursive(true);
@@ -593,24 +710,17 @@ pub fn import_registry(file: &Path, target: &Target) -> Result<Registry> {
         events: Vec<Event>,
     }
     let source: PreviousRegistry = read_document(file)?;
-    if source.format != "amh.project-registry.v1" || source.project_id.trim().is_empty() {
-        return Err("expected a previous AMH project registry".into());
+    if !matches!(
+        source.format.as_str(),
+        "amh.project-registry.v1" | "amh.policy-registry.v1"
+    ) || source.project_id.trim().is_empty()
+    {
+        return Err("expected an AMH policy registry".into());
     }
     let mut registry = Registry::new(target.registry_id().into())?;
     registry.events = source.events;
     target.validate(&registry)?;
     Ok(registry)
-}
-
-pub fn compile(
-    home: &Home,
-    binding: &Project,
-    task: &Task,
-    budget: Option<usize>,
-) -> Result<Compilation> {
-    let entries = home.policies(binding)?;
-    crate::natural::validate_interpreted_task(binding, &entries, task)?;
-    resolve(&entries, task, budget)
 }
 
 pub fn read_document<T: serde::de::DeserializeOwned>(file: &Path) -> Result<T> {

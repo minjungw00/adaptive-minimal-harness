@@ -76,10 +76,8 @@ def product_files(root):
 def seed(amh, root, case, scratch, home):
     subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
     invoke(amh, root, home, 'project', 'add', '--id', 'workspace', '--apply')
-    revision = 0
     for pack in case.get('packs', []):
-        invoke(amh, root, home, 'pack', 'install', '--name', pack, '--expected-revision', str(revision), '--reason', 'Install selected project methods', '--apply')
-        revision += 1
+        invoke(amh, root, home, 'pack', 'install', pack, '--reason', 'Install selected project methods', '--apply')
     policies = list(case.get('policies', []))
     for i, goal in enumerate(case.get('goals', [])):
         policies.append({'owner': 'user', 'source': 'Accepted project goal', 'priority': 0,
@@ -88,19 +86,11 @@ def seed(amh, root, case, scratch, home):
     for policy in policies:
         source = scratch / 'policy.json'
         write_json(source, policy)
-        invoke(amh, root, home, 'policy', 'add', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Register accepted project condition', '--apply')
-        revision += 1
-        write_json(source, {'operation': 'ACTIVATE', 'id': policy['item']['id'], 'item_revision': 1})
-        invoke(amh, root, home, 'policy', 'change', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Activate accepted condition', '--apply')
-        revision += 1
+        invoke(amh, root, home, 'policy', 'add', '--file', str(source), '--reason', 'Register accepted project condition', '--apply')
     if task := case.get('current_task'):
         write_json(root / 'saved-tasks' / (task['id'] + '.json'), task)
     for id in case.get('pause', []):
-        current = invoke(amh, root, home, 'policy', 'list')
-        policy = next(p for p in current['policies'] if p['item']['id'] == id)
-        write_json(scratch / 'policy.json', {'operation': 'PAUSE', 'id': id, 'item_revision': policy['item']['revision']})
-        invoke(amh, root, home, 'policy', 'change', '--file', str(scratch / 'policy.json'), '--expected-revision', str(revision), '--reason', 'Pause a user-selected method', '--apply')
-        revision += 1
+        invoke(amh, root, home, 'policy', 'change', id, '--pause', '--reason', 'Pause a user-selected method', '--apply')
 
 
 def make_tool(directory, amh, audit, home):
@@ -116,10 +106,9 @@ audit=pathlib.Path({str(audit)!r})
 id=uuid.uuid4().hex
 started=time.time_ns()
 args=sys.argv[1:]
-if '--agent' in args or '--agent-config' in args:
-    sys.stderr.write('This environment supports the current-agent path only.\\n')
-    raise SystemExit(2)
-stdin_data=sys.stdin.buffer.read() if any(args[i:i+2]==['--input','-'] for i in range(len(args)-1)) else None
+reads_selection=args[:2]==['policy','read'] and '--selection' in args
+reads_plan=args[:1]==['apply'] and (args[1:]==['--plan','-'] or args[1:]==['--plan=-'])
+stdin_data=sys.stdin.buffer.read() if reads_selection or reads_plan else None
 r=subprocess.run([real,*args],input=stdin_data,capture_output=True,timeout=300,env={{**os.environ,'AMH_HOME':{str(home)!r}}})
 (audit/(id+'.stdout')).write_bytes(r.stdout)
 (audit/(id+'.stderr')).write_bytes(r.stderr)
@@ -158,7 +147,7 @@ def prepare(amh, suite_path, out, case_ids=None):
         seed(amh, root, case, private, home)
         tool = make_tool(directory / 'bin', amh, private / 'audit', home)
         guidance = subprocess.check_output([str(amh), 'agent', 'instructions'], text=True, encoding='utf-8')
-        initial = {'request': case['request'], 'files': product_files(root), 'policies': invoke(amh, root, home, 'policy', 'list'),
+        initial = {'request': case['request'], 'files': product_files(root), 'policies': invoke(amh, root, home, 'policy', 'list', '--full'),
                    'agent_instructions': guidance, 'instruction_source': 'simulated_user_global_settings'}
         write_json(private / 'initial.json', initial)
         write_json(directory / 'assignment.json', {'request': case['request'], 'workspace': str(root), 'amh': str(tool)})

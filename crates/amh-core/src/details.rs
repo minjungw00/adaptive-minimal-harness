@@ -46,6 +46,7 @@ pub enum ItemDetails {
     Principle {
         strength: PrincipleStrength,
         activation: Activation,
+        #[serde(default)]
         verification: Vec<String>,
     },
     Requirement {
@@ -83,15 +84,15 @@ impl ItemDetails {
         let valid = match self {
             Self::Goal { success_criteria } => complete(success_criteria, true),
             Self::Principle {
-                strength,
                 activation,
                 verification,
+                ..
             } => {
                 let activation_valid = match activation {
                     Activation::Always | Activation::ExplicitOnly => true,
                     Activation::OnTags { any } => complete(any, true),
                 };
-                activation_valid && complete(verification, *strength == PrincipleStrength::Must)
+                activation_valid && complete(verification, false)
             }
             Self::Requirement {
                 acceptance_criteria,

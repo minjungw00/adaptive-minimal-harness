@@ -159,10 +159,6 @@
       "current_task": {
         "id": "WORK-1",
         "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
-        "tags": [
-          "document.revision"
-        ],
-        "classification_complete": true,
         "done_when": [
           "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
           "The existing greeting behavior is preserved"
@@ -367,10 +363,6 @@
       "current_task": {
         "id": "WORK-1",
         "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
-        "tags": [
-          "document.revision"
-        ],
-        "classification_complete": true,
         "done_when": [
           "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
           "The existing greeting behavior is preserved"
@@ -1092,10 +1084,6 @@
       "current_task": {
         "id": "WORK-1",
         "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
-        "tags": [
-          "document.revision"
-        ],
-        "classification_complete": true,
         "done_when": [
           "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
           "The existing greeting behavior is preserved"
@@ -1642,10 +1630,6 @@
       "current_task": {
         "id": "WORK-1",
         "goal": "Complete the Usage section of README.md with a correct greet example; preserve greeter.py behavior.",
-        "tags": [
-          "document.revision"
-        ],
-        "classification_complete": true,
         "done_when": [
           "README.md includes a usage example for greet(\"Ada\") and the exact result Hello, Ada!",
           "The existing greeting behavior is preserved"

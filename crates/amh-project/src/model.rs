@@ -137,6 +137,50 @@ pub enum PolicyChange {
     },
 }
 
+impl PolicyChange {
+    pub fn operation(&self) -> &'static str {
+        match self {
+            Self::Add { .. } => "add",
+            Self::Modify { .. } => "modify",
+            Self::SetDetails { .. } => "set_details",
+            Self::SetMetadata { .. } => "set_metadata",
+            Self::SetApplicability { .. } => "set_applicability",
+            Self::Replace { .. } => "replace",
+            Self::Remove { .. } => "remove",
+            Self::Reprioritize { .. } => "reprioritize",
+            Self::Activate { .. } => "activate",
+            Self::Pause { .. } => "pause",
+            Self::Reactivate { .. } => "reactivate",
+            Self::Retire { .. } => "retire",
+            Self::InstallPack { .. } => "install_pack",
+            Self::Restore { .. } => "restore",
+        }
+    }
+
+    pub fn policy_ids(&self) -> Vec<&str> {
+        match self {
+            Self::Add { policy } => vec![&policy.item.id],
+            Self::Replace {
+                id, replacement, ..
+            } => vec![id, &replacement.item.id],
+            Self::Modify { id, .. }
+            | Self::SetDetails { id, .. }
+            | Self::SetMetadata { id, .. }
+            | Self::SetApplicability { id, .. }
+            | Self::Remove { id, .. }
+            | Self::Reprioritize { id, .. }
+            | Self::Activate { id, .. }
+            | Self::Pause { id, .. }
+            | Self::Reactivate { id, .. }
+            | Self::Retire { id, .. } => vec![id],
+            Self::InstallPack { pack } => {
+                pack.policies.iter().map(|p| p.item.id.as_str()).collect()
+            }
+            Self::Restore { .. } => vec![],
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
@@ -250,11 +294,13 @@ fn add(
         return Err("persisted task policies require explicit applies_to task IDs".into());
     }
     if policy.item.revision != 1
-        || policy.item.lifecycle != Lifecycle::Draft
+        || !matches!(policy.item.lifecycle, Lifecycle::Draft | Lifecycle::Active)
         || policy.item.replaces.is_some()
         || !seen.insert(policy.item.id.clone())
     {
-        return Err("ADD requires a fresh, unique draft identity at item revision 1".into());
+        return Err(
+            "ADD requires a fresh, unique draft or active identity at item revision 1".into(),
+        );
     }
     items.insert(policy.item.id.clone(), policy.clone());
     Ok(())
@@ -357,8 +403,9 @@ fn reduce(
             if old.item.lifecycle != Lifecycle::Active
                 || old.item.kind != replacement.item.kind
                 || old.item.scope != replacement.item.scope
+                || replacement.item.lifecycle != Lifecycle::Draft
             {
-                return Err("REPLACE requires compatible kind/scope and an active original".into());
+                return Err("REPLACE requires an active original and a new draft of compatible kind and scope".into());
             }
             old.item.lifecycle = Lifecycle::Superseded;
             add(items, seen, replacement)?;
@@ -399,6 +446,9 @@ fn reduce(
             }
             for entry in &pack.policies {
                 let mut entry = entry.clone();
+                if entry.item.lifecycle != Lifecycle::Draft {
+                    return Err("pack policies must start as drafts".into());
+                }
                 entry.source = Some(format!("pack:{}@{}", pack.id, pack.version));
                 add(items, seen, &entry)?;
                 status(
@@ -413,68 +463,6 @@ fn reduce(
         PolicyChange::Restore { .. } => unreachable!("handled by registry replay"),
     }
     Ok(())
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Task {
-    pub id: String,
-    pub goal: String,
-    pub tags: Vec<String>,
-    /// Set only after the caller has explicitly classified the task. Unmatched
-    /// mandatory tag policies are otherwise uncertain, not silently irrelevant.
-    pub classification_complete: bool,
-    pub done_when: Vec<String>,
-    pub allowed_paths: Vec<String>,
-    pub stop_when: Vec<String>,
-    pub outputs: Vec<String>,
-    pub explicit_policies: Vec<String>,
-    pub items: Vec<Policy>,
-    pub checks: Vec<Check>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interpretation: Option<crate::RequestInterpretation>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Check {
-    pub id: String,
-    pub argv: Vec<String>,
-    pub timeout_seconds: u64,
-    #[serde(default)]
-    pub expected_exit_code: i32,
-}
-
-impl Task {
-    pub fn validate(&self) -> Result<()> {
-        if self.id.trim().is_empty()
-            || self.goal.trim().is_empty()
-            || self.done_when.is_empty()
-            || self.done_when.iter().any(|v| v.trim().is_empty())
-        {
-            return Err("task requires ID, goal and nonempty completion criteria".into());
-        }
-        let mut ids = BTreeSet::new();
-        for check in &self.checks {
-            if check.id.trim().is_empty()
-                || !ids.insert(&check.id)
-                || check.argv.is_empty()
-                || check.argv[0].trim().is_empty()
-                || !(1..=300).contains(&check.timeout_seconds)
-            {
-                return Err(
-                    "checks require unique IDs, argv and timeout between 1 and 300 seconds".into(),
-                );
-            }
-        }
-        for item in &self.items {
-            item.validate()?;
-            if item.item.scope != amh_core::ItemScope::Task {
-                return Err("inline task items require task scope".into());
-            }
-        }
-        Ok(())
-    }
 }
 
 pub fn builtin_pack(id: &str) -> Result<Pack> {

@@ -4,11 +4,8 @@ version = "0.0.0"
 edition.workspace = true
 publish = false
 
-[features]
-default = []
-signed-approvals = ["dep:ed25519-dalek"]
-
 [dependencies]
-ed25519-dalek = { version = "3", optional = true }
 serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
 serde_json = "1"

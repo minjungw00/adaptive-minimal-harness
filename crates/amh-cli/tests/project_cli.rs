@@ -56,212 +56,6 @@ fn example(file: &str) -> String {
         .into_owned()
 }
 
-#[test]
-fn reviewed_cli_workflow_preserves_requirements_and_removes_paused_instructions() {
-    let f = Fixture::new();
-    fs::write(f.0.join("AGENTS.md"), "User instructions without newline").unwrap();
-    let p = f.ok(&["project", "add", "--id", "report"]);
-    assert!(!f.1.exists());
-    let plan = f.2.join("plan.json");
-    fs::write(&plan, serde_json::to_vec(&p).unwrap()).unwrap();
-    f.ok(&["apply", "--plan", plan.to_str().unwrap()]);
-    f.ok(&[
-        "pack",
-        "install",
-        "--name",
-        "inquiry",
-        "--expected-revision",
-        "0",
-        "--reason",
-        "Use writing principles",
-        "--apply",
-    ]);
-    f.ok(&[
-        "policy",
-        "add",
-        "--file",
-        &example("requirement.toml"),
-        "--expected-revision",
-        "1",
-        "--reason",
-        "Keep cost analysis",
-        "--apply",
-    ]);
-    f.ok(&[
-        "policy",
-        "change",
-        "--file",
-        &example("activate-requirement.json"),
-        "--expected-revision",
-        "2",
-        "--reason",
-        "Activate accepted requirement",
-        "--apply",
-    ]);
-    let c = f.ok(&["compile", "--task", &example("writing.toml")]);
-    assert_eq!(c["selected"], json!(["P-WRITING", "R-COST"]));
-    f.ok(&[
-        "policy",
-        "change",
-        "--file",
-        &example("pause-writing.json"),
-        "--expected-revision",
-        "3",
-        "--reason",
-        "Pause the writing method",
-        "--apply",
-    ]);
-    let paused = f.ok(&["compile", "--task", &example("writing.toml")]);
-    let deployed = paused["content"].as_str().unwrap();
-    assert!(!deployed.contains("P-WRITING"));
-    assert!(deployed.contains("R-COST"));
-    assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 4);
-    f.ok(&["project", "remove", "--apply"]);
-    assert_eq!(
-        fs::read_to_string(f.0.join("AGENTS.md")).unwrap(),
-        "User instructions without newline"
-    );
-    assert!(f.1.join("projects/report/policies.toml").exists());
-    assert!(!f.0.join(".amh").exists());
-}
-
-#[test]
-fn verification_requires_explicit_execution_and_returns_failure_exit_status() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--id", "checks", "--apply"]);
-    let mut task = json!({"id":"T-CHECK", "goal":"Check the installed CLI", "classification_complete":true, "done_when":["CLI responds"], "checks":[{"id":"version", "argv":[env!("CARGO_BIN_EXE_amh"), "--version"], "timeout_seconds":10}]});
-    fs::write(f.0.join("task.json"), serde_json::to_vec(&task).unwrap()).unwrap();
-    assert_eq!(
-        f.ok(&["verify", "--task", "task.json"])["checks"][0]["status"],
-        "not_run"
-    );
-    assert!(!f.1.join("projects/checks/evidence").exists());
-    let evidence = f.ok(&["verify", "--task", "task.json", "--run"]);
-    assert_eq!(evidence["all_checks_passed"], true);
-    assert_eq!(evidence["policy_compliance"], "unknown");
-    task["checks"][0]["argv"][1] = "--invalid-command".into();
-    fs::write(f.0.join("task.json"), serde_json::to_vec(&task).unwrap()).unwrap();
-    let failed = f.run(&["verify", "--task", "task.json", "--run"]);
-    assert!(!failed.status.success());
-    let evidence: Value = serde_json::from_slice(&failed.stderr).unwrap();
-    assert_eq!(evidence["all_checks_passed"], false);
-    let path = PathBuf::from(evidence["file"].as_str().unwrap());
-    assert!(path.starts_with(
-        fs::canonicalize(&f.1)
-            .unwrap()
-            .join("projects/checks/evidence")
-    ));
-    assert!(path.exists());
-    assert!(!f.0.join(".amh").exists());
-}
-
-#[test]
-fn unknown_options_and_incomplete_contracts_fail_without_mutation() {
-    let f = Fixture::new();
-    assert!(!f
-        .run(&["project", "add", "--id", "one", "--id", "two", "--apply"])
-        .status
-        .success());
-    assert!(!f.0.join(".amh").exists());
-    f.ok(&["project", "add", "--id", "one", "--apply"]);
-    fs::write(f.0.join("task.json"), r#"{"id":"T","goal":"Vague"}"#).unwrap();
-    assert!(!f.run(&["compile", "--task", "task.json"]).status.success());
-    assert!(!f.0.join(".amh").exists());
-}
-
-fn natural_analysis(packet: &Value, selected: &[&str]) -> Value {
-    json!({"format":"amh.request-analysis.v1","request_digest":packet["request_digest"],"catalog_digest":packet["catalog_digest"],"done_when":["The user's requested document change is complete"],"assessments":packet["candidates"].as_array().unwrap().iter().map(|p|json!({"id":p["id"],"item_revision":p["item_revision"],"applicability":if selected.contains(&p["id"].as_str().unwrap()){"match"}else{"no_match"},"reason":"This request does or does not satisfy the stated natural-language condition","request_quotes":[packet["request"]]})).collect::<Vec<_>>(),"clarification_questions":[]})
-}
-#[test]
-fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--id", "natural", "--apply"]);
-    f.ok(&[
-        "pack",
-        "install",
-        "--name",
-        "inquiry",
-        "--expected-revision",
-        "0",
-        "--reason",
-        "Use inquiry methods",
-        "--apply",
-    ]);
-    let request = "기존 보고서의 논지를 유지하면서 결론 문단을 더 명확하게 다듬어 주세요.";
-    fs::write(f.0.join("request.txt"), request).unwrap();
-    let packet = f.ok(&["request", "--request-file", "request.txt"]);
-    assert_eq!(packet["request"], request);
-    assert!(!f
-        .run(&["request", "--text", request, "--apply"])
-        .status
-        .success());
-    let analysis = natural_analysis(&packet, &["P-WRITING"]);
-    fs::write(
-        f.0.join("packet.json"),
-        serde_json::to_vec(&packet).unwrap(),
-    )
-    .unwrap();
-    fs::write(
-        f.0.join("analysis.json"),
-        serde_json::to_vec(&analysis).unwrap(),
-    )
-    .unwrap();
-    let preview = f.ok(&[
-        "request",
-        "finish",
-        "--packet",
-        "packet.json",
-        "--analysis",
-        "analysis.json",
-    ]);
-    assert_eq!(preview["tags"], json!([]));
-    fs::write(f.0.join("task.json"), serde_json::to_vec(&preview).unwrap()).unwrap();
-    let compiled = f.ok(&["compile", "--task", "task.json"]);
-    assert_eq!(compiled["selected"], json!(["P-WRITING"]));
-    assert!(!f.0.join("AGENTS.md").exists());
-    assert!(!f.0.join(".amh").exists());
-}
-#[test]
-fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--id", "one-shot", "--apply"]);
-    f.ok(&[
-        "pack",
-        "install",
-        "--name",
-        "inquiry",
-        "--expected-revision",
-        "0",
-        "--reason",
-        "Use writing policy",
-        "--apply",
-    ]);
-    let text = "보고서의 결론을 간결하고 명확하게 수정하세요.";
-    let packet = f.ok(&["request", "--text", text]);
-    fs::write(
-        f.0.join("reply.json"),
-        serde_json::to_vec(&natural_analysis(&packet, &["P-WRITING"])).unwrap(),
-    )
-    .unwrap();
-    let binary = f.0.join(if cfg!(windows) { "agent.exe" } else { "agent" });
-    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../amh-project/tests/fixtures/interpreter.rs");
-    assert!(Command::new("rustc")
-        .arg(source)
-        .args(["--edition", "2021"])
-        .arg("-o")
-        .arg(&binary)
-        .status()
-        .unwrap()
-        .success());
-    let config = json!({"adapter":"stdio","argv":[binary,"reply",f.0.join("reply.json"),f.0.join("captured.json")],"timeout_seconds":10});
-    fs::write(f.0.join("agent.json"), serde_json::to_vec(&config).unwrap()).unwrap();
-    let result = f.ok(&["request", "--text", text, "--agent-config", "agent.json"]);
-    assert_eq!(result["goal"], text);
-    assert!(!f.0.join(".amh").exists());
-    assert_eq!(f.ok(&["policy", "list"])["revision"], 1); // Interpreting work cannot mutate policy authority.
-}
-
 impl Fixture {
     fn stdin(&self, args: &[&str], value: &Value) -> Output {
         use std::io::Write;
@@ -284,129 +78,6 @@ impl Fixture {
         child.wait_with_output().unwrap()
     }
 }
-
-fn policy_analysis(packet: &Value, selected: &[&str]) -> Value {
-    let assessments: Vec<_> = packet["candidates"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|policy| {
-            let id = policy["id"].as_str().unwrap();
-            let applicability = if selected.contains(&id) {
-                "match"
-            } else {
-                "no_match"
-            };
-            json!({
-                "id": id, "item_revision": policy["item_revision"], "applicability": applicability,
-                "reason": "Compare the requested work to the applicability condition",
-                "request_quotes": [packet["request"]]
-            })
-        })
-        .collect();
-    json!({
-        "format": "amh.policy-analysis.v1", "request": packet["request"],
-        "request_digest": packet["request_digest"], "catalog_digest": packet["catalog_digest"],
-        "assessments": assessments, "clarification_questions": []
-    })
-}
-
-#[test]
-fn stateless_cli_reads_selected_bodies_and_leaves_no_request_artifacts() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--id", "project", "--apply"]);
-    f.ok(&[
-        "pack",
-        "install",
-        "--name",
-        "development",
-        "--expected-revision",
-        "0",
-        "--reason",
-        "Use development policies",
-        "--apply",
-    ]);
-    let path = f.1.join("projects/project/policies.toml");
-    let registry = fs::read(&path).unwrap();
-    let inventory = fs::read_dir(&f.0).unwrap().count();
-    assert!(!f.run(&["session", "open"]).status.success());
-
-    let first = f.ok(&["policy", "discover", "--text", "이 오류를 고쳐줘."]);
-    let candidates = first["candidates"].as_array().unwrap();
-    assert!(!candidates.is_empty());
-    assert!(candidates
-        .iter()
-        .all(|candidate| candidate.get("content").is_none()));
-    let catalogue = first["catalog_digest"].as_str().unwrap();
-    let body = f.ok(&[
-        "policy",
-        "read",
-        "--id",
-        "P-DEBUG",
-        "--catalog-digest",
-        catalogue,
-    ]);
-    assert!(body["item"]["content"]
-        .as_str()
-        .unwrap()
-        .contains("Reproduce the failure"));
-    let outcome = f.stdin(
-        &["policy", "resolve", "--input", "-"],
-        &policy_analysis(&first, &["P-DEBUG", "P-REGRESSION"]),
-    );
-    assert!(
-        outcome.status.success(),
-        "{}",
-        String::from_utf8_lossy(&outcome.stderr)
-    );
-    let first_result: Value = serde_json::from_slice(&outcome.stdout).unwrap();
-    assert_eq!(first_result["selected"], json!(["P-DEBUG", "P-REGRESSION"]));
-    let instructions = first_result["instructions"].as_str().unwrap();
-    assert!(instructions.contains("Reproduce the failure"));
-    assert!(instructions.contains("Add a regression check"));
-    assert!(!instructions.contains("P-MUTATION"));
-
-    let second = f.ok(&["policy", "discover", "--text", "수정 이유를 설명해줘."]);
-    let outcome = f.stdin(
-        &["policy", "resolve", "--input", "-"],
-        &policy_analysis(&second, &[]),
-    );
-    assert!(
-        outcome.status.success(),
-        "{}",
-        String::from_utf8_lossy(&outcome.stderr)
-    );
-    let second_result: Value = serde_json::from_slice(&outcome.stdout).unwrap();
-    assert_eq!(second_result["selected"], json!([]));
-    assert_eq!(second_result["instructions"], "");
-    assert_eq!(fs::read(path).unwrap(), registry);
-    assert_eq!(fs::read_dir(&f.0).unwrap().count(), inventory);
-    assert!(!f.0.join(".amh").exists());
-    assert!(!f.0.join("AGENTS.md").exists());
-}
-
-#[test]
-fn stateless_cli_reports_clarification_without_writing() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--id", "project", "--apply"]);
-    let old_state = f.0.join(".amh/sessions/old/state.json");
-    fs::create_dir_all(old_state.parent().unwrap()).unwrap();
-    fs::write(&old_state, "older user data").unwrap();
-    let packet = f.ok(&["policy", "discover", "--text", "작업을 진행해"]);
-    let mut analysis = policy_analysis(&packet, &[]);
-    analysis["clarification_questions"] = json!(["어떤 작업을 진행할까요?"]);
-    let outcome = f.stdin(&["policy", "resolve", "--input", "-"], &analysis);
-    assert!(!outcome.status.success());
-    let block: Value = serde_json::from_slice(&outcome.stderr).unwrap();
-    assert_eq!(block["status"], "clarification_required");
-    assert_eq!(
-        block["clarification_questions"],
-        analysis["clarification_questions"]
-    );
-    assert_eq!(block["selected"], json!([]));
-    assert_eq!(fs::read_to_string(old_state).unwrap(), "older user data");
-}
-
 #[test]
 fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
     let f = Fixture::new();
@@ -455,15 +126,11 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
         "--porcelain",
         "--untracked-files=all",
     ]);
-    assert_eq!(
-        f.ok(&["policy", "discover", "--text", "Fix this"])["status"],
-        "not_registered"
-    );
+    assert_eq!(f.ok(&["policy", "discover"])["status"], "not_registered");
     assert!(!f.1.exists());
     f.ok(&[
         "pack",
         "install",
-        "--name",
         "development",
         "--scope",
         "user",
@@ -482,14 +149,7 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
         "code",
         "--apply",
     ]);
-    let project = f.ok(&[
-        "policy",
-        "discover",
-        "--root",
-        subdirectory,
-        "--text",
-        "Fix this",
-    ]);
+    let project = f.ok(&["policy", "discover", "--root", subdirectory]);
     assert_eq!(project["status"], "ready");
     assert!(project["candidates"]
         .as_array()
@@ -497,18 +157,18 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
         .iter()
         .any(|c| c["id"] == "P-DEBUG" && c["scope"] == "user"));
     assert_eq!(
-        f.ok(&["policy", "discover", "--root", alias, "--text", "Fix this"])["status"],
+        f.ok(&["policy", "discover", "--root", alias])["status"],
         "not_registered"
     );
     f.ok(&["project", "add", "--root", alias, "--id", "code", "--apply"]);
-    let second = f.ok(&["policy", "discover", "--root", alias, "--text", "Fix this"]);
+    let second = f.ok(&["policy", "discover", "--root", alias]);
     assert_eq!(second["candidates"], project["candidates"]);
     assert_ne!(second["catalog_digest"], project["catalog_digest"]);
     f.ok(&["project", "remove", "--root", alias, "--apply"]);
     assert!(!f
         .stdin(
-            &["policy", "resolve", "--root", alias, "--input", "-"],
-            &policy_analysis(&second, &[])
+            &["policy", "read", "--root", alias, "--selection"],
+            &selection(&second, &[])
         )
         .status
         .success());
@@ -533,7 +193,6 @@ fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
     f.ok(&[
         "pack",
         "install",
-        "--name",
         "inquiry",
         "--expected-revision",
         "0",
@@ -541,7 +200,7 @@ fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
         "Original reason",
         "--apply",
     ]);
-    let original = f.ok(&["history"]);
+    let original = f.ok(&["history", "--full"]);
     let mut source = fs::read_to_string(f.1.join("projects/source/policies.toml")).unwrap();
     source = source.replace("amh.policy-registry.v1", "amh.project-registry.v1");
     source = source.replace(
@@ -555,10 +214,7 @@ fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
     let agents = f.0.join("AGENTS.md");
     fs::write(&agents, "User content").unwrap();
     f.ok(&["project", "remove", "--apply"]);
-    assert_eq!(
-        f.ok(&["policy", "discover", "--text", "Check policy"])["status"],
-        "not_registered"
-    );
+    assert_eq!(f.ok(&["policy", "discover"])["status"], "not_registered");
     f.ok(&["project", "add", "--id", "destination", "--apply"]);
     f.ok(&[
         "policy",
@@ -567,7 +223,7 @@ fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
         old.to_str().unwrap(),
         "--apply",
     ]);
-    let imported = f.ok(&["history"]);
+    let imported = f.ok(&["history", "--full"]);
     assert_eq!(imported["events"], original["events"]);
     assert_eq!(imported["project_id"], "destination");
     fs::write(&old, source.replace("Original reason", "Changed source")).unwrap();
@@ -582,7 +238,215 @@ fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
         ])
         .status
         .success());
-    assert_eq!(f.ok(&["history"])["events"], original["events"]);
+    assert_eq!(f.ok(&["history", "--full"])["events"], original["events"]);
     assert_eq!(fs::read(&old).unwrap(), edited);
+    let exported = f.2.join("current-registry.json");
+    fs::write(&exported, serde_json::to_vec(&imported).unwrap()).unwrap();
+    f.ok(&["project", "remove", "--apply"]);
+    f.ok(&["project", "add", "--id", "restored", "--apply"]);
+    f.ok(&[
+        "policy",
+        "import",
+        "--file",
+        exported.to_str().unwrap(),
+        "--apply",
+    ]);
+    assert_eq!(f.ok(&["history", "--full"])["events"], original["events"]);
     assert_eq!(fs::read_to_string(agents).unwrap(), "User content");
+}
+
+fn selection(discovery: &Value, decisions: &[(&str, &str)]) -> Value {
+    json!({
+        "catalog_digest": discovery["catalog_digest"],
+        "decisions": decisions.iter()
+            .map(|(id, applicability)| json!({"id": id, "applicability": applicability}))
+            .collect::<Vec<_>>()
+    })
+}
+
+fn delivered(f: &Fixture, value: &Value) -> Value {
+    let output = f.stdin(&["policy", "read", "--selection"], value);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+#[test]
+fn user_setup_and_delivery_use_no_task_or_request_files() {
+    let f = Fixture::new();
+    fs::write(f.0.join("AGENTS.md"), "User instructions without newline").unwrap();
+    assert_eq!(f.ok(&["project", "add"])["status"], "preview");
+    assert!(!f.1.exists());
+    let plan = f.ok(&["project", "add", "--plan"]);
+    assert_eq!(f.ok(&["project", "list"])["repositories"], json!([]));
+    let output = f.stdin(&["apply", "--plan", "-"], &plan);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        f.ok(&["project", "list"])["repositories"][0]["project"],
+        "repo"
+    );
+
+    f.ok(&[
+        "policy",
+        "add",
+        "--file",
+        &example("requirement.toml"),
+        "--apply",
+    ]);
+    let immediate = f.ok(&["policy", "discover"]);
+    assert_eq!(immediate["status"], "resolved");
+    assert_eq!(immediate["selected"], json!(["R-COST"]));
+    f.ok(&[
+        "policy",
+        "add",
+        "--id",
+        "P-WRITING",
+        "--text",
+        "Use direct writing.",
+        "--when",
+        "Editing reports",
+        "--strength",
+        "should",
+        "--apply",
+    ]);
+    let discovery = f.ok(&["policy", "discover"]);
+    assert_eq!(discovery["status"], "ready");
+    assert!(discovery.get("request").is_none());
+    assert!(discovery.get("response_schema").is_none());
+    assert_eq!(discovery["candidates"][0]["condition"], "Editing reports");
+    assert!(discovery["candidates"][0].get("content").is_none());
+    let digest = discovery["catalog_digest"].as_str().unwrap();
+    let detail = f.ok(&["policy", "read", "P-WRITING", "--catalog-digest", digest]);
+    assert_eq!(detail["content"], "Use direct writing.");
+    let selection = selection(&discovery, &[("P-WRITING", "match")]);
+    assert_eq!(
+        delivered(&f, &selection)["selected"],
+        json!(["P-WRITING", "R-COST"])
+    );
+    f.ok(&["policy", "change", "P-WRITING", "--pause", "--apply"]);
+    let stale = f.stdin(&["policy", "read", "--selection"], &selection);
+    assert!(!stale.status.success());
+    assert!(String::from_utf8_lossy(&stale.stderr).contains("stale policy catalogue"));
+    assert_eq!(f.ok(&["policy", "discover"])["selected"], json!(["R-COST"]));
+    assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        fs::read_to_string(f.0.join("AGENTS.md")).unwrap(),
+        "User instructions without newline"
+    );
+    assert!(!f.0.join(".amh").exists());
+    assert_eq!(fs::read_dir(&f.0).unwrap().count(), 2);
+}
+
+#[test]
+fn policy_setup_rejects_new_cross_scope_duplicates_and_leaves_active_view_fresh() {
+    let f = Fixture::new();
+    f.ok(&["project", "add", "--apply"]);
+    let pending = f.ok(&["pack", "install", "development", "--plan"]);
+    f.ok(&[
+        "pack",
+        "install",
+        "development",
+        "--scope",
+        "user",
+        "--apply",
+    ]);
+    let rejected = f.stdin(&["apply", "--plan", "-"], &pending);
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("both user and project repo scopes"));
+    let before = f.ok(&["policy", "discover"]);
+    let fail = f.run(&["pack", "install", "development", "--apply"]);
+    assert!(!fail.status.success());
+    let message = String::from_utf8_lossy(&fail.stderr);
+    assert!(message.contains("both user and project repo scopes"));
+    assert_eq!(
+        f.ok(&["policy", "list", "--scope", "project"])["registries"][0]["revision"],
+        0
+    );
+    assert_eq!(f.ok(&["policy", "discover"]), before);
+    f.ok(&[
+        "policy",
+        "add",
+        "--id",
+        "P-API",
+        "--text",
+        "Local API practice.",
+        "--draft",
+        "--apply",
+    ]);
+    assert_eq!(f.ok(&["policy", "discover"]), before);
+    let failed = f.run(&["policy", "change", "P-API", "--activate", "--apply"]);
+    assert!(!failed.status.success());
+    let list = f.ok(&["policy", "list"]);
+    assert_eq!(list["registries"].as_array().unwrap().len(), 2);
+    assert!(list["policies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| { p["id"] == "P-API" && p["scope"] == "project" && p["lifecycle"] == "draft" }));
+}
+
+#[test]
+fn planned_changes_survive_unrelated_registration_and_same_names_require_opt_in() {
+    let f = Fixture::new();
+    f.ok(&["project", "add", "--apply"]);
+    let plan = f.ok(&[
+        "policy",
+        "add",
+        "--id",
+        "P-NOTES",
+        "--text=--example",
+        "--plan",
+    ]);
+    let other = f.2.join("another/repo");
+    fs::create_dir_all(&other).unwrap();
+    assert!(Command::new("git")
+        .current_dir(&other)
+        .args(["init", "-q"])
+        .status()
+        .unwrap()
+        .success());
+    let path = other.to_str().unwrap();
+    let duplicate = f.run(&["project", "add", "--root", path, "--apply"]);
+    assert!(!duplicate.status.success());
+    assert!(String::from_utf8_lossy(&duplicate.stderr).contains("already exists"));
+    f.ok(&[
+        "project",
+        "add",
+        "--root",
+        path,
+        "--id",
+        "another-project",
+        "--apply",
+    ]);
+    assert!(f.stdin(&["apply", "--plan", "-"], &plan).status.success());
+    assert!(f.ok(&["policy", "discover"])["instructions"]
+        .as_str()
+        .unwrap()
+        .contains("--example"));
+}
+
+#[test]
+fn help_is_available_and_retired_commands_are_unavailable() {
+    let f = Fixture::new();
+    let help = f.run(&["policy", "read", "--help"]);
+    assert!(help.status.success());
+    assert!(String::from_utf8_lossy(&help.stdout).contains("--selection"));
+    for args in [
+        &["policy", "resolve"][..],
+        &["policy", "discover", "--text", "old"],
+        &["compile"],
+        &["request", "finish"],
+        &["verify"],
+        &["change", "preview"],
+        &["state", "inspect"],
+    ] {
+        assert!(!f.run(args).status.success(), "{args:?}");
+    }
 }
