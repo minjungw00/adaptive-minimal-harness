@@ -6,7 +6,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
-struct Fixture(PathBuf);
+struct Fixture(PathBuf, PathBuf, PathBuf);
 impl Fixture {
     fn new() -> Self {
         let root = std::env::temp_dir().join(format!(
@@ -14,12 +14,20 @@ impl Fixture {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir_all(&root).unwrap();
-        Self(root)
+        let repository = root.join("repo");
+        fs::create_dir_all(&repository).unwrap();
+        assert!(Command::new("git")
+            .current_dir(&repository)
+            .args(["init", "-q"])
+            .status()
+            .unwrap()
+            .success());
+        Self(repository, root.join("home"), root)
     }
     fn run(&self, args: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_amh"))
             .current_dir(&self.0)
+            .env("AMH_HOME", &self.1)
             .args(args)
             .output()
             .unwrap()
@@ -37,7 +45,7 @@ impl Fixture {
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        let _ = fs::remove_dir_all(&self.2);
     }
 }
 fn example(file: &str) -> String {
@@ -52,10 +60,11 @@ fn example(file: &str) -> String {
 fn reviewed_cli_workflow_preserves_requirements_and_removes_paused_instructions() {
     let f = Fixture::new();
     fs::write(f.0.join("AGENTS.md"), "User instructions without newline").unwrap();
-    let p = f.ok(&["init", "--id", "report"]);
-    assert!(!f.0.join(".amh").exists());
-    fs::write(f.0.join("plan.json"), serde_json::to_vec(&p).unwrap()).unwrap();
-    f.ok(&["apply", "--plan", "plan.json"]);
+    let p = f.ok(&["project", "add", "--id", "report"]);
+    assert!(!f.1.exists());
+    let plan = f.2.join("plan.json");
+    fs::write(&plan, serde_json::to_vec(&p).unwrap()).unwrap();
+    f.ok(&["apply", "--plan", plan.to_str().unwrap()]);
     f.ok(&[
         "pack",
         "install",
@@ -91,8 +100,6 @@ fn reviewed_cli_workflow_preserves_requirements_and_removes_paused_instructions(
     ]);
     let c = f.ok(&["compile", "--task", &example("writing.toml")]);
     assert_eq!(c["selected"], json!(["P-WRITING", "R-COST"]));
-    f.ok(&["sync", "--task", &example("writing.toml"), "--apply"]);
-    assert_eq!(f.ok(&["doctor"])["deployment"], "current");
     f.ok(&[
         "policy",
         "change",
@@ -104,60 +111,62 @@ fn reviewed_cli_workflow_preserves_requirements_and_removes_paused_instructions(
         "Pause the writing method",
         "--apply",
     ]);
-    assert!(!f.run(&["doctor"]).status.success());
-    f.ok(&["sync", "--task", &example("writing.toml"), "--apply"]);
-    let deployed = fs::read_to_string(f.0.join(".amh/generated/AGENTS.md")).unwrap();
+    let paused = f.ok(&["compile", "--task", &example("writing.toml")]);
+    let deployed = paused["content"].as_str().unwrap();
     assert!(!deployed.contains("P-WRITING"));
     assert!(deployed.contains("R-COST"));
     assert_eq!(f.ok(&["history"])["events"].as_array().unwrap().len(), 4);
-    f.ok(&["uninstall", "--apply"]);
+    f.ok(&["project", "remove", "--apply"]);
     assert_eq!(
         fs::read_to_string(f.0.join("AGENTS.md")).unwrap(),
         "User instructions without newline"
     );
-    assert!(f.0.join(".amh/amh.toml").exists());
+    assert!(f.1.join("projects/report/policies.toml").exists());
+    assert!(!f.0.join(".amh").exists());
 }
 
 #[test]
 fn verification_requires_explicit_execution_and_returns_failure_exit_status() {
     let f = Fixture::new();
-    f.ok(&["init", "--id", "checks", "--apply"]);
+    f.ok(&["project", "add", "--id", "checks", "--apply"]);
     let mut task = json!({"id":"T-CHECK", "goal":"Check the installed CLI", "classification_complete":true, "done_when":["CLI responds"], "checks":[{"id":"version", "argv":[env!("CARGO_BIN_EXE_amh"), "--version"], "timeout_seconds":10}]});
     fs::write(f.0.join("task.json"), serde_json::to_vec(&task).unwrap()).unwrap();
-    f.ok(&["sync", "--task", "task.json", "--apply"]);
     assert_eq!(
         f.ok(&["verify", "--task", "task.json"])["checks"][0]["status"],
         "not_run"
     );
-    assert!(!f.0.join(".amh/evidence").exists());
+    assert!(!f.1.join("projects/checks/evidence").exists());
     let evidence = f.ok(&["verify", "--task", "task.json", "--run"]);
     assert_eq!(evidence["all_checks_passed"], true);
     assert_eq!(evidence["policy_compliance"], "unknown");
     task["checks"][0]["argv"][1] = "--invalid-command".into();
     fs::write(f.0.join("task.json"), serde_json::to_vec(&task).unwrap()).unwrap();
-    f.ok(&["sync", "--task", "task.json", "--apply"]);
     let failed = f.run(&["verify", "--task", "task.json", "--run"]);
     assert!(!failed.status.success());
     let evidence: Value = serde_json::from_slice(&failed.stderr).unwrap();
     assert_eq!(evidence["all_checks_passed"], false);
-    assert!(f.0.join(evidence["file"].as_str().unwrap()).exists());
+    let path = PathBuf::from(evidence["file"].as_str().unwrap());
+    assert!(path.starts_with(
+        fs::canonicalize(&f.1)
+            .unwrap()
+            .join("projects/checks/evidence")
+    ));
+    assert!(path.exists());
+    assert!(!f.0.join(".amh").exists());
 }
 
 #[test]
 fn unknown_options_and_incomplete_contracts_fail_without_mutation() {
     let f = Fixture::new();
     assert!(!f
-        .run(&["init", "--id", "one", "--id", "two", "--apply"])
+        .run(&["project", "add", "--id", "one", "--id", "two", "--apply"])
         .status
         .success());
     assert!(!f.0.join(".amh").exists());
-    f.ok(&["init", "--id", "one", "--apply"]);
+    f.ok(&["project", "add", "--id", "one", "--apply"]);
     fs::write(f.0.join("task.json"), r#"{"id":"T","goal":"Vague"}"#).unwrap();
-    assert!(!f
-        .run(&["sync", "--task", "task.json", "--apply"])
-        .status
-        .success());
-    assert_eq!(f.ok(&["doctor"])["deployment"], "uncompiled");
+    assert!(!f.run(&["compile", "--task", "task.json"]).status.success());
+    assert!(!f.0.join(".amh").exists());
 }
 
 fn natural_analysis(packet: &Value, selected: &[&str]) -> Value {
@@ -166,7 +175,7 @@ fn natural_analysis(packet: &Value, selected: &[&str]) -> Value {
 #[test]
 fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
     let f = Fixture::new();
-    f.ok(&["init", "--id", "natural", "--apply"]);
+    f.ok(&["project", "add", "--id", "natural", "--apply"]);
     f.ok(&[
         "pack",
         "install",
@@ -205,27 +214,17 @@ fn current_agent_handoff_interprets_natural_text_without_manual_tags() {
         "--analysis",
         "analysis.json",
     ]);
-    assert_eq!(preview["request"]["task"]["tags"], json!([]));
-    f.ok(&[
-        "request",
-        "finish",
-        "--packet",
-        "packet.json",
-        "--analysis",
-        "analysis.json",
-        "--apply",
-    ]);
-    let instructions = fs::read_to_string(f.0.join(".amh/generated/AGENTS.md")).unwrap();
-    assert!(instructions.contains("P-WRITING"));
-    assert!(!instructions.contains("P-SOCRATIC"));
-    assert_eq!(f.ok(&["doctor"])["deployment"], "current");
-    let agents = fs::read_to_string(f.0.join("AGENTS.md")).unwrap();
-    assert!(agents.contains("amh policy discover"));
+    assert_eq!(preview["tags"], json!([]));
+    fs::write(f.0.join("task.json"), serde_json::to_vec(&preview).unwrap()).unwrap();
+    let compiled = f.ok(&["compile", "--task", "task.json"]);
+    assert_eq!(compiled["selected"], json!(["P-WRITING"]));
+    assert!(!f.0.join("AGENTS.md").exists());
+    assert!(!f.0.join(".amh").exists());
 }
 #[test]
 fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
     let f = Fixture::new();
-    f.ok(&["init", "--id", "one-shot", "--apply"]);
+    f.ok(&["project", "add", "--id", "one-shot", "--apply"]);
     f.ok(&[
         "pack",
         "install",
@@ -257,17 +256,9 @@ fn explicitly_selected_interpreter_completes_request_in_one_cli_command() {
         .success());
     let config = json!({"adapter":"stdio","argv":[binary,"reply",f.0.join("reply.json"),f.0.join("captured.json")],"timeout_seconds":10});
     fs::write(f.0.join("agent.json"), serde_json::to_vec(&config).unwrap()).unwrap();
-    let result = f.ok(&[
-        "request",
-        "--text",
-        text,
-        "--agent-config",
-        "agent.json",
-        "--apply",
-    ]);
-    assert_eq!(result["status"], "applied_local_plan");
-    assert_eq!(result["plan"]["request"]["task"]["goal"], text);
-    assert_eq!(f.ok(&["doctor"])["deployment"], "current");
+    let result = f.ok(&["request", "--text", text, "--agent-config", "agent.json"]);
+    assert_eq!(result["goal"], text);
+    assert!(!f.0.join(".amh").exists());
     assert_eq!(f.ok(&["policy", "list"])["revision"], 1); // Interpreting work cannot mutate policy authority.
 }
 
@@ -277,6 +268,7 @@ impl Fixture {
         use std::process::Stdio;
         let mut child = Command::new(env!("CARGO_BIN_EXE_amh"))
             .current_dir(&self.0)
+            .env("AMH_HOME", &self.1)
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -322,7 +314,7 @@ fn policy_analysis(packet: &Value, selected: &[&str]) -> Value {
 #[test]
 fn stateless_cli_reads_selected_bodies_and_leaves_no_request_artifacts() {
     let f = Fixture::new();
-    f.ok(&["init", "--id", "project", "--apply"]);
+    f.ok(&["project", "add", "--id", "project", "--apply"]);
     f.ok(&[
         "pack",
         "install",
@@ -334,9 +326,9 @@ fn stateless_cli_reads_selected_bodies_and_leaves_no_request_artifacts() {
         "Use development policies",
         "--apply",
     ]);
-    let registry = fs::read(f.0.join(".amh/amh.toml")).unwrap();
-    let task_contract = fs::read(f.0.join(".amh/generated/AGENTS.md")).unwrap();
-    let inventory = fs::read_dir(f.0.join(".amh")).unwrap().count();
+    let path = f.1.join("projects/project/policies.toml");
+    let registry = fs::read(&path).unwrap();
+    let inventory = fs::read_dir(&f.0).unwrap().count();
     assert!(!f.run(&["session", "open"]).status.success());
 
     let first = f.ok(&["policy", "discover", "--text", "이 오류를 고쳐줘."]);
@@ -387,19 +379,16 @@ fn stateless_cli_reads_selected_bodies_and_leaves_no_request_artifacts() {
     let second_result: Value = serde_json::from_slice(&outcome.stdout).unwrap();
     assert_eq!(second_result["selected"], json!([]));
     assert_eq!(second_result["instructions"], "");
-    assert_eq!(fs::read(f.0.join(".amh/amh.toml")).unwrap(), registry);
-    assert_eq!(
-        fs::read(f.0.join(".amh/generated/AGENTS.md")).unwrap(),
-        task_contract
-    );
-    assert_eq!(fs::read_dir(f.0.join(".amh")).unwrap().count(), inventory);
-    assert!(!f.0.join(".amh/sessions").exists());
+    assert_eq!(fs::read(path).unwrap(), registry);
+    assert_eq!(fs::read_dir(&f.0).unwrap().count(), inventory);
+    assert!(!f.0.join(".amh").exists());
+    assert!(!f.0.join("AGENTS.md").exists());
 }
 
 #[test]
 fn stateless_cli_reports_clarification_without_writing() {
     let f = Fixture::new();
-    f.ok(&["init", "--id", "project", "--apply"]);
+    f.ok(&["project", "add", "--id", "project", "--apply"]);
     let old_state = f.0.join(".amh/sessions/old/state.json");
     fs::create_dir_all(old_state.parent().unwrap()).unwrap();
     fs::write(&old_state, "older user data").unwrap();
@@ -416,4 +405,184 @@ fn stateless_cli_reports_clarification_without_writing() {
     );
     assert_eq!(block["selected"], json!([]));
     assert_eq!(fs::read_to_string(old_state).unwrap(), "older user data");
+}
+
+#[test]
+fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
+    let f = Fixture::new();
+    let git = |args: &[&str]| {
+        let result = Command::new("git")
+            .current_dir(&f.0)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        result.stdout
+    };
+    fs::write(f.0.join("AGENTS.md"), "# Shared team guidance\n").unwrap();
+    git(&["add", "AGENTS.md"]);
+    git(&[
+        "-c",
+        "user.name=fixture",
+        "-c",
+        "user.email=fixture@example.test",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "Initial fixture",
+    ]);
+    let alias = f.2.join("review worktree");
+    git(&[
+        "worktree",
+        "add",
+        "-q",
+        "--detach",
+        alias.to_str().unwrap(),
+        "HEAD",
+    ]);
+    let alias = alias.to_str().unwrap();
+    let subdirectory = f.0.join("src");
+    fs::create_dir(&subdirectory).unwrap();
+    let subdirectory = subdirectory.to_str().unwrap();
+    let before = git(&[
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+    ]);
+    assert_eq!(
+        f.ok(&["policy", "discover", "--text", "Fix this"])["status"],
+        "not_registered"
+    );
+    assert!(!f.1.exists());
+    f.ok(&[
+        "pack",
+        "install",
+        "--name",
+        "development",
+        "--scope",
+        "user",
+        "--expected-revision",
+        "0",
+        "--reason",
+        "Shared personal policies",
+        "--apply",
+    ]);
+    f.ok(&[
+        "project",
+        "add",
+        "--root",
+        subdirectory,
+        "--id",
+        "code",
+        "--apply",
+    ]);
+    let project = f.ok(&[
+        "policy",
+        "discover",
+        "--root",
+        subdirectory,
+        "--text",
+        "Fix this",
+    ]);
+    assert_eq!(project["status"], "ready");
+    assert!(project["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|c| c["id"] == "P-DEBUG" && c["scope"] == "user"));
+    assert_eq!(
+        f.ok(&["policy", "discover", "--root", alias, "--text", "Fix this"])["status"],
+        "not_registered"
+    );
+    f.ok(&["project", "add", "--root", alias, "--id", "code", "--apply"]);
+    let second = f.ok(&["policy", "discover", "--root", alias, "--text", "Fix this"]);
+    assert_eq!(second["candidates"], project["candidates"]);
+    assert_ne!(second["catalog_digest"], project["catalog_digest"]);
+    f.ok(&["project", "remove", "--root", alias, "--apply"]);
+    assert!(!f
+        .stdin(
+            &["policy", "resolve", "--root", alias, "--input", "-"],
+            &policy_analysis(&second, &[])
+        )
+        .status
+        .success());
+    assert!(f.1.join("projects/code/policies.toml").exists());
+    assert!(!f.0.join(".amh").exists());
+    assert!(!PathBuf::from(alias).join(".amh").exists());
+    assert_eq!(
+        git(&[
+            "--no-optional-locks",
+            "status",
+            "--porcelain",
+            "--untracked-files=all"
+        ]),
+        before
+    );
+}
+
+#[test]
+fn explicit_import_preserves_events_and_leaves_the_old_store_untouched() {
+    let f = Fixture::new();
+    f.ok(&["project", "add", "--id", "source", "--apply"]);
+    f.ok(&[
+        "pack",
+        "install",
+        "--name",
+        "inquiry",
+        "--expected-revision",
+        "0",
+        "--reason",
+        "Original reason",
+        "--apply",
+    ]);
+    let original = f.ok(&["history"]);
+    let mut source = fs::read_to_string(f.1.join("projects/source/policies.toml")).unwrap();
+    source = source.replace("amh.policy-registry.v1", "amh.project-registry.v1");
+    source = source.replace(
+        "project_id = \"source\"",
+        "project_id = \"source\"\nuser_root = \"/unused-local-path\"",
+    );
+    let old_directory = f.0.join(".amh");
+    fs::create_dir(&old_directory).unwrap();
+    let old = old_directory.join("amh.toml");
+    fs::write(&old, &source).unwrap();
+    let agents = f.0.join("AGENTS.md");
+    fs::write(&agents, "User content").unwrap();
+    f.ok(&["project", "remove", "--apply"]);
+    assert_eq!(
+        f.ok(&["policy", "discover", "--text", "Check policy"])["status"],
+        "not_registered"
+    );
+    f.ok(&["project", "add", "--id", "destination", "--apply"]);
+    f.ok(&[
+        "policy",
+        "import",
+        "--file",
+        old.to_str().unwrap(),
+        "--apply",
+    ]);
+    let imported = f.ok(&["history"]);
+    assert_eq!(imported["events"], original["events"]);
+    assert_eq!(imported["project_id"], "destination");
+    fs::write(&old, source.replace("Original reason", "Changed source")).unwrap();
+    let edited = fs::read(&old).unwrap();
+    assert!(!f
+        .run(&[
+            "policy",
+            "import",
+            "--file",
+            old.to_str().unwrap(),
+            "--apply"
+        ])
+        .status
+        .success());
+    assert_eq!(f.ok(&["history"])["events"], original["events"]);
+    assert_eq!(fs::read(&old).unwrap(), edited);
+    assert_eq!(fs::read_to_string(agents).unwrap(), "User content");
 }

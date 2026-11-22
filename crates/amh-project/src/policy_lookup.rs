@@ -5,10 +5,8 @@ use crate::{
         assessment_schema, conditional_principle, in_scope, validate_assessments,
         validate_request_text,
     },
-    policies,
     resolve::{render_policies, select, SelectionInput},
-    workspace::root_path,
-    Policy, PolicyAssessment, Result,
+    Home, Policy, PolicyAssessment, Project, Result,
 };
 use amh_core::{Activation, ItemScope, PrincipleStrength};
 use serde::{Deserialize, Serialize};
@@ -30,6 +28,7 @@ pub struct PolicySummary {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct PolicyDiscovery {
+    pub status: &'static str,
     pub format: &'static str,
     pub request: String,
     pub request_digest: String,
@@ -58,9 +57,8 @@ pub struct PolicyResolution {
     pub clarification_questions: Vec<String>,
 }
 
-fn snapshot(root: &Path) -> Result<(Vec<Policy>, String)> {
-    let root = root_path(root)?;
-    let mut entries = policies(&root)?;
+fn snapshot(home: &Home, binding: &Project) -> Result<(Vec<Policy>, String)> {
+    let mut entries = home.policies(binding)?;
     entries.retain(|p| p.item.scope != ItemScope::Task);
     entries.sort_by(|a, b| a.item.id.cmp(&b.item.id));
     let mut ids = BTreeSet::new();
@@ -72,7 +70,7 @@ fn snapshot(root: &Path) -> Result<(Vec<Policy>, String)> {
             ));
         }
     }
-    let fingerprint = digest(&serde_json::to_vec(&(root, &entries)).map_err(|e| e.to_string())?);
+    let fingerprint = digest(&serde_json::to_vec(&(binding, &entries)).map_err(|e| e.to_string())?);
     Ok((entries, fingerprint))
 }
 
@@ -87,9 +85,16 @@ fn require_catalog(current: &str, provided: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn discover_policies(root: &Path, request: &str) -> Result<PolicyDiscovery> {
+pub fn discover_policies(
+    home: &Home,
+    directory: &Path,
+    request: &str,
+) -> Result<Option<PolicyDiscovery>> {
     validate_request_text(request)?;
-    let (entries, catalog_digest) = snapshot(root)?;
+    let Some(binding) = home.project(directory)? else {
+        return Ok(None);
+    };
+    let (entries, catalog_digest) = snapshot(home, &binding)?;
     let request_digest = request_digest(request, &catalog_digest);
     let candidates = entries
         .iter()
@@ -119,6 +124,7 @@ pub fn discover_policies(root: &Path, request: &str) -> Result<PolicyDiscovery> 
         }
     });
     let packet = PolicyDiscovery {
+        status: "ready",
         format: "amh.policy-discovery.v1",
         request: request.into(),
         request_digest,
@@ -134,11 +140,16 @@ pub fn discover_policies(root: &Path, request: &str) -> Result<PolicyDiscovery> 
     {
         return Err("policy discovery exceeds 1 MiB; no candidate was omitted".into());
     }
-    Ok(packet)
+    Ok(Some(packet))
 }
 
-pub fn read_policy(root: &Path, id: &str, catalog_digest: &str) -> Result<Policy> {
-    let (entries, current) = snapshot(root)?;
+pub fn read_policy(
+    home: &Home,
+    directory: &Path,
+    id: &str,
+    catalog_digest: &str,
+) -> Result<Policy> {
+    let (entries, current) = snapshot(home, &home.require_project(directory)?)?;
     require_catalog(&current, catalog_digest)?;
     entries
         .into_iter()
@@ -146,9 +157,13 @@ pub fn read_policy(root: &Path, id: &str, catalog_digest: &str) -> Result<Policy
         .ok_or_else(|| format!("unknown, inactive or out-of-scope policy: {id}"))
 }
 
-pub fn resolve_policies(root: &Path, analysis: PolicyAnalysis) -> Result<PolicyResolution> {
+pub fn resolve_policies(
+    home: &Home,
+    directory: &Path,
+    analysis: PolicyAnalysis,
+) -> Result<PolicyResolution> {
     validate_request_text(&analysis.request)?;
-    let (entries, current) = snapshot(root)?;
+    let (entries, current) = snapshot(home, &home.require_project(directory)?)?;
     require_catalog(&current, &analysis.catalog_digest)?;
     if analysis.format != ANALYSIS_FORMAT
         || analysis.request_digest != request_digest(&analysis.request, &current)

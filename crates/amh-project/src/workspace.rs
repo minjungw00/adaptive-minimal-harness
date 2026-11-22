@@ -1,680 +1,624 @@
-use crate::{digest, resolve, Compilation, Policy, PolicyChange, Registry, Result, Task};
+//! Policy storage and repository selection in the user's AMH home.
+use crate::{digest, resolve, Compilation, Event, Policy, PolicyChange, Registry, Result, Task};
+use amh_core::ItemScope;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::Write,
     path::{Component, Path, PathBuf},
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const REGISTRY: &str = ".amh/amh.toml";
-const GENERATED: &str = ".amh/generated/AGENTS.md";
-const MANIFEST: &str = ".amh/deployment.json";
-const JOURNAL: &str = ".amh/transaction.json";
-// Fingerprints identify exact AMH-owned blocks from earlier versions for in-place upgrades.
-const PREVIOUS_BRIDGE_DIGESTS: [&str; 3] = [
-    "8215ac998806b704e1de8cc4991da5116e6651db0cf7be58c2c8bd2a8ef70558",
-    "81a73856a46218644262d0af393c969db2a4068aadfcd12c71f8f0e44116afc5",
-    "1c1158e143a686f6dc6d0b6585a545a515653baa2390aa0eaa1c31793e45cfa9",
-];
-const BRIDGE_BEGIN: &str = "<!-- AMH:BEGIN -->";
-const BRIDGE_END: &str = "<!-- AMH:END -->";
-const EMPTY_TASK: &str = "# AMH\n\nNo explicit Task is deployed. Use the policy workflow in the project AGENTS.md, or `amh sync` for an explicit Task.\n";
-pub const AGENT_BRIDGE: &str = "\n\n<!-- AMH:BEGIN -->\nAMH policy workflow for substantive user requests:\n1. Use the current request and relevant conversation context to identify the intended work. A stored Task alone does not establish current intent. Ask only when missing information materially changes the work.\n2. Before new work or a change in scope, policy, or available context, run `amh policy discover --text 'VERBATIM REQUEST'`. Use the candidate conditions to assess applicability. When a condition is insufficient or missing, read just that policy with `amh policy read --id ID --catalog-digest DIGEST`. Do not ask the user for policy IDs or tags.\n3. Submit the JSON matching response_schema on stdin to `amh policy resolve --input -`. Read the selected instructions and carry out the user's request. Resolve blocking conditions or clarification questions before acting. Treat the selected set as current for this request. Keep protocol data in memory or pipes.\n4. When continuing the same work with the relevant instructions still in context, use them. Rediscover if scope or policies change, or if you need the policy bodies again. Use a compiled Task contract only when the current work explicitly calls for it.\n<!-- AMH:END -->\n";
+const CONFIG: &str = "config.toml";
+const USER_POLICIES: &str = "user/policies.toml";
+const CONFIG_FORMAT: &str = "amh.config.v1";
+const PLAN_FORMAT: &str = "amh.home-plan.v1";
+
+pub const AGENT_GUIDANCE: &str = r#"For substantive work, follow the repository's shared instructions. Identify the intended work from the request, relevant conversation, and available project evidence. Ask only when missing information affects the work.
+If the amh CLI is available, run `amh policy discover --text 'VERBATIM REQUEST'` from the workspace before acting on new work or a change in scope.
+If discovery returns not_registered, continue with the ordinary project instructions.
+For a registered repository, assess every candidate using the current request and relevant conversation. When a condition is insufficient, retrieve that policy with `amh policy read --id ID --catalog-digest DIGEST`.
+Submit the JSON matching response_schema to `amh policy resolve --input -`. Apply the returned instructions. Resolve material ambiguity, stale policies, or declared conflicts before relying on an AMH selection.
+Keep protocol data in pipes or memory. Reuse still-relevant bodies during the same work and rediscover when scope, policy, or available context changes.
+"#;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Request {
-    Init {
-        project_id: String,
-        user_root: Option<PathBuf>,
-    },
-    Change {
-        expected_revision: u64,
-        reason: String,
-        change: PolicyChange,
-    },
-    Restore {
-        expected_revision: u64,
-        revision: u64,
-        reason: String,
-    },
-    Sync {
-        task: Task,
-        budget: Option<usize>,
-    },
-    SyncFile {
-        task_file: PathBuf,
-        budget: Option<usize>,
-    },
-    Uninstall,
+#[serde(deny_unknown_fields)]
+pub struct Project {
+    pub root: PathBuf,
+    pub project: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FileChange {
-    pub path: String,
-    pub ownership: String,
-    pub before: Option<String>,
-    pub after: Option<String>,
+pub struct Config {
+    pub format: String,
+    pub repositories: Vec<Project>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            format: CONFIG_FORMAT.into(),
+            repositories: vec![],
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "scope", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Target {
+    User,
+    Project { binding: Project },
+}
+
+impl Target {
+    fn registry_path(&self) -> String {
+        match self {
+            Self::User => USER_POLICIES.into(),
+            Self::Project { binding } => project_registry(&binding.project),
+        }
+    }
+
+    fn registry_id(&self) -> &str {
+        match self {
+            Self::User => "user",
+            Self::Project { binding } => &binding.project,
+        }
+    }
+
+    fn accepts(&self, scope: ItemScope) -> bool {
+        matches!(
+            (self, scope),
+            (Self::User, ItemScope::User)
+                | (Self::Project { .. }, ItemScope::Project | ItemScope::Task)
+        )
+    }
+
+    fn validate(&self, registry: &Registry) -> Result<()> {
+        if registry.project_id != self.registry_id() {
+            return Err("policy registry identity does not match its scope".into());
+        }
+        registry.policies()?;
+        // Check introductions even if a later event removed the policy.
+        for event in &registry.events {
+            let policies: &[Policy] = match &event.change {
+                PolicyChange::Add { policy }
+                | PolicyChange::Replace {
+                    replacement: policy,
+                    ..
+                } => std::slice::from_ref(policy),
+                PolicyChange::InstallPack { pack } => &pack.policies,
+                _ => &[],
+            };
+            if policies.iter().any(|p| !self.accepts(p.item.scope)) {
+                return Err("policy scope does not match the selected registry".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Request {
+    Register {
+        binding: Project,
+    },
+    Unregister {
+        binding: Project,
+    },
+    Change {
+        target: Target,
+        expected_revision: u64,
+        reason: String,
+        change: Box<PolicyChange>,
+    },
+    Import {
+        target: Target,
+        registry: Registry,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Plan {
     pub format: String,
-    pub root: PathBuf,
+    pub home: PathBuf,
     pub request: Request,
     pub source_digest: String,
-    pub changes: Vec<FileChange>,
+    pub files: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Deployment {
-    format: String,
-    generated_digest: String,
-    created_agents: bool,
-    task: Option<Task>,
-    #[serde(default)]
-    task_file: Option<PathBuf>,
-    budget: Option<usize>,
-    source_digest: Option<String>,
+#[derive(Debug)]
+pub struct Home {
+    path: PathBuf,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct Diagnosis {
-    pub project_id: String,
-    pub revision: u64,
-    pub deployment: String,
-    pub observed: String,
-    pub adapter_update_available: bool,
-    pub note: String,
-    pub instruction_files: Vec<String>,
+fn project_registry(id: &str) -> String {
+    format!("projects/{id}/policies.toml")
 }
 
-pub(crate) fn root_path(root: &Path) -> Result<PathBuf> {
-    let root = fs::canonicalize(root).map_err(|e| format!("project root must exist: {e}"))?;
-    if !root.is_dir() {
-        return Err("project root must be a directory".into());
-    }
-    Ok(root)
+fn valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id
+            .bytes()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || b"-_".contains(&c))
+        && !matches!(
+            id,
+            "con"
+                | "prn"
+                | "aux"
+                | "nul"
+                | "com1"
+                | "com2"
+                | "com3"
+                | "com4"
+                | "com5"
+                | "com6"
+                | "com7"
+                | "com8"
+                | "com9"
+                | "lpt1"
+                | "lpt2"
+                | "lpt3"
+                | "lpt4"
+                | "lpt5"
+                | "lpt6"
+                | "lpt7"
+                | "lpt8"
+                | "lpt9"
+        )
 }
 
-fn root_path_file(root: &Path, file: &Path) -> Result<PathBuf> {
-    fs::canonicalize(if file.is_absolute() {
-        file.to_path_buf()
+fn check_id(id: &str) -> Result<()> {
+    if valid_id(id) {
+        Ok(())
     } else {
-        root.join(file)
-    })
-    .map_err(|e| format!("task source is unavailable: {e}"))
+        Err("project ID must use 1–64 lowercase ASCII letters, digits, hyphens or underscores and be a portable directory name".into())
+    }
 }
 
-pub(crate) fn path(root: &Path, relative: &str) -> Result<PathBuf> {
-    let rel = Path::new(relative);
-    if rel.components().any(|c| !matches!(c, Component::Normal(_))) {
-        return Err("managed path must stay within the project".into());
-    }
-    let mut current = root.to_path_buf();
-    for part in rel.components() {
-        current.push(part);
-        match fs::symlink_metadata(&current) {
-            Ok(m) if m.file_type().is_symlink() => {
-                return Err(format!("symlink in managed path: {}", current.display()))
-            }
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
-            _ => {}
+fn existing_prefix(path: &Path) -> Result<&Path> {
+    for ancestor in path.ancestors() {
+        if ancestor.try_exists().map_err(|e| e.to_string())? {
+            return Ok(ancestor);
         }
     }
-    Ok(current)
+    Err("AMH home has no existing parent".into())
 }
 
-pub(crate) fn read(root: &Path, relative: &str) -> Result<Option<String>> {
-    match fs::read_to_string(path(root, relative)?) {
-        Ok(value) => Ok(Some(value)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(format!("cannot read {relative}: {e}")),
+fn canonical_dir(path: &Path) -> Result<PathBuf> {
+    let path = fs::canonicalize(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    if !path.is_dir() {
+        return Err(format!("not a directory: {}", path.display()));
     }
+    Ok(path)
 }
 
-pub fn load(root: &Path) -> Result<Registry> {
-    let root = root_path(root)?;
-    if read(&root, JOURNAL)?.is_some() {
-        return Err("interrupted transaction; recover before reading the registry".into());
-    }
-    let content = read(&root, REGISTRY)?.ok_or("project is not initialized; run amh init")?;
-    let registry: Registry =
-        toml::from_str(&content).map_err(|e| format!("invalid registry: {e}"))?;
-    registry.policies()?;
-    Ok(registry)
-}
-
-fn input_policies(root: &Path) -> Result<Vec<Policy>> {
-    let registry = load(root)?;
-    let mut result = Vec::new();
-    if let Some(user_root) = &registry.user_root {
-        let user = load(user_root)?;
-        if user.user_root.is_some() {
-            return Err(
-                "nested user registries are not supported; choose one explicit user registry"
-                    .into(),
-            );
+fn git_location(directory: &Path, option: &str) -> Result<Option<String>> {
+    let output = Command::new("git")
+        .current_dir(directory)
+        .args(["rev-parse", option])
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_COMMON_DIR")
+        .env_remove("GIT_IMPLICIT_WORK_TREE")
+        .env_remove("GIT_CEILING_DIRECTORIES")
+        .env("LC_ALL", "C")
+        .output()
+        .map_err(|e| format!("could not run git to find the repository: {e}"))?;
+    if !output.status.success() {
+        let error = String::from_utf8_lossy(&output.stderr);
+        if error.contains("not a git repository") || error.contains("must be run in a work tree") {
+            return Ok(None);
         }
-        for policy in user.policies()? {
-            if policy.item.scope != amh_core::ItemScope::User {
-                return Err("imported user registry contains a non-user-scoped policy".into());
+        return Err(format!(
+            "could not identify the Git work tree: {}",
+            error.trim()
+        ));
+    }
+    let location = String::from_utf8(output.stdout).map_err(|_| "Git path must be UTF-8")?;
+    let location = location.strip_suffix('\n').unwrap_or(&location);
+    #[cfg(windows)]
+    let location = location.strip_suffix('\r').unwrap_or(location);
+    Ok(Some(location.into()))
+}
+
+pub fn git_root(directory: &Path) -> Result<Option<PathBuf>> {
+    let directory = canonical_dir(directory)?;
+    let Some(root) = git_location(&directory, "--show-toplevel")? else {
+        return Ok(None);
+    };
+    let root = canonical_dir(Path::new(&root))?;
+    if !directory.starts_with(&root) {
+        return Err("Git work tree does not contain the requested directory".into());
+    }
+    Ok(Some(root))
+}
+
+impl Home {
+    pub fn new(path: &Path) -> Result<Self> {
+        if !path.is_absolute() || path.components().any(|p| matches!(p, Component::ParentDir)) {
+            return Err("AMH home must be an absolute path without parent components".into());
+        }
+        let prefix = existing_prefix(path)?;
+        let tail = path.strip_prefix(prefix).map_err(|e| e.to_string())?;
+        let path = canonical_dir(prefix)?.join(tail);
+        Ok(Self { path })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn outside(&self, root: &Path) -> Result<()> {
+        if self.path.starts_with(root) || root.starts_with(&self.path) {
+            return Err("AMH home and registered work trees must be separate".into());
+        }
+        Ok(())
+    }
+
+    fn require_private_location(path: &Path) -> Result<()> {
+        if git_location(existing_prefix(path)?, "--absolute-git-dir")?.is_some() {
+            return Err("AMH home must be outside Git work trees".into());
+        }
+        Ok(())
+    }
+
+    pub fn config(&self) -> Result<Config> {
+        self.decode_config(self.read(CONFIG)?.as_deref())
+    }
+
+    fn decode_config(&self, content: Option<&str>) -> Result<Config> {
+        let Some(content) = content else {
+            return Ok(Config::default());
+        };
+        let config: Config =
+            toml::from_str(content).map_err(|e| format!("invalid AMH configuration: {e}"))?;
+        let mut roots = BTreeSet::new();
+        if config.format != CONFIG_FORMAT {
+            return Err("unsupported AMH configuration format".into());
+        }
+        for binding in &config.repositories {
+            check_id(&binding.project)?;
+            if !binding.root.is_absolute()
+                || binding
+                    .root
+                    .components()
+                    .any(|p| matches!(p, Component::ParentDir))
+                || !roots.insert(&binding.root)
+            {
+                return Err("AMH configuration has an invalid or duplicate work tree path".into());
             }
-            result.push(policy);
+            self.outside(&binding.root)?;
+        }
+        Ok(config)
+    }
+
+    pub fn project(&self, directory: &Path) -> Result<Option<Project>> {
+        let Some(root) = git_root(directory)? else {
+            return Ok(None);
+        };
+        Ok(self
+            .config()?
+            .repositories
+            .into_iter()
+            .find(|p| p.root == root))
+    }
+
+    pub fn require_project(&self, directory: &Path) -> Result<Project> {
+        self.project(directory)?
+            .ok_or_else(|| "repository is not registered; run amh project add".into())
+    }
+
+    fn validate_target(&self, target: &Target) -> Result<()> {
+        if let Target::Project { binding } = target {
+            self.outside(&binding.root)?;
+            if self.project(&binding.root)?.as_ref() != Some(binding) {
+                return Err(
+                    "repository registration changed; resolve the current project again".into(),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    pub fn registry(&self, target: &Target) -> Result<Registry> {
+        self.validate_target(target)?;
+        self.read_registry(target, false)
+    }
+
+    fn read_registry(&self, target: &Target, allow_missing_project: bool) -> Result<Registry> {
+        let path = target.registry_path();
+        Self::decode_registry(target, self.read(&path)?.as_deref(), allow_missing_project)
+    }
+
+    fn decode_registry(
+        target: &Target,
+        content: Option<&str>,
+        allow_missing_project: bool,
+    ) -> Result<Registry> {
+        check_id(target.registry_id())?;
+        let path = target.registry_path();
+        let registry = match content {
+            Some(content) => toml::from_str(content)
+                .map_err(|e| format!("invalid policy registry at {path}: {e}"))?,
+            None if matches!(target, Target::User) || allow_missing_project => {
+                Registry::new(target.registry_id().into())?
+            }
+            None => {
+                return Err(format!(
+                    "registered project is missing its policy registry: {path}"
+                ))
+            }
+        };
+        target.validate(&registry)?;
+        Ok(registry)
+    }
+
+    pub fn policies(&self, binding: &Project) -> Result<Vec<Policy>> {
+        let local = self.registry(&Target::Project {
+            binding: binding.clone(),
+        })?;
+        let mut entries = self.registry(&Target::User)?.policies()?;
+        entries.extend(local.policies()?);
+        Ok(entries)
+    }
+
+    fn read(&self, relative: &str) -> Result<Option<String>> {
+        match fs::read_to_string(self.storage_path(relative)?) {
+            Ok(content) => Ok(Some(content)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!("cannot read {relative}: {e}")),
         }
     }
-    result.extend(registry.policies()?);
-    Ok(result)
-}
 
-pub fn policies(root: &Path) -> Result<Vec<Policy>> {
-    input_policies(root)
-}
-
-pub fn compile(root: &Path, task: &Task, budget: Option<usize>) -> Result<Compilation> {
-    crate::natural::validate_interpreted_task(root, task)?;
-    resolve(&input_policies(root)?, task, budget)
-}
-
-fn decode_deployment(root: &Path) -> Result<Option<Deployment>> {
-    read(root, MANIFEST)?
-        .map(|text| {
-            let d: Deployment = serde_json::from_str(&text)
-                .map_err(|e| format!("invalid deployment manifest: {e}"))?;
-            if d.format != "amh.deployment.v1" {
-                return Err("unknown deployment format".into());
+    pub(crate) fn storage_path(&self, relative: &str) -> Result<PathBuf> {
+        let mut current = self.path.clone();
+        for part in Path::new(relative).components() {
+            let Component::Normal(part) = part else {
+                return Err("managed path must stay within AMH home".into());
+            };
+            current.push(part);
+            match fs::symlink_metadata(&current) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err(format!("symlink in AMH storage: {}", current.display()));
+                }
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+                _ => {}
             }
-            Ok(d)
-        })
-        .transpose()
-}
+        }
+        Ok(current)
+    }
 
-fn owned_bridge(agents: &str) -> Option<&str> {
-    let (before, rest) = agents.split_once(BRIDGE_BEGIN)?;
-    let (_, after) = rest.split_once(BRIDGE_END)?;
-    if agents.matches(BRIDGE_BEGIN).count() != 1
-        || agents.matches(BRIDGE_END).count() != 1
-        || !before.ends_with("\n\n")
-        || !after.starts_with('\n')
-    {
-        return None;
+    pub(crate) fn create_storage_dir(&self, path: &str) -> Result<PathBuf> {
+        let path = self.storage_path(path)?;
+        Self::require_private_location(&path)?;
+        create_private_dir(&path)?;
+        Ok(path)
     }
-    let bridge = &agents[before.len() - 2..agents.len() - after.len() + 1];
-    (bridge == AGENT_BRIDGE
-        || PREVIOUS_BRIDGE_DIGESTS.contains(&digest(bridge.as_bytes()).as_str()))
-    .then_some(bridge)
-}
 
-fn check_owned(root: &Path, d: &Deployment) -> Result<String> {
-    let generated = read(root, GENERATED)?.ok_or(
-        "managed instructions are missing; preserve files and diagnose before replacing them",
-    )?;
-    if digest(generated.as_bytes()) != d.generated_digest {
-        return Err(
-            "managed instructions were edited; preserve or move those edits before syncing".into(),
-        );
+    pub fn plan(&self, request: Request) -> Result<Plan> {
+        self.prepare(request).map(|(plan, _)| plan)
     }
-    let agents = read(root, "AGENTS.md")?.ok_or("shared AGENTS.md is missing")?;
-    if owned_bridge(&agents).is_none() {
-        return Err("AMH shared instruction block is missing, duplicated, or edited".into());
-    }
-    Ok(agents)
-}
 
-fn change(
-    root: &Path,
-    changes: &mut Vec<FileChange>,
-    relative: &str,
-    after: Option<String>,
-    ownership: &str,
-) -> Result<()> {
-    let before = read(root, relative)?;
-    if before != after {
-        changes.push(FileChange {
-            path: relative.into(),
-            ownership: ownership.into(),
-            before,
-            after,
-        });
-    }
-    Ok(())
-}
-
-pub fn plan(root: &Path, request: Request) -> Result<Plan> {
-    let root = root_path(root)?;
-    if read(&root, JOURNAL)?.is_some() {
-        return Err(
-            "interrupted transaction exists; run amh recover before planning another update".into(),
-        );
-    }
-    let mut changes = Vec::new();
-    let mut inputs = vec![
-        read(&root, REGISTRY)?,
-        read(&root, MANIFEST)?,
-        read(&root, GENERATED)?,
-        read(&root, "AGENTS.md")?,
-    ];
-    match &request {
-        Request::Init {
-            project_id,
-            user_root,
-        } => {
-            let user_root = user_root
-                .as_ref()
-                .map(|p| {
-                    root_path(&if p.is_absolute() {
-                        p.clone()
-                    } else {
-                        root.join(p)
-                    })
-                })
-                .transpose()?;
-            if let Some(user) = &user_root {
-                if *user == root {
-                    return Err("a project cannot import itself as its user registry".into());
+    fn prepare(&self, request: Request) -> Result<(Plan, Vec<(String, String)>)> {
+        Self::require_private_location(&self.path)?;
+        let config_source = self.read(CONFIG)?;
+        let mut config = self.decode_config(config_source.as_deref())?;
+        let mut inputs = vec![config_source];
+        let mut writes = vec![];
+        match &request {
+            Request::Register { binding } => {
+                check_id(&binding.project)?;
+                self.outside(&binding.root)?;
+                if git_root(&binding.root)?.as_ref() != Some(&binding.root) {
+                    return Err("registration requires an existing Git work tree root".into());
                 }
-                let imported = load(user)?;
-                if imported.user_root.is_some()
-                    || imported
-                        .policies()?
-                        .iter()
-                        .any(|p| p.item.scope != amh_core::ItemScope::User)
-                {
-                    return Err(
-                        "user registry must contain only user-scoped entries and no nested import"
-                            .into(),
-                    );
-                }
-            }
-            if inputs[0].is_some() {
-                let r = load(&root)?;
-                if &r.project_id != project_id || r.user_root != user_root {
-                    return Err("existing project identity/import differs; initialization will not overwrite user configuration".into());
-                }
-                if let Some(mut d) = decode_deployment(&root)? {
-                    let agents = check_owned(&root, &d)?;
-                    let bridge = owned_bridge(&agents).unwrap();
-                    change(
-                        &root,
-                        &mut changes,
-                        "AGENTS.md",
-                        Some(agents.replacen(bridge, AGENT_BRIDGE, 1)),
-                        "shared",
-                    )?;
-                    let empty_digest = digest(EMPTY_TASK.as_bytes());
-                    if d.task.is_none() && d.generated_digest != empty_digest {
-                        d.generated_digest = empty_digest;
-                        change(
-                            &root,
-                            &mut changes,
-                            GENERATED,
-                            Some(EMPTY_TASK.into()),
-                            "amh_managed",
-                        )?;
-                        change(
-                            &root,
-                            &mut changes,
-                            MANIFEST,
-                            Some(json(&d)?),
-                            "amh_managed",
-                        )?;
+                let target = Target::Project {
+                    binding: binding.clone(),
+                };
+                let path = target.registry_path();
+                let before = self.read(&path)?;
+                let existing = config.repositories.iter().find(|p| p.root == binding.root);
+                if let Some(existing) = existing {
+                    if existing != binding {
+                        return Err("work tree already registered to a different project; remove that registration first".into());
                     }
-                } else {
-                    return Err(
-                        "project is initialized but adapter is uninstalled; use sync to reinstall"
-                            .into(),
-                    );
                 }
-            } else {
-                if inputs[1].is_some() || inputs[2].is_some() {
-                    return Err(
-                        "existing AMH-named files are unowned; refusing to overwrite".into(),
-                    );
+                let already_known = config
+                    .repositories
+                    .iter()
+                    .any(|p| p.project == binding.project);
+                let registry = Self::decode_registry(&target, before.as_deref(), !already_known)?;
+                if before.is_none() {
+                    writes.push((path, to_toml(&registry)?));
                 }
-                let agents = inputs[3].clone().unwrap_or_default();
-                if agents.contains("<!-- AMH:") {
-                    return Err("existing AMH markers require manual conflict resolution".into());
+                inputs.push(before);
+                if existing.is_none() {
+                    config.repositories.push(binding.clone());
+                    config.repositories.sort_by(|a, b| a.root.cmp(&b.root));
+                    writes.push((CONFIG.into(), to_toml(&config)?));
                 }
-                let registry = Registry::new(project_id.clone(), user_root)?;
-                let initial = EMPTY_TASK.to_owned();
-                let deployment = Deployment {
-                    format: "amh.deployment.v1".into(),
-                    generated_digest: digest(initial.as_bytes()),
-                    created_agents: inputs[3].is_none(),
-                    task: None,
-                    task_file: None,
-                    budget: None,
-                    source_digest: None,
-                };
-                change(
-                    &root,
-                    &mut changes,
-                    REGISTRY,
-                    Some(toml::to_string_pretty(&registry).map_err(|e| e.to_string())?),
-                    "user_owned",
+            }
+            Request::Unregister { binding } => {
+                // Exact stored binding permits removing a moved or deleted clone.
+                let previous_count = config.repositories.len();
+                config.repositories.retain(|p| p != binding);
+                if config.repositories.len() == previous_count {
+                    return Err("repository registration no longer exists".into());
+                }
+                writes.push((CONFIG.into(), to_toml(&config)?));
+            }
+            Request::Change {
+                target,
+                expected_revision,
+                reason,
+                change,
+            } => {
+                let path = target.registry_path();
+                self.validate_target(target)?;
+                let before = self.read(&path)?;
+                let next = Self::decode_registry(target, before.as_deref(), false)?.changed(
+                    *expected_revision,
+                    reason.clone(),
+                    change.as_ref().clone(),
                 )?;
-                change(&root, &mut changes, GENERATED, Some(initial), "amh_managed")?;
-                change(
-                    &root,
-                    &mut changes,
-                    "AGENTS.md",
-                    Some(agents + AGENT_BRIDGE),
-                    "shared",
-                )?;
-                change(
-                    &root,
-                    &mut changes,
-                    MANIFEST,
-                    Some(json(&deployment)?),
-                    "amh_managed",
-                )?;
+                target.validate(&next)?;
+                inputs.push(before);
+                writes.push((path, to_toml(&next)?));
+            }
+            Request::Import { target, registry } => {
+                let path = target.registry_path();
+                self.validate_target(target)?;
+                let before = self.read(&path)?;
+                let current = Self::decode_registry(target, before.as_deref(), false)?;
+                target.validate(registry)?;
+                inputs.push(before);
+                if &current != registry {
+                    if current.revision() != 0 {
+                        return Err(
+                            "destination already has policy history; import into an empty registry"
+                                .into(),
+                        );
+                    }
+                    writes.push((path, to_toml(registry)?));
+                }
             }
         }
-        Request::Change {
-            expected_revision,
-            reason,
-            change: operation,
-        } => {
-            let next =
-                load(&root)?.changed(*expected_revision, reason.clone(), operation.clone())?;
-            change(
-                &root,
-                &mut changes,
-                REGISTRY,
-                Some(toml::to_string_pretty(&next).map_err(|e| e.to_string())?),
-                "user_owned",
-            )?;
-        }
-        Request::Restore {
-            expected_revision,
-            revision,
-            reason,
-        } => {
-            let next = load(&root)?.changed(
-                *expected_revision,
-                reason.clone(),
-                PolicyChange::Restore {
-                    revision: *revision,
-                },
-            )?;
-            change(
-                &root,
-                &mut changes,
-                REGISTRY,
-                Some(toml::to_string_pretty(&next).map_err(|e| e.to_string())?),
-                "user_owned",
-            )?;
-        }
-        Request::Sync { .. } | Request::SyncFile { .. } => {
-            let (task, budget, task_file) = match &request {
-                Request::Sync { task, budget } => (task.clone(), *budget, None),
-                Request::SyncFile { task_file, budget } => {
-                    let file = root_path_file(&root, task_file)?;
-                    inputs.push(Some(fs::read_to_string(&file).map_err(|e| e.to_string())?));
-                    (read_document(&file)?, *budget, Some(file))
-                }
-                _ => unreachable!(),
-            };
-            let compiled = compile(&root, &task, budget)?;
-            inputs.push(Some(compiled.source_digest.clone()));
-            let old = decode_deployment(&root)?;
-            let agents = read(&root, "AGENTS.md")?.unwrap_or_default();
-            let (agents, created) = if let Some(d) = old {
-                let agents = check_owned(&root, &d)?;
-                let bridge = owned_bridge(&agents).unwrap();
-                (agents.replacen(bridge, AGENT_BRIDGE, 1), d.created_agents)
-            } else {
-                if read(&root, GENERATED)?.is_some() || agents.contains("<!-- AMH:") {
-                    return Err("unowned adapter files or markers; refusing to overwrite".into());
-                }
-                (agents + AGENT_BRIDGE, read(&root, "AGENTS.md")?.is_none())
-            };
-            let deployment = Deployment {
-                format: "amh.deployment.v1".into(),
-                generated_digest: digest(compiled.content.as_bytes()),
-                created_agents: created,
-                task: Some(task),
-                task_file,
-                budget,
-                source_digest: Some(compiled.source_digest),
-            };
-            change(
-                &root,
-                &mut changes,
-                GENERATED,
-                Some(compiled.content),
-                "amh_managed",
-            )?;
-            change(&root, &mut changes, "AGENTS.md", Some(agents), "shared")?;
-            change(
-                &root,
-                &mut changes,
-                MANIFEST,
-                Some(json(&deployment)?),
-                "amh_managed",
-            )?;
-        }
-        Request::Uninstall => {
-            load(&root)?;
-            if let Some(d) = decode_deployment(&root)? {
-                let agents = check_owned(&root, &d)?;
-                let bridge = owned_bridge(&agents).unwrap();
-                let agents = agents.replacen(bridge, "", 1);
-                let remaining = if agents.is_empty() && d.created_agents {
-                    None
-                } else {
-                    Some(agents)
-                };
-                change(&root, &mut changes, "AGENTS.md", remaining, "shared")?;
-                change(&root, &mut changes, GENERATED, None, "amh_managed")?;
-                change(&root, &mut changes, MANIFEST, None, "amh_managed")?;
-            }
-        }
+        let plan = Plan {
+            format: PLAN_FORMAT.into(),
+            home: self.path.clone(),
+            request,
+            source_digest: digest(&serde_json::to_vec(&inputs).map_err(|e| e.to_string())?),
+            files: writes.iter().map(|(path, _)| path.clone()).collect(),
+        };
+        Ok((plan, writes))
     }
-    Ok(Plan {
-        format: "amh.project-plan.v1".into(),
-        root,
-        source_digest: digest(&serde_json::to_vec(&inputs).map_err(|e| e.to_string())?),
-        request,
-        changes,
-    })
-}
 
-fn json<T: Serialize>(value: &T) -> Result<String> {
-    serde_json::to_string_pretty(value).map_err(|e| e.to_string())
-}
+    pub fn apply(&self, reviewed: &Plan) -> Result<()> {
+        if reviewed.format != PLAN_FORMAT || reviewed.home != self.path {
+            return Err("plan belongs to a different AMH home or format".into());
+        }
+        Self::require_private_location(&self.path)?;
+        create_private_dir(&self.path)?;
+        let path = self.storage_path(".lock")?;
+        let mut options = OpenOptions::new();
+        options.create(true).truncate(false).read(true).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let lock = options.open(path).map_err(|e| e.to_string())?;
+        lock.lock().map_err(|e| e.to_string())?;
+        let (current, writes) = self.prepare(reviewed.request.clone())?;
+        if &current != reviewed {
+            return Err("plan changed or is stale; review a newly generated plan".into());
+        }
+        // A new project registry precedes its config binding. A retry can reuse
+        // an existing empty registry if only the config write was interrupted.
+        for (path, content) in writes {
+            self.write(&path, &content)?;
+        }
+        Ok(())
+    }
 
-pub(crate) fn lock(root: &Path) -> Result<File> {
-    let p = path(root, ".amh.lock")?;
-    let file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(p)
-        .map_err(|e| e.to_string())?;
-    file.lock().map_err(|e| e.to_string())?;
-    Ok(file)
-}
-
-pub(crate) fn write(root: &Path, relative: &str, content: Option<&str>) -> Result<()> {
-    let p = path(root, relative)?;
-    if let Some(content) = content {
-        let parent = p.parent().unwrap();
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        path(root, relative)?;
+    fn write(&self, relative: &str, content: &str) -> Result<()> {
+        let path = self.storage_path(relative)?;
+        let parent = path.parent().ok_or("managed path has no parent")?;
+        Self::require_private_location(parent)?;
+        create_private_dir(parent)?;
+        self.storage_path(relative)?;
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| e.to_string())?
             .as_nanos();
-        let tmp = parent.join(format!(".amh-{}-{nonce}.tmp", std::process::id()));
+        let temp = parent.join(format!(".amh-{}-{nonce}.tmp", std::process::id()));
         let result = (|| {
-            let mut opts = OpenOptions::new();
-            opts.write(true).create_new(true);
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
             #[cfg(unix)]
             {
                 use std::os::unix::fs::OpenOptionsExt;
-                opts.mode(0o600);
+                options.mode(0o600);
             }
-            let mut f = opts.open(&tmp).map_err(|e| e.to_string())?;
-            if let Ok(metadata) = fs::metadata(&p) {
-                f.set_permissions(metadata.permissions())
-                    .map_err(|e| e.to_string())?;
-            }
-            f.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
-            f.sync_all().map_err(|e| e.to_string())?;
-            drop(f);
-            fs::rename(&tmp, &p).map_err(|e| e.to_string())?;
-            sync_directory(parent)
+            let mut file = options.open(&temp).map_err(|e| e.to_string())?;
+            file.write_all(content.as_bytes())
+                .map_err(|e| e.to_string())?;
+            file.sync_all().map_err(|e| e.to_string())?;
+            drop(file);
+            fs::rename(&temp, &path).map_err(|e| e.to_string())?;
+            #[cfg(unix)]
+            File::open(parent)
+                .and_then(|d| d.sync_all())
+                .map_err(|e| e.to_string())?;
+            Ok(())
         })();
         if result.is_err() {
-            let _ = fs::remove_file(&tmp);
+            let _ = fs::remove_file(&temp);
         }
         result
-    } else {
-        match fs::remove_file(&p) {
-            Ok(()) => sync_directory(p.parent().unwrap()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.to_string()),
-        }
     }
 }
 
-fn sync_directory(directory: &Path) -> Result<()> {
+fn create_private_dir(path: &Path) -> Result<()> {
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
     #[cfg(unix)]
     {
-        File::open(directory)
-            .and_then(|d| d.sync_all())
-            .map_err(|e| e.to_string())?;
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
     }
-    #[cfg(not(unix))]
-    let _ = directory;
-    Ok(())
+    builder.create(path).map_err(|e| e.to_string())
 }
 
-/// Recompute a plan from its typed request, then compare every input and output.
-/// Plan JSON is never an arbitrary file-write capability.
-pub fn apply(root: &Path, reviewed: &Plan) -> Result<()> {
-    let root = root_path(root)?;
-    let _lock = lock(&root)?;
-    if reviewed.root != root || plan(&root, reviewed.request.clone())? != *reviewed {
-        return Err("plan changed or is stale; review a newly generated plan".into());
-    }
-    if reviewed.changes.is_empty() {
-        return Ok(());
-    }
-    write(&root, JOURNAL, Some(&json(reviewed)?))?;
-    for c in &reviewed.changes {
-        if read(&root, &c.path)? != c.before {
-            return Err("file changed during apply; transaction retained for recovery".into());
-        }
-        write(&root, &c.path, c.after.as_deref())?;
-    }
-    write(&root, JOURNAL, None)
+fn to_toml<T: Serialize>(value: &T) -> Result<String> {
+    toml::to_string_pretty(value).map_err(|e| e.to_string())
 }
 
-/// Restore only transaction-owned bytes. Concurrent user edits stop recovery.
-pub fn recover(root: &Path, apply_recovery: bool) -> Result<serde_json::Value> {
-    let root = root_path(root)?;
-    let _lock = if apply_recovery {
-        Some(lock(&root)?)
-    } else {
-        None
-    };
-    let text = read(&root, JOURNAL)?.ok_or("no interrupted transaction exists")?;
-    let p: Plan = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    if p.format != "amh.project-plan.v1" || p.root != root {
-        return Err("invalid transaction binding".into());
+pub fn import_registry(file: &Path, target: &Target) -> Result<Registry> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct PreviousRegistry {
+        format: String,
+        project_id: String,
+        #[serde(rename = "user_root")]
+        _user_root: Option<PathBuf>,
+        #[serde(default)]
+        events: Vec<Event>,
     }
-    for c in &p.changes {
-        if ![REGISTRY, GENERATED, MANIFEST, "AGENTS.md"].contains(&c.path.as_str()) {
-            return Err("invalid transaction path".into());
-        }
-        let current = read(&root, &c.path)?;
-        if current != c.before && current != c.after {
-            return Err(format!(
-                "{} contains unrelated edits; manual reconciliation required",
-                c.path
-            ));
-        }
+    let source: PreviousRegistry = read_document(file)?;
+    if source.format != "amh.project-registry.v1" || source.project_id.trim().is_empty() {
+        return Err("expected a previous AMH project registry".into());
     }
-    if apply_recovery {
-        for c in p.changes.iter().rev() {
-            write(&root, &c.path, c.before.as_deref())?;
-        }
-        write(&root, JOURNAL, None)?;
-    }
-    Ok(
-        serde_json::json!({"status": if apply_recovery { "restored_previous_files" } else { "recoverable_interrupted_update" }, "changes": p.changes.len()}),
-    )
+    let mut registry = Registry::new(target.registry_id().into())?;
+    registry.events = source.events;
+    target.validate(&registry)?;
+    Ok(registry)
 }
 
-pub fn doctor(root: &Path) -> Result<Diagnosis> {
-    let root = root_path(root)?;
-    if read(&root, JOURNAL)?.is_some() {
-        return Err("interrupted update; run amh recover".into());
-    }
-    let registry = load(&root)?;
-    let deployment = match decode_deployment(&root)? {
-        None => "uninstalled".into(),
-        Some(d) => {
-            check_owned(&root, &d)?;
-            match &d.task {
-                None => "uncompiled".into(),
-                Some(task) => match compile(
-                    &root,
-                    &match &d.task_file {
-                        Some(file) => read_document(file)?,
-                        None => task.clone(),
-                    },
-                    d.budget,
-                ) {
-                    Err(e) => format!("blocked: {e}"),
-                    Ok(c)
-                        if Some(c.source_digest.as_str()) == d.source_digest.as_deref()
-                            && digest(c.content.as_bytes()) == d.generated_digest =>
-                    {
-                        "current".into()
-                    }
-                    Ok(_) => "stale".into(),
-                },
-            }
-        }
-    };
-    let instruction_files = [
-        "AGENTS.md",
-        "CLAUDE.md",
-        ".cursor/rules",
-        ".github/copilot-instructions.md",
-    ]
-    .iter()
-    .filter(|p| root.join(p).exists())
-    .map(|p| (*p).to_string())
-    .collect();
-    let adapter_update_available = read(&root, "AGENTS.md")?
-        .is_some_and(|s| owned_bridge(&s).is_some_and(|bridge| bridge != AGENT_BRIDGE));
-    Ok(Diagnosis { adapter_update_available, project_id: registry.project_id, revision: registry.events.len() as u64, deployment, observed: "unknown".into(), note: "Deployment inspection is not behavioral evaluation. Other instruction files are inventoried, not semantically reconciled. Live sessions must reload updated instructions.".into(), instruction_files })
-}
-
-pub(crate) fn require_current(root: &Path, task: &Task) -> Result<Compilation> {
-    let compiled = compile(root, task, None)?;
-    let d = decode_deployment(root)?.ok_or("sync the task before executing its checks")?;
-    if d.task.as_ref() != Some(task) || doctor(root)?.deployment != "current" {
-        return Err(
-            "the requested task is not the current deployed contract; sync it first".into(),
-        );
-    }
-    Ok(compiled)
+pub fn compile(
+    home: &Home,
+    binding: &Project,
+    task: &Task,
+    budget: Option<usize>,
+) -> Result<Compilation> {
+    let entries = home.policies(binding)?;
+    crate::natural::validate_interpreted_task(binding, &entries, task)?;
+    resolve(&entries, task, budget)
 }
 
 pub fn read_document<T: serde::de::DeserializeOwned>(file: &Path) -> Result<T> {
     let content = fs::read_to_string(file).map_err(|e| e.to_string())?;
-    if file.extension().is_some_and(|e| e == "json") {
+    if file
+        .extension()
+        .is_some_and(|extension| extension == "json")
+    {
         serde_json::from_str(&content).map_err(|e| e.to_string())
     } else {
         toml::from_str(&content).map_err(|e| e.to_string())

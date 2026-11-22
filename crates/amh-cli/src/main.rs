@@ -298,8 +298,9 @@ mod tests {
         let output = run(&["--help".into()]).unwrap();
         assert!(output.contains("change preview"));
         assert!(output.contains("READ-ONLY"));
-        assert!(output.contains("amh init"));
-        assert!(output.contains("local change"));
+        assert!(output.contains("amh project add"));
+        assert!(!output.contains("amh sync"));
+        assert!(output.contains("AMH home"));
     }
 
     #[test]

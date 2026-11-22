@@ -1,12 +1,8 @@
-use crate::{
-    digest,
-    workspace::{path, require_current},
-    Check, Result, Task,
-};
+use crate::{compile, digest, read_document, Home, Project, Result, Task};
 use serde::Serialize;
 use std::{
     fs::{self, File},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -24,6 +20,8 @@ pub struct CheckResult {
 #[derive(Debug, Serialize)]
 pub struct Evidence {
     pub task_id: String,
+    pub project_id: String,
+    pub work_tree: PathBuf,
     pub task_digest: String,
     pub source_digest: String,
     pub started_at: u64,
@@ -33,33 +31,19 @@ pub struct Evidence {
     pub completion_criteria: String,
     pub policy_compliance: String,
     pub authority: String,
-    pub deployment_unchanged: bool,
+    pub context_unchanged: bool,
     pub file: Option<String>,
 }
 
 /// Invoke only explicitly selected existing verification tools. No model runner,
 /// scheduler, retries, or inferred semantic acceptance is provided.
-pub fn verify(root: &Path, task: &Task, execute: bool) -> Result<Evidence> {
-    let compiled = require_current(root, task)?;
-    execute_checks(
-        root,
-        &task.id,
-        digest(&serde_json::to_vec(task).map_err(|e| e.to_string())?),
-        compiled.source_digest,
-        &task.checks,
-        execute,
-        || require_current(root, task).is_ok(),
-    )
-}
-pub(crate) fn execute_checks(
-    root: &Path,
-    id: &str,
-    task_digest: String,
-    source_digest: String,
-    checks: &[Check],
-    execute: bool,
-    unchanged: impl Fn() -> bool,
-) -> Result<Evidence> {
+pub fn verify(home: &Home, binding: &Project, task_file: &Path, execute: bool) -> Result<Evidence> {
+    let task: Task = read_document(task_file)?;
+    let compiled = compile(home, binding, &task, None)?;
+    let bound = || -> Result<String> {
+        let current: Task = read_document(task_file)?;
+        Ok(compile(home, binding, &current, None)?.source_digest)
+    };
     let now = || {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -67,9 +51,11 @@ pub(crate) fn execute_checks(
     };
     let started = now()?;
     let mut evidence = Evidence {
-        task_id: id.into(),
-        task_digest,
-        source_digest,
+        task_id: task.id.clone(),
+        project_id: binding.project.clone(),
+        work_tree: binding.root.clone(),
+        task_digest: digest(&serde_json::to_vec(&task).map_err(|e| e.to_string())?),
+        source_digest: compiled.source_digest,
         started_at: started.as_secs(),
         completed_at: started.as_secs(),
         checks: vec![],
@@ -77,20 +63,18 @@ pub(crate) fn execute_checks(
         completion_criteria: "unknown".into(),
         policy_compliance: "unknown".into(),
         authority: "local_execution_record_not_authenticated".into(),
-        deployment_unchanged: true,
+        context_unchanged: true,
         file: None,
     };
-    let dir = format!(
-        ".amh/evidence/{}-{}",
-        started.as_nanos(),
-        std::process::id()
-    );
-    if execute && !checks.is_empty() {
-        let parent = path(root, ".amh/evidence")?;
-        fs::create_dir_all(&parent).map_err(|e| e.to_string())?;
-        fs::create_dir(path(root, &dir)?).map_err(|e| e.to_string())?;
-    }
-    for (index, check) in checks.iter().enumerate() {
+    let dir = if execute && !task.checks.is_empty() {
+        let parent = home.create_storage_dir(&format!("projects/{}/evidence", binding.project))?;
+        let dir = parent.join(format!("{}-{}", started.as_nanos(), std::process::id()));
+        fs::create_dir(&dir).map_err(|e| e.to_string())?;
+        Some(dir)
+    } else {
+        None
+    };
+    for (index, check) in task.checks.iter().enumerate() {
         let mut result = CheckResult {
             id: check.id.clone(),
             argv: check.argv.clone(),
@@ -100,18 +84,18 @@ pub(crate) fn execute_checks(
             stdout: None,
             stderr: None,
         };
-        if execute {
-            let stdout = format!("{dir}/{index}.stdout");
-            let stderr = format!("{dir}/{index}.stderr");
+        if let Some(dir) = &dir {
+            let stdout = dir.join(format!("{index}.stdout"));
+            let stderr = dir.join(format!("{index}.stderr"));
             let mut command = Command::new(&check.argv[0]);
             command
                 .args(&check.argv[1..])
-                .current_dir(root)
+                .current_dir(&binding.root)
                 .stdin(Stdio::null())
-                .stdout(File::create_new(path(root, &stdout)?).map_err(|e| e.to_string())?)
-                .stderr(File::create_new(path(root, &stderr)?).map_err(|e| e.to_string())?);
-            result.stdout = Some(stdout);
-            result.stderr = Some(stderr);
+                .stdout(File::create_new(&stdout).map_err(|e| e.to_string())?)
+                .stderr(File::create_new(&stderr).map_err(|e| e.to_string())?);
+            result.stdout = Some(stdout.to_string_lossy().into_owned());
+            result.stderr = Some(stderr.to_string_lossy().into_owned());
             match command.spawn() {
                 Err(error) => result.status = format!("could_not_start: {error}"),
                 Ok(mut child) => {
@@ -146,16 +130,16 @@ pub(crate) fn execute_checks(
         evidence.checks.push(result);
     }
     evidence.completed_at = now()?.as_secs();
-    evidence.deployment_unchanged = unchanged();
-    if execute && !checks.is_empty() {
+    evidence.context_unchanged = bound().is_ok_and(|current| current == evidence.source_digest);
+    if let Some(dir) = dir {
         evidence.all_checks_passed = Some(
-            evidence.deployment_unchanged && evidence.checks.iter().all(|r| r.status == "passed"),
+            evidence.context_unchanged && evidence.checks.iter().all(|r| r.status == "passed"),
         );
-        let file = format!("{dir}/result.json");
-        evidence.file = Some(file.clone());
+        let file = dir.join("result.json");
+        evidence.file = Some(file.to_string_lossy().into_owned());
         let output = serde_json::to_vec_pretty(&evidence).map_err(|e| e.to_string())?;
         use std::io::Write;
-        let mut record = File::create_new(path(root, &file)?).map_err(|e| e.to_string())?;
+        let mut record = File::create_new(file).map_err(|e| e.to_string())?;
         record.write_all(&output).map_err(|e| e.to_string())?;
         record.sync_all().map_err(|e| e.to_string())?;
     }

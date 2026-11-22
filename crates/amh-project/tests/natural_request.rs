@@ -6,67 +6,78 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
-struct Fixture(PathBuf);
+struct Fixture {
+    dir: PathBuf,
+    binding: Project,
+    home: Home,
+}
 impl Fixture {
     fn new() -> Self {
-        Self::with_user_root(None)
-    }
-    fn with_user_root(user_root: Option<PathBuf>) -> Self {
-        let root = std::env::temp_dir().join(format!(
+        let dir = std::env::temp_dir().join(format!(
             "amh-natural-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
+        let root = dir.join("repo");
         fs::create_dir_all(&root).unwrap();
-        apply(
-            &root,
-            &plan(
-                &root,
-                Request::Init {
-                    project_id: "test".into(),
-                    user_root,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        Self(root)
+        assert!(std::process::Command::new("git")
+            .current_dir(&root)
+            .args(["init", "-q"])
+            .status()
+            .unwrap()
+            .success());
+        let root = git_root(&root).unwrap().unwrap();
+        let home = Home::new(&dir.join(".amh")).unwrap();
+        let binding = Project {
+            root,
+            project: "test".into(),
+        };
+        let fixture = Self { dir, binding, home };
+        fixture.apply(Request::Register {
+            binding: fixture.binding.clone(),
+        });
+        fixture
+    }
+    fn target(&self) -> Target {
+        Target::Project {
+            binding: self.binding.clone(),
+        }
+    }
+    fn apply(&self, request: Request) {
+        self.home.apply(&self.home.plan(request).unwrap()).unwrap();
     }
     fn add(&self, policy: Policy) {
+        let target = if policy.item.scope == ItemScope::User {
+            Target::User
+        } else {
+            self.target()
+        };
         let id = policy.item.id.clone();
-        let revision = load(&self.0).unwrap().revision();
-        apply(
-            &self.0,
-            &plan(
-                &self.0,
-                Request::Change {
-                    expected_revision: revision,
-                    reason: "Register policy".into(),
-                    change: PolicyChange::Add { policy },
+        let revision = self.home.registry(&target).unwrap().revision();
+        for (expected_revision, change) in [
+            (revision, PolicyChange::Add { policy }),
+            (
+                revision + 1,
+                PolicyChange::Activate {
+                    id,
+                    item_revision: 1,
                 },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        apply(
-            &self.0,
-            &plan(
-                &self.0,
-                Request::Change {
-                    expected_revision: revision + 1,
-                    reason: "Activate policy".into(),
-                    change: PolicyChange::Activate {
-                        id,
-                        item_revision: 1,
-                    },
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
+            ),
+        ] {
+            self.apply(Request::Change {
+                target: target.clone(),
+                expected_revision,
+                reason: "Fixture policy".into(),
+                change: Box::new(change),
+            });
+        }
+    }
+    fn discover(&self, request: &str) -> PolicyDiscovery {
+        discover_policies(&self.home, &self.binding.root, request)
+            .unwrap()
+            .unwrap()
     }
 }
-
 fn lookup_analysis(packet: &PolicyDiscovery, selected: &[&str]) -> PolicyAnalysis {
     PolicyAnalysis {
         format: "amh.policy-analysis.v1".into(),
@@ -94,11 +105,10 @@ fn lookup_analysis(packet: &PolicyDiscovery, selected: &[&str]) -> PolicyAnalysi
 
 #[test]
 fn policy_lookup_merges_scopes_and_checks_dependencies_without_a_task() {
-    let user = Fixture::new();
-    let project = Fixture::with_user_root(Some(user.0.clone()));
+    let project = Fixture::new();
     let mut common = policy("P-COMMON", "When editing a report.");
     common.item.scope = ItemScope::User;
-    user.add(common);
+    project.add(common);
     let mut local = policy("P-LOCAL", "When the report is intended for publication.");
     local.relations.depends_on.push("P-COMMON".into());
     project.add(local);
@@ -114,22 +124,31 @@ fn policy_lookup_merges_scopes_and_checks_dependencies_without_a_task() {
     task_only.item.scope = ItemScope::Task;
     task_only.relations.applies_to.push("T-LEGACY".into());
     project.add(task_only);
-    let packet = discover_policies(&project.0, "이 보고서를 완성해 주세요.").unwrap();
+    let packet = project.discover("이 보고서를 완성해 주세요.");
     assert_eq!(packet.candidates.len(), 2);
     assert_eq!(packet.candidates[0].scope, ItemScope::User);
     assert_eq!(packet.candidates[1].scope, ItemScope::Project);
-    assert!(read_policy(&project.0, "P-TASK", &packet.catalog_digest).is_err());
+    assert!(read_policy(
+        &project.home,
+        &project.binding.root,
+        "P-TASK",
+        &packet.catalog_digest
+    )
+    .is_err());
     let outcome = resolve_policies(
-        &project.0,
+        &project.home,
+        &project.binding.root,
         lookup_analysis(&packet, &["P-COMMON", "P-LOCAL"]),
     )
     .unwrap();
     assert_eq!(outcome.selected, ["P-COMMON", "P-LOCAL", "R-COST"]);
-    assert!(
-        resolve_policies(&project.0, lookup_analysis(&packet, &["P-LOCAL"]))
-            .unwrap_err()
-            .contains("unresolved dependency")
-    );
+    assert!(resolve_policies(
+        &project.home,
+        &project.binding.root,
+        lookup_analysis(&packet, &["P-LOCAL"])
+    )
+    .unwrap_err()
+    .contains("unresolved dependency"));
 }
 
 #[test]
@@ -139,60 +158,79 @@ fn policy_lookup_rejects_wrong_request_and_project_incomplete_assessments_and_po
     for fixture in [&project, &other] {
         fixture.add(policy("P-A", "When editing a report."));
     }
-    let packet = discover_policies(&project.0, "보고서를 편집해 주세요.").unwrap();
-    assert!(resolve_policies(&other.0, lookup_analysis(&packet, &["P-A"])).is_err());
+    let packet = project.discover("보고서를 편집해 주세요.");
+    assert!(resolve_policies(
+        &other.home,
+        &other.binding.root,
+        lookup_analysis(&packet, &["P-A"])
+    )
+    .is_err());
     let mut reply = lookup_analysis(&packet, &["P-A"]);
     reply.request.push('!');
-    assert!(resolve_policies(&project.0, reply)
-        .unwrap_err()
-        .contains("different request"));
+    assert!(
+        resolve_policies(&project.home, &project.binding.root, reply)
+            .unwrap_err()
+            .contains("different request")
+    );
     let mut reply = lookup_analysis(&packet, &[]);
     reply.assessments.clear();
-    assert!(resolve_policies(&project.0, reply)
-        .unwrap_err()
-        .contains("incomplete"));
+    assert!(
+        resolve_policies(&project.home, &project.binding.root, reply)
+            .unwrap_err()
+            .contains("incomplete")
+    );
     let mut reply = lookup_analysis(&packet, &[]);
     reply.assessments[0].applicability = Applicability::Uncertain;
-    assert!(resolve_policies(&project.0, reply)
-        .unwrap_err()
-        .contains("uncertain mandatory"));
+    assert!(
+        resolve_policies(&project.home, &project.binding.root, reply)
+            .unwrap_err()
+            .contains("uncertain mandatory")
+    );
     let mut reply = lookup_analysis(&packet, &["P-A"]);
     reply.assessments[0].request_quotes = vec!["fabricated evidence".into()];
-    assert!(resolve_policies(&project.0, reply)
-        .unwrap_err()
-        .contains("exact request quotations"));
-
-    apply(
-        &project.0,
-        &plan(
-            &project.0,
-            Request::Change {
-                expected_revision: 2,
-                reason: "Pause the registered policy".into(),
-                change: PolicyChange::Pause {
-                    id: "P-A".into(),
-                    item_revision: 2,
-                },
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
     assert!(
-        resolve_policies(&project.0, lookup_analysis(&packet, &["P-A"]))
+        resolve_policies(&project.home, &project.binding.root, reply)
             .unwrap_err()
-            .contains("stale policy catalogue")
+            .contains("exact request quotations")
     );
-    assert!(read_policy(&project.0, "P-A", &packet.catalog_digest)
-        .unwrap_err()
-        .contains("stale policy catalogue"));
-    let current = discover_policies(&project.0, &packet.request).unwrap();
+
+    project.apply(Request::Change {
+        target: project.target(),
+        expected_revision: 2,
+        reason: "Pause the registered policy".into(),
+        change: Box::new(PolicyChange::Pause {
+            id: "P-A".into(),
+            item_revision: 2,
+        }),
+    });
+    assert!(resolve_policies(
+        &project.home,
+        &project.binding.root,
+        lookup_analysis(&packet, &["P-A"])
+    )
+    .unwrap_err()
+    .contains("stale policy catalogue"));
+    assert!(read_policy(
+        &project.home,
+        &project.binding.root,
+        "P-A",
+        &packet.catalog_digest
+    )
+    .unwrap_err()
+    .contains("stale policy catalogue"));
+    let current = project.discover(&packet.request);
     assert!(current.candidates.is_empty());
-    assert!(read_policy(&project.0, "P-A", &current.catalog_digest).is_err());
+    assert!(read_policy(
+        &project.home,
+        &project.binding.root,
+        "P-A",
+        &current.catalog_digest
+    )
+    .is_err());
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        let _ = fs::remove_dir_all(&self.dir);
     }
 }
 fn policy(id: &str, condition: &str) -> Policy {
@@ -264,77 +302,65 @@ fn natural_request_selects_custom_rules_without_task_tags_and_preserves_requirem
     });
     f.add(requirement);
     let p = prepare_request(
-        &f.0,
+        &f.home,
+        &f.binding,
         "수치의 출처를 확인하면서 보고서에 고객 유지율 분석을 추가하세요.",
         None,
     )
     .unwrap();
-    let t = interpret_request(&f.0, &p, response(&p, &["P-NUMBERS"])).unwrap();
+    let t = interpret_request(&f.home, &f.binding, &p, response(&p, &["P-NUMBERS"])).unwrap();
     assert!(t.tags.is_empty());
-    let c = compile(&f.0, &t, None).unwrap();
+    let c = compile(&f.home, &f.binding, &t, None).unwrap();
     assert_eq!(c.selected, vec!["P-NUMBERS", "R-COST"]);
     assert_eq!(t.goal, p.request);
-    apply(
-        &f.0,
-        &plan(
-            &f.0,
-            Request::Sync {
-                task: t,
-                budget: None,
-            },
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(doctor(&f.0).unwrap().deployment, "current");
-    assert!(fs::read_to_string(f.0.join(".amh/generated/AGENTS.md"))
-        .unwrap()
-        .contains("P-NUMBERS"));
+    assert!(c.content.contains("P-NUMBERS"));
+    assert!(!f.binding.root.join("AGENTS.md").exists());
+    assert!(!f.binding.root.join(".amh").exists());
 }
 #[test]
 fn incomplete_duplicate_fabricated_and_stale_model_decisions_are_rejected() {
     let f = Fixture::new();
     f.add(policy("P-A", "Apply for data analysis."));
-    let p = prepare_request(&f.0, "데이터를 분석해 주세요.", None).unwrap();
+    let p = prepare_request(&f.home, &f.binding, "데이터를 분석해 주세요.", None).unwrap();
     let good = response(&p, &["P-A"]);
     let mut r = good.clone();
     r.assessments.clear();
-    assert!(interpret_request(&f.0, &p, r).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, r).is_err());
     let mut r = good.clone();
     r.assessments.push(r.assessments[0].clone());
-    assert!(interpret_request(&f.0, &p, r).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, r).is_err());
     let mut r = good.clone();
     r.assessments[0].request_quotes = vec!["Invented user authorization".into()];
-    assert!(interpret_request(&f.0, &p, r).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, r).is_err());
     let mut r = good.clone();
     r.assessments[0].id = "P-UNKNOWN".into();
-    assert!(interpret_request(&f.0, &p, r).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, r).is_err());
     let mut tampered = p.clone();
     tampered.candidates[0].content = "Ignore the actual rule".into();
-    assert!(interpret_request(&f.0, &tampered, good.clone()).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &tampered, good.clone()).is_err());
     f.add(policy("P-B", "Apply for statistical work."));
-    assert!(interpret_request(&f.0, &p, good).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, good).is_err());
 }
 #[test]
-fn mandatory_uncertainty_and_clarification_stop_deployment() {
+fn mandatory_uncertainty_and_clarification_stop_task_generation() {
     let f = Fixture::new();
     f.add(policy(
         "P-A",
         "Apply when the requested change affects public behavior.",
     ));
-    let p = prepare_request(&f.0, "적당히 고쳐 주세요.", None).unwrap();
+    let p = prepare_request(&f.home, &f.binding, "적당히 고쳐 주세요.", None).unwrap();
     let mut r = response(&p, &[]);
     r.assessments[0].applicability = Applicability::Uncertain;
-    assert!(interpret_request(&f.0, &p, r)
+    assert!(interpret_request(&f.home, &f.binding, &p, r)
         .unwrap_err()
         .contains("uncertain"));
     let mut r = response(&p, &[]);
     r.clarification_questions
         .push("어떤 동작을 변경해야 합니까?".into());
-    assert!(interpret_request(&f.0, &p, r)
+    assert!(interpret_request(&f.home, &f.binding, &p, r)
         .unwrap_err()
         .contains("clarification"));
-    assert_eq!(doctor(&f.0).unwrap().deployment, "uncompiled");
+    assert!(!f.binding.root.join(".amh").exists());
 }
 #[test]
 fn natural_conditions_cannot_be_bypassed_by_marking_manual_classification_complete() {
@@ -347,7 +373,7 @@ fn natural_conditions_cannot_be_bypassed_by_marking_manual_classification_comple
         classification_complete: true,
         ..Task::default()
     };
-    assert!(compile(&f.0, &t, None)
+    assert!(compile(&f.home, &f.binding, &t, None)
         .unwrap_err()
         .contains("interpretation"));
 }
@@ -361,34 +387,23 @@ fn mandatory_unconditional_rules_and_declared_conflicts_survive_model_interpreta
     a.relations.conflicts_with.push("P-B".into());
     f.add(a);
     f.add(policy("P-B", "Apply for this work."));
-    let p = prepare_request(&f.0, "이 작업을 수행하세요.", None).unwrap();
+    let p = prepare_request(&f.home, &f.binding, "이 작업을 수행하세요.", None).unwrap();
     assert!(!p.candidates.iter().any(|c| c.id == "P-ALWAYS"));
-    let t = interpret_request(&f.0, &p, response(&p, &[])).unwrap();
-    assert!(compile(&f.0, &t, None)
+    let t = interpret_request(&f.home, &f.binding, &p, response(&p, &[])).unwrap();
+    assert!(compile(&f.home, &f.binding, &t, None)
         .unwrap()
         .selected
         .contains(&"P-ALWAYS".into()));
-    assert!(interpret_request(&f.0, &p, response(&p, &["P-A", "P-B"])).is_err());
+    assert!(interpret_request(&f.home, &f.binding, &p, response(&p, &["P-A", "P-B"])).is_err());
 }
 #[test]
-fn changed_catalog_invalidates_interpreted_deployment_and_reviewed_plan() {
+fn changed_catalog_invalidates_interpreted_task() {
     let f = Fixture::new();
     f.add(policy("P-A", "Apply for writing."));
-    let p = prepare_request(&f.0, "글을 수정해 주세요.", None).unwrap();
-    let t = interpret_request(&f.0, &p, response(&p, &["P-A"])).unwrap();
-    let reviewed = plan(
-        &f.0,
-        Request::Sync {
-            task: t.clone(),
-            budget: None,
-        },
-    )
-    .unwrap();
-    apply(&f.0, &reviewed).unwrap();
+    let p = prepare_request(&f.home, &f.binding, "글을 수정해 주세요.", None).unwrap();
+    let t = interpret_request(&f.home, &f.binding, &p, response(&p, &["P-A"])).unwrap();
     f.add(policy("P-B", "Apply for editing."));
-    assert!(apply(&f.0, &reviewed).is_err());
-    assert!(compile(&f.0, &t, None).is_err());
-    assert!(doctor(&f.0).unwrap().deployment.starts_with("blocked"));
+    assert!(compile(&f.home, &f.binding, &t, None).is_err());
 }
 
 fn fixture_agent(root: &std::path::Path) -> PathBuf {
@@ -411,12 +426,12 @@ fn fixture_agent(root: &std::path::Path) -> PathBuf {
 fn one_shot_adapters_send_the_request_and_validate_structured_answers() {
     let f = Fixture::new();
     f.add(policy("P-CUSTOM", "Apply only for editing a document."));
-    let packet = prepare_request(&f.0, "문서를 수정해 주세요.", None).unwrap();
+    let packet = prepare_request(&f.home, &f.binding, "문서를 수정해 주세요.", None).unwrap();
     let reply = response(&packet, &["P-CUSTOM"]);
-    let response_file = f.0.join("response.json");
+    let response_file = f.dir.join("response.json");
     fs::write(&response_file, serde_json::to_vec(&reply).unwrap()).unwrap();
-    let capture = f.0.join("received-input.txt");
-    let binary = fixture_agent(&f.0);
+    let capture = f.dir.join("received-input.txt");
+    let binary = fixture_agent(&f.dir);
     for adapter in [AgentAdapter::Stdio, AgentAdapter::Codex] {
         let config = InterpreterConfig {
             adapter,
@@ -428,11 +443,11 @@ fn one_shot_adapters_send_the_request_and_validate_structured_answers() {
             ],
             timeout_seconds: 10,
         };
-        let actual = run_interpreter(&packet, &config).unwrap();
+        let actual = run_interpreter(&f.home, &packet, &config).unwrap();
         assert_eq!(actual, reply);
-        let task = interpret_request(&f.0, &packet, actual).unwrap();
+        let task = interpret_request(&f.home, &f.binding, &packet, actual).unwrap();
         assert_eq!(
-            compile(&f.0, &task, None).unwrap().selected,
+            compile(&f.home, &f.binding, &task, None).unwrap().selected,
             vec!["P-CUSTOM"]
         );
         assert!(fs::read_to_string(&capture).unwrap().contains("문서"));
@@ -441,48 +456,23 @@ fn one_shot_adapters_send_the_request_and_validate_structured_answers() {
 #[test]
 fn interpreter_errors_timeouts_and_excess_output_never_change_the_registry() {
     let f = Fixture::new();
-    let p = prepare_request(&f.0, "Perform the requested work.", None).unwrap();
-    let binary = fixture_agent(&f.0);
-    let before = fs::read(f.0.join(".amh/amh.toml")).unwrap();
+    let p = prepare_request(&f.home, &f.binding, "Perform the requested work.", None).unwrap();
+    let binary = fixture_agent(&f.dir);
+    let before = fs::read(f.home.path().join("projects/test/policies.toml")).unwrap();
     for mode in ["fail", "invalid", "oversize", "hang"] {
         let c = InterpreterConfig {
             adapter: AgentAdapter::Stdio,
             argv: vec![binary.to_string_lossy().into_owned(), mode.into()],
             timeout_seconds: 1,
         };
-        assert!(run_interpreter(&p, &c).is_err(), "{mode}");
-        assert_eq!(fs::read(f.0.join(".amh/amh.toml")).unwrap(), before);
-        assert_eq!(doctor(&f.0).unwrap().deployment, "uncompiled");
+        assert!(run_interpreter(&f.home, &p, &c).is_err(), "{mode}");
+        assert_eq!(
+            fs::read(f.home.path().join("projects/test/policies.toml")).unwrap(),
+            before
+        );
+        assert!(!f.binding.root.join(".amh").exists());
     }
 }
-#[test]
-fn recognized_legacy_bridge_upgrades_without_replacing_user_instructions() {
-    let f = Fixture::new();
-    let path = f.0.join("AGENTS.md");
-    fs::write(
-        &path,
-        "User's existing rules\n\n<!-- AMH:BEGIN -->\nFor the current AMH task contract, read `.amh/generated/AGENTS.md`.\nIf no task is compiled or the deployment is stale, run `amh doctor` and compile the intended task before relying on it.\n<!-- AMH:END -->\n",
-    )
-    .unwrap();
-    assert!(doctor(&f.0).unwrap().adapter_update_available);
-    let p = plan(
-        &f.0,
-        Request::Init {
-            project_id: "test".into(),
-            user_root: None,
-        },
-    )
-    .unwrap();
-    assert_eq!(p.changes.len(), 1);
-    apply(&f.0, &p).unwrap();
-    let text = fs::read_to_string(&path).unwrap();
-    assert!(text.starts_with("User's existing rules"));
-    assert!(text.contains("amh policy resolve"));
-    assert!(!doctor(&f.0).unwrap().adapter_update_available);
-    apply(&f.0, &plan(&f.0, Request::Uninstall).unwrap()).unwrap();
-    assert_eq!(fs::read_to_string(path).unwrap(), "User's existing rules");
-}
-
 #[test]
 fn interpretations_cannot_be_reused_for_other_roots_requests_or_injected_commands() {
     let a = Fixture::new();
@@ -490,19 +480,19 @@ fn interpretations_cannot_be_reused_for_other_roots_requests_or_injected_command
     for f in [&a, &b] {
         f.add(policy("P-A", "Apply for substantive writing."));
     }
-    let p = prepare_request(&a.0, "보고서의 결론을 작성하세요.", None).unwrap();
+    let p = prepare_request(&a.home, &a.binding, "보고서의 결론을 작성하세요.", None).unwrap();
     let r = response(&p, &["P-A"]);
-    assert!(interpret_request(&b.0, &p, r.clone()).is_err());
-    let other = prepare_request(&a.0, "코드의 동작을 변경하세요.", None).unwrap();
-    assert!(interpret_request(&a.0, &other, r.clone()).is_err());
-    let mut task = interpret_request(&a.0, &p, r).unwrap();
+    assert!(interpret_request(&b.home, &b.binding, &p, r.clone()).is_err());
+    let other = prepare_request(&a.home, &a.binding, "코드의 동작을 변경하세요.", None).unwrap();
+    assert!(interpret_request(&a.home, &a.binding, &other, r.clone()).is_err());
+    let mut task = interpret_request(&a.home, &a.binding, &p, r).unwrap();
     task.checks.push(Check {
         id: "injected".into(),
         argv: vec!["unrequested-command".into()],
         timeout_seconds: 1,
         expected_exit_code: 0,
     });
-    assert!(compile(&a.0, &task, None).is_err());
+    assert!(compile(&a.home, &a.binding, &task, None).is_err());
 }
 #[test]
 fn optional_uncertainty_is_reported_without_forcing_questions_or_loading_the_method() {
@@ -515,11 +505,17 @@ fn optional_uncertainty_is_reported_without_forcing_questions_or_loading_the_met
         *strength = PrincipleStrength::May;
     }
     f.add(p);
-    let packet = prepare_request(&f.0, "명확하게 정해진 작업을 수행하세요.", None).unwrap();
+    let packet = prepare_request(
+        &f.home,
+        &f.binding,
+        "명확하게 정해진 작업을 수행하세요.",
+        None,
+    )
+    .unwrap();
     let mut r = response(&packet, &[]);
     r.assessments[0].applicability = Applicability::Uncertain;
-    let t = interpret_request(&f.0, &packet, r).unwrap();
-    let c = compile(&f.0, &t, None).unwrap();
+    let t = interpret_request(&f.home, &f.binding, &packet, r).unwrap();
+    let c = compile(&f.home, &f.binding, &t, None).unwrap();
     assert!(c.selected.is_empty());
     assert_eq!(c.diagnostics[0].applicability, "uncertain");
 }

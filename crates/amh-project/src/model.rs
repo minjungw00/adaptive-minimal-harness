@@ -1,10 +1,7 @@
 use crate::Result;
 use amh_core::{ItemDetails, ItemKind, Lifecycle, ManagedItem};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -155,20 +152,18 @@ pub struct Event {
 pub struct Registry {
     pub format: String,
     pub project_id: String,
-    pub user_root: Option<PathBuf>,
     #[serde(default)]
     pub events: Vec<Event>,
 }
 
 impl Registry {
-    pub fn new(project_id: String, user_root: Option<PathBuf>) -> Result<Self> {
+    pub fn new(project_id: String) -> Result<Self> {
         if project_id.trim().is_empty() {
             return Err("project ID is required".into());
         }
         Ok(Self {
-            format: "amh.project-registry.v1".into(),
+            format: "amh.policy-registry.v1".into(),
             project_id,
-            user_root,
             events: vec![],
         })
     }
@@ -179,7 +174,7 @@ impl Registry {
         self.at(self.revision())
     }
     pub fn at(&self, revision: u64) -> Result<Vec<Policy>> {
-        if self.format != "amh.project-registry.v1"
+        if self.format != "amh.policy-registry.v1"
             || self.project_id.trim().is_empty()
             || revision > self.revision()
         {

@@ -1,6 +1,6 @@
 //! Optional one-shot adapters for existing agents. The agent is explicitly
 //! selected by the caller; no project-discovered executable is auto-started.
-use crate::{AgentResponse, RequestPacket, Result};
+use crate::{AgentResponse, Home, RequestPacket, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
@@ -35,13 +35,13 @@ impl InterpreterConfig {
 }
 struct Temporary(PathBuf);
 impl Temporary {
-    fn new() -> Result<Self> {
+    fn new(parent: &Path) -> Result<Self> {
         for attempt in 0..16 {
             let nonce = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
                 .as_nanos();
-            let p = std::env::temp_dir().join(format!(
+            let p = parent.join(format!(
                 "amh-interpret-{}-{nonce}-{attempt}",
                 std::process::id()
             ));
@@ -92,6 +92,7 @@ fn bounded_read(path: &Path) -> Result<Vec<u8>> {
 /// Existing account/model/provider settings belong to the selected agent. AMH
 /// receives no API key and never starts an interpreter without an explicit flag.
 pub fn run_interpreter(
+    home: &Home,
     packet: &RequestPacket,
     config: &InterpreterConfig,
 ) -> Result<AgentResponse> {
@@ -101,7 +102,7 @@ pub fn run_interpreter(
     {
         return Err("interpreter requires argv and timeout between 1 and 300 seconds".into());
     }
-    let tmp = Temporary::new()?;
+    let tmp = Temporary::new(&home.create_storage_dir("tmp")?)?;
     let input = tmp.0.join("input.json");
     let output = tmp.0.join("stdout.json");
     let stderr = tmp.0.join("stderr.log");
@@ -161,9 +162,7 @@ pub fn run_interpreter(
             None if started.elapsed() >= Duration::from_secs(config.timeout_seconds) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(
-                    "interpreter timed out; no policy or deployment change was applied".into(),
-                );
+                return Err("interpreter timed out; no analysis accepted".into());
             }
             None => std::thread::sleep(Duration::from_millis(20)),
         }
