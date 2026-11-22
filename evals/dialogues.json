@@ -10,6 +10,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "calculator",
       "checks": [
         [
           "{python}",
@@ -186,13 +187,13 @@
       "fixture": "report",
       "request": "이 보고서를 완성해줘.",
       "family": "single_action_document_methods",
-      "review_note": "Accept different defensible combinations; inspect evidence and causal restraint.",
+      "review_note": "Assess the same document-writing condition before and after a recorded policy pause. Distinguish fresh delivery from guidance already seen by the agent.",
       "packs": [
         "agent-workflow"
       ],
       "turns": [
         "이 보고서를 완성해줘.",
-        "이 보고서에서 결론 문장만 더 명확하게 다듬어줘.",
+        "이 보고서의 결론과 권고안을 새로 작성해줘. 비용 분석을 중심으로 하고 고객 유지율은 보조 근거로 써줘.",
         "앞서 정리한 보고서의 핵심을 설명해줘."
       ],
       "pause_before_turn": {

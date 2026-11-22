@@ -10,6 +10,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "calculator",
       "checks": [
         [
           "{python}",
@@ -143,6 +144,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "formatter",
       "checks": [
         [
           "{python}",
@@ -253,6 +255,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "calculator",
       "checks": [
         [
           "{python}",
@@ -329,6 +332,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "formatter",
       "checks": [
         [
           "{python}",
@@ -393,6 +397,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "calculator",
       "checks": [
         [
           "{python}",
@@ -506,6 +511,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "formatter",
       "checks": [
         [
           "{python}",
@@ -524,6 +530,7 @@
       "packs": [
         "agent-workflow"
       ],
+      "contract": "calculator",
       "checks": [
         [
           "{python}",
@@ -699,8 +706,8 @@
       "id": "S32",
       "fixture": "continuation",
       "request": "작업을 진행해.",
-      "family": "paused_policy_and_stale_deployment",
-      "review_note": "Judge current logical state separately from old rendered instructions.",
+      "family": "paused_before_work",
+      "review_note": "Assess whether the agent uses current guidance and excludes the policy paused before this request.",
       "packs": [
         "agent-workflow"
       ],
