@@ -24,15 +24,15 @@
 - [x] User-owned project initialization and explicit local write-plan integration (not authenticated protected writes).
 
 ## P0 native project flow
-- [x] Project initialization with user/shared/managed ownership and read-only previews.
-- [x] Canonical TOML event registry, explicit user-registry import and task-scoped items.
+- [x] Work-tree registration under AMH home with read-only previews.
+- [x] Separate personal and project TOML registries with task-scoped items.
 - [x] Version-checked item/metadata operations, REMOVE, REPRIORITIZE and history-preserving rollback.
 - [x] Optional content-pinned development/inquiry packs and custom pack inputs.
 - [x] Agent-assisted natural-language applicability with complete grounded assessments and deterministic dependency/conflict guards.
-- [x] Existing-agent AGENTS.md handoff and explicit one-shot stdio/Codex interpreter adapters.
+- [x] User-level agent handoff and explicit one-shot stdio/Codex interpreter adapters.
 - [x] Minimal task compilation with provenance and no silent budget truncation.
-- [x] AGENTS.md adapter, stale deployment detection, preservation and uninstall/reinstall.
-- [x] Recoverable local update journal with unrelated-edit refusal.
+- [x] Repository-free integration, catalogue freshness checks and explicit policy-history import.
+- [x] Locked home updates with atomic file replacement.
 - [x] Explicit verification-tool execution and local evidence; unobserved compliance remains unknown.
 - [x] Library/CLI regression cases and supported walkthrough inputs.
 - [x] Linux/macOS/Windows native packages with examples, checksums and tag-triggered release drafts.
@@ -56,7 +56,7 @@ optional signed host and does not claim authenticated policy enforcement.
 - Expand existing instruction/tool detection beyond the initial instruction inventory.
 - Extend the implemented managed/user/shared ownership model to additional adapters.
 - Extend preview/recovery to format migrations and additional integrations.
-- Measure live-session effective state separately from implemented file deployment checks.
+- Measure effective host context separately from policy delivery.
 
 ## Evaluation and adapters
 - Agent-specific adapter support; prefer existing Agent Skills and interoperability tools.

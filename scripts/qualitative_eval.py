@@ -47,8 +47,9 @@ def load_suite(path):
     return suite
 
 
-def invoke(amh, root, *args):
-    result = subprocess.run([str(amh), *args, '--root', str(root)], capture_output=True, text=True, encoding='utf-8')
+def invoke(amh, root, home, *args):
+    result = subprocess.run([str(amh), *args], cwd=root, env={**os.environ, "AMH_HOME": str(home)},
+                            capture_output=True, text=True, encoding="utf-8")
     if result.returncode:
         raise RuntimeError(result.stderr)
     return json.loads(result.stdout)
@@ -60,7 +61,7 @@ def product_files(root):
         if not path.is_file() or path.is_symlink() or '__pycache__' in path.parts:
             continue
         relative = path.relative_to(root).as_posix()
-        if relative.startswith('.amh/') or relative in ('AGENTS.md', '.amh.lock'):
+        if relative.startswith('.git/') or relative == '.git':
             continue
         data = path.read_bytes()
         result[relative] = {'sha256': sha(data), 'bytes': len(data)}
@@ -72,16 +73,12 @@ def product_files(root):
     return result
 
 
-def deployment(root):
-    file = Path(root) / '.amh/deployment.json'
-    return read_json(file) if file.exists() else None
-
-
-def seed(amh, root, case, scratch):
-    invoke(amh, root, 'init', '--id', 'workspace', '--apply')
+def seed(amh, root, case, scratch, home):
+    subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+    invoke(amh, root, home, 'project', 'add', '--id', 'workspace', '--apply')
     revision = 0
     for pack in case.get('packs', []):
-        invoke(amh, root, 'pack', 'install', '--name', pack, '--expected-revision', str(revision), '--reason', 'Install selected project methods', '--apply')
+        invoke(amh, root, home, 'pack', 'install', '--name', pack, '--expected-revision', str(revision), '--reason', 'Install selected project methods', '--apply')
         revision += 1
     policies = list(case.get('policies', []))
     for i, goal in enumerate(case.get('goals', [])):
@@ -91,29 +88,22 @@ def seed(amh, root, case, scratch):
     for policy in policies:
         source = scratch / 'policy.json'
         write_json(source, policy)
-        invoke(amh, root, 'policy', 'add', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Register accepted project condition', '--apply')
+        invoke(amh, root, home, 'policy', 'add', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Register accepted project condition', '--apply')
         revision += 1
         write_json(source, {'operation': 'ACTIVATE', 'id': policy['item']['id'], 'item_revision': 1})
-        invoke(amh, root, 'policy', 'change', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Activate accepted condition', '--apply')
+        invoke(amh, root, home, 'policy', 'change', '--file', str(source), '--expected-revision', str(revision), '--reason', 'Activate accepted condition', '--apply')
         revision += 1
-    if case.get('current_task'):
-        source = scratch / 'task.json'
-        write_json(source, case['current_task'])
-        # Inline task snapshot: the actor must retrieve state through AMH-owned files,
-        # not receive a controller-side hint or a task file outside its workspace.
-        # sync initially references a file; copy it into the real workspace so its
-        # source remains a valid, legitimate part of the initialized environment.
-        write_json(root / '.amh/current-task.json', case['current_task'])
-        invoke(amh, root, 'sync', '--task', str(root / '.amh/current-task.json'), '--apply')
+    if task := case.get('current_task'):
+        write_json(root / 'saved-tasks' / (task['id'] + '.json'), task)
     for id in case.get('pause', []):
-        current = invoke(amh, root, 'policy', 'list')
+        current = invoke(amh, root, home, 'policy', 'list')
         policy = next(p for p in current['policies'] if p['item']['id'] == id)
         write_json(scratch / 'policy.json', {'operation': 'PAUSE', 'id': id, 'item_revision': policy['item']['revision']})
-        invoke(amh, root, 'policy', 'change', '--file', str(scratch / 'policy.json'), '--expected-revision', str(revision), '--reason', 'Pause a user-selected method', '--apply')
+        invoke(amh, root, home, 'policy', 'change', '--file', str(scratch / 'policy.json'), '--expected-revision', str(revision), '--reason', 'Pause a user-selected method', '--apply')
         revision += 1
 
 
-def make_tool(directory, amh, audit):
+def make_tool(directory, amh, audit, home):
     if os.name != 'posix':
         raise ValueError('fresh-session audit wrapper currently requires a POSIX host')
     directory.mkdir(parents=True)
@@ -130,7 +120,7 @@ if '--agent' in args or '--agent-config' in args:
     sys.stderr.write('This environment supports the current-agent path only.\\n')
     raise SystemExit(2)
 stdin_data=sys.stdin.buffer.read() if any(args[i:i+2]==['--input','-'] for i in range(len(args)-1)) else None
-r=subprocess.run([real,*args],input=stdin_data,capture_output=True,timeout=300)
+r=subprocess.run([real,*args],input=stdin_data,capture_output=True,timeout=300,env={{**os.environ,'AMH_HOME':{str(home)!r}}})
 (audit/(id+'.stdout')).write_bytes(r.stdout)
 (audit/(id+'.stderr')).write_bytes(r.stderr)
 record={{'id':id,'binary_sha256':hashlib.sha256(pathlib.Path(real).read_bytes()).hexdigest(),'argv':args,'cwd':os.getcwd(),'started_ns':started,'finished_ns':time.time_ns(),'exit_code':r.returncode}}
@@ -164,16 +154,19 @@ def prepare(amh, suite_path, out, case_ids=None):
         shutil.copytree(REPO / 'evals/fixtures' / case['fixture'], root)
         private = out / 'controller' / case['id']
         private.mkdir(parents=True)
-        seed(amh, root, case, private)
-        tool = make_tool(directory / 'bin', amh, private / 'audit')
-        initial = {'request': case['request'], 'files': product_files(root), 'policies': invoke(amh, root, 'policy', 'list'),
-                   'current_deployment': deployment(root), 'agent_instructions': (root / 'AGENTS.md').read_text(encoding='utf-8')}
+        home = private / 'amh-home'
+        seed(amh, root, case, private, home)
+        tool = make_tool(directory / 'bin', amh, private / 'audit', home)
+        guidance = subprocess.check_output([str(amh), 'agent', 'instructions'], text=True, encoding='utf-8')
+        initial = {'request': case['request'], 'files': product_files(root), 'policies': invoke(amh, root, home, 'policy', 'list'),
+                   'agent_instructions': guidance, 'instruction_source': 'simulated_user_global_settings'}
         write_json(private / 'initial.json', initial)
         write_json(directory / 'assignment.json', {'request': case['request'], 'workspace': str(root), 'amh': str(tool)})
         prompt = (f'Work only in {root}. AMH is available at {tool}; put its containing directory on PATH if needed. '
                   'Standard local runtimes are available. Do not use network services, other agents, sibling directories, repository sources or unrelated connected tools. '
                   'Handle the following user request. If essential information is missing, ask the user instead of inventing it. '
-                  'When finished, state the work done, checks actually executed, and any unresolved questions.\n\n' + case['request'])
+                  'When finished, state the work done, checks actually executed, and any unresolved questions.\n\n'
+                  + 'User-global agent instructions:\n' + guidance + '\nUser request:\n' + case['request'])
         (directory / 'actor-prompt.txt').write_text(prompt, encoding='utf-8')
         controller['cases'][case['id']] = {'opaque_id': opaque, 'case': case, 'workspace': str(root), 'tool': str(tool),
                                          'private': str(private), 'actor_prompt': str(directory / 'actor-prompt.txt')}
@@ -203,7 +196,7 @@ def collect(run, id, actor_note=None):
     result_dir.mkdir(exist_ok=False)
     frozen = result_dir / 'workspace'
     def omit_links(directory, names):
-        return [n for n in names if n == '__pycache__' or (Path(directory) / n).is_symlink()]
+        return [n for n in names if n in ('__pycache__', '.git') or (Path(directory) / n).is_symlink()]
     omitted_links = [p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_symlink()]
     shutil.copytree(root, frozen, ignore=omit_links)
     audit = private / 'audit'
@@ -216,9 +209,8 @@ def collect(run, id, actor_note=None):
     after = product_files(frozen)
     differences = [{'path': p, 'before': initial['files'].get(p, {}).get('sha256'), 'after': after.get(p, {}).get('sha256')}
                    for p in sorted(set(initial['files']) | set(after)) if initial['files'].get(p, {}).get('sha256') != after.get(p, {}).get('sha256')]
-    final_deployment = deployment(frozen)
     record = {'format': 'amh.qualitative-observation.v1', 'request': item['case']['request'], 'files': after,
-              'file_changes': differences, 'amh_calls': calls, 'final_deployment': final_deployment,
+              'file_changes': differences, 'amh_calls': calls,
               'actor_note': Path(actor_note).read_text(encoding='utf-8') if actor_note else None,
               'actor_note_authority': 'self_report_not_execution_proof',
               'independent_outcome_checks': checks(frozen, item['case'].get('checks', [])),
@@ -308,9 +300,8 @@ def export_evidence(run, out):
             raw.append({**call, 'stdout': (a / (call['id'] + '.stdout')).read_text(encoding='utf-8'),
                         'stderr': (a / (call['id'] + '.stderr')).read_text(encoding='utf-8'),
                         'stdin': (a / call['stdin_file']).read_text(encoding='utf-8') if call.get('stdin_file') else None})
-        generated = private / 'result/workspace/.amh/generated/AGENTS.md'
         prepared.append((id, {'initial': read_json(private / 'initial.json'), 'observation': observation,
-                              'calls': raw, 'deployed_instructions': generated.read_text(encoding='utf-8') if generated.exists() else None,
+                              'calls': raw,
                               'reviews': reviews}))
     out.mkdir(parents=True, exist_ok=False)
     def portable(value):
@@ -324,8 +315,6 @@ def export_evidence(run, out):
         write_json(folder / 'initial.json', portable(data['initial']))
         write_json(folder / 'observation.json', portable(data['observation']))
         write_json(folder / 'calls.json', portable(data['calls']))
-        if data['deployed_instructions'] is not None:
-            (folder / 'deployed.md').write_text(portable(data['deployed_instructions']), encoding='utf-8')
         for review in data['reviews']:
             write_json(folder / ('review-' + review['label'] + '.json'), portable(review))
     # Session isolation/model facts come from the controller, not from this file

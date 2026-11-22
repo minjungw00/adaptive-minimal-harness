@@ -4,31 +4,27 @@
 
 ## Native project contract
 
-The user-owned `.amh/amh.toml` contains `format: "amh.project-registry.v1"`,
-`project_id`, an optional explicitly selected `user_root`, and sequential `events`.
-An event carries its registry revision, reason and typed change. Replay derives
-current state; no duplicate authoritative current-state file is stored.
+The user-owned `~/.amh/config.toml` contains `format = "amh.config.v1"` and
+`repositories`, an array of `root` and `project` bindings. Roots are canonical
+Git work-tree paths. Project IDs identify policy stores, so several work trees
+can explicitly share one policy store.
 
-`Policy` wraps a core `ManagedItem` with `owner`, optional `source`, explicit
-`priority`, optional natural-language `applicability`, and `relations` (`depends_on`, `supports`, `conflicts_with`, `applies_to`,
-`verified_by`). Core typed details are required for new project entries. Owner
-and provenance are declarations, not authentication. Event reason records the
-change rationale. User/project/task scopes compose explicitly; duplicate IDs
-are diagnosed rather than silently overridden. Task-scoped inline items belong
-to their enclosing contract; persisted task-scoped policies require `applies_to`.
+```toml
+format = "amh.config.v1"
 
-Native changes support ADD, MODIFY, SET_DETAILS, SET_METADATA, REPLACE, REMOVE,
-REPRIORITIZE, SET_APPLICABILITY, ACTIVATE, PAUSE, REACTIVATE, RETIRE, INSTALL_PACK and RESTORE. Existing
-items require their item revision, and every mutation checks registry revision.
-ADD requires a unique draft at revision 1; MODIFY preserves kind, scope and role.
-REPLACE requires an active original and compatible kind/scope, retaining the
-replacement relation. Removed IDs cannot be reused. RESTORE creates a new event
-and advances restored item revisions rather than rewinding history.
+[[repositories]]
+root = "/home/alex/work/reports"
+project = "reports"
+```
 
-Packs have an ID, version and array of policies. Installation explicitly
-activates their entries; individual activation conditions still determine task
-applicability. Installed definitions are retained in events and exposed as version
-and content-digest locks. Existing user-customized identities are not overwritten.
+
+`user/policies.toml` and `projects/<id>/policies.toml` contain
+`format = "amh.policy-registry.v1"`, `project_id` and ordered `events`. The
+personal common registry has identity `user` and holds user-scoped items. The
+project registry holds project-scoped and explicitly Task-scoped items. Events
+carry sequential revisions, reasons and typed changes. State is derived by
+replay. Versioned packs are retained in the event log. Duplicate policy IDs
+across scopes are rejected when selecting policies.
 
 Task has `id`, `goal`, `done_when`, optional `tags`, `classification_complete`,
 `allowed_paths`, `stop_when`, `outputs`, `explicit_policies`, task-scoped `items`,
@@ -39,7 +35,7 @@ units are characters, not estimated model tokens. No applicable condition is
 silently truncated. Allowed paths require external enforcement.
 
 The compile response traces selected IDs, per-entry applicability diagnostics,
-source digest and rendered content. Sync only targets the AGENTS.md adapter.
+source digest and rendered content on stdout.
 Semantic conflict analysis, authenticated human approval, arbitrary adapter
 formats and live-session behavioral attestation remain outside P0.
 
@@ -47,11 +43,11 @@ formats and live-session behavioral attestation remain outside P0.
 
 | Format | Fields and binding |
 | --- | --- |
-| `amh.policy-discovery.v1` | `request`, `request_digest`, `catalog_digest`, candidate summaries, instructions and `response_schema`. A summary has `id`, `item_revision`, `scope`, `condition`, `activation` and `strength`. |
+| `amh.policy-discovery.v1` | `status: ready`, `request`, `request_digest`, `catalog_digest`, candidate summaries, instructions and `response_schema`. A summary has `id`, `item_revision`, `scope`, `condition`, `activation` and `strength`. |
 | `amh.policy-analysis.v1` | Original `request`, both digests, `assessments` and `clarification_questions`. Each assessment supplies ID and version, applicability, reason and one or more exact request quotes. |
 | Resolution | `status`, `selected`, `instructions` and `clarification_questions`. A clarification result supplies no selected instructions. |
 
-The catalogue digest binds the canonical project root and current user/project
+The catalogue digest binds the work-tree registration and current user/project
 policy entries. The request digest binds the catalogue and the exact request.
 Reading a single body and resolving the analysis both check the current catalogue.
 The resolver independently rebuilds the possible candidates and verifies complete

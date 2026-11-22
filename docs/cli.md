@@ -1,64 +1,33 @@
 # CLI reference
 
-## Native user-owned projects
+## Local policy workflow
 
-`--root PATH` selects an existing project directory; the default is the current
-directory. Input documents accept TOML, or JSON when the filename ends in `.json`.
-`--help` lists all supported options. Unknown/duplicate options fail.
+Git must be on PATH. Commands that accept `--root PATH` use that directory or
+the current directory to identify the registered Git work tree. `AMH_HOME`
+defaults to `~/.amh` and must be outside Git work trees.
 
 | Command | Behavior |
 | --- | --- |
-| `init --id ID [--user-root PATH]` | Plan initial registry, adapter, and shared instruction block |
-| `policy list` | Current policies, registry revision and pinned pack content digests |
-| `policy add --file FILE --expected-revision N --reason TEXT` | Add one explicitly typed draft policy |
-| `policy change --file FILE --expected-revision N --reason TEXT` | Apply an explicit operation described below |
-| `pack list` / `pack show --name NAME` | Inspect optional built-in packs |
-| `pack install --name NAME --expected-revision N --reason TEXT` | Install and activate a version-pinned built-in pack; optional `--scope user|project` |
-| `pack install --file FILE --expected-revision N --reason TEXT` | Install a custom pack using the same schema; optional `--scope user|project` |
-| `request --text TEXT` or `request --request-file FILE` | Read-only discovery packet for the current agent; no manual tags required |
-| `request finish --packet FILE --analysis FILE [--budget CHARS]` | Validate agent judgments and plan the interpreted task's deployment |
-| `request --text TEXT --agent codex [--budget CHARS]` | Use an explicitly selected existing Codex CLI for interpretation |
-| `request --request-file FILE --agent-config FILE [--budget CHARS]` | Use an explicit JSON stdin/stdout agent adapter |
-| `compile --task FILE [--budget CHARS]` | Read-only resolution diagnostics and rendered task instructions |
-| `sync --task FILE [--budget CHARS]` | Plan AGENTS.md adapter deployment |
-| `apply --plan FILE` | Recompute and apply exactly the reviewed local plan |
-| `doctor` | Inspect source/adapter drift and inventory other instruction files |
-| `history` | Inspect explicit registry events and reasons |
-| `rollback --revision N --expected-revision N --reason TEXT` | Restore an earlier policy set as a new revision |
-| `uninstall` | Remove owned adapter content; retain registry, history and evidence |
-| `recover` | Diagnose an interrupted local file transaction |
-| `verify --task FILE` | Show selected verification commands without executing them |
-| `verify --task FILE --run` | Run the task's explicit argv commands and save actual outcomes |
+| `project add --id ID [--root PATH]` | Register the work tree under a policy project ID. Multiple explicit registrations can use the same ID. |
+| `project list` | List registered roots and project IDs. |
+| `project remove [--root PATH]` | Remove a root's registration and retain its project's policies and history. A moved or deleted tree can be removed using its stored path. |
+| `agent instructions` | Print guidance to add to the current agent's user-level instructions. |
+| `policy list [--scope user]` | Show the selected registry, revision and installed pack fingerprints. Project scope is the default. |
+| `policy add --file FILE --expected-revision N --reason TEXT` | Add a typed draft policy to the selected registry. |
+| `policy change --file FILE --expected-revision N --reason TEXT` | Apply an explicit policy operation. |
+| `policy import --file FILE` | Copy policy history from a previous registry into an empty registry. |
+| `pack list`, `pack show --name NAME`, `pack install` | Inspect or install built-in packs, or install a custom pack with `--file FILE`. Installation takes an expected revision and reason. |
+| `history`, `rollback --revision N --expected-revision N --reason TEXT` | Inspect registry events or restore a policy set as a new revision. |
+| `apply --plan FILE` | Apply a reviewed plan after recomputing it in the same AMH home. |
+| `request --text TEXT`, `request finish --packet FILE --analysis FILE` | Prepare an interpretation packet and produce a validated Task on stdout. The optional `--agent codex` or `--agent-config FILE` runs a selected interpreter. |
+| `compile --task FILE [--budget CHARS]` | Print rendered Task instructions and diagnostics. |
+| `verify --task FILE [--run]` | Preview checks, or run them from the repository root and store evidence under the AMH home. |
 
-Mutating commands emit plans by default. `--apply` applies the current command's
-plan immediately; it is not human authentication. `recover --apply` rolls back
-an interrupted file transaction when all affected files still match either
-reviewed version. Recovery refuses unrelated user edits. Registry rollback is
-separate: it preserves event history and advances item revisions.
-
-`policy change` supports `ADD`, `MODIFY`, `SET_DETAILS`, `SET_METADATA`, `REPLACE`,
-`REMOVE`, `REPRIORITIZE`, `SET_APPLICABILITY`, `ACTIVATE`, `PAUSE`, `REACTIVATE`, `RETIRE`, `INSTALL_PACK`,
-and `RESTORE`. See [contracts](contracts.md). Existing-item operations require
-`item_revision`; all registry mutations also require the current registry revision.
-
-`doctor` returns nonzero for stale or blocked deployment. Corrupt/missing owned
-files, malformed data, uncertain mandatory rules and conflicts also return nonzero.
-An uncompiled project is reported as `uncompiled`, never as observed compliance.
-
-Verification only starts commands with `--run`, never invokes a shell implicitly,
-and records stdout/stderr, expected/actual exit codes, timestamps and contract
-fingerprints. The default expected exit code is zero; an explicit expected code
-can represent a failing RED check. Each timeout is 1–300 seconds and kills the
-direct child; process-tree isolation is not provided. There are no retries.
-A failed/missing/timed-out check returns nonzero while retaining its evidence.
-Checks do not infer completion criteria or policy compliance. Empty check sets
-remain unverified. These are local execution records, not authenticated attestations.
-
-Natural request interpretation and deployment are described in [agent requests](agent-requests.md).
-Request commands accept `--root`; the initial request accepts an optional `--task-id`.
-`--apply` applies only a finished interpretation or explicitly selected backend result;
-a discovery packet alone cannot be applied. The current agent produces intermediate
-JSON files as protocol data. Users do not have to select tags or policies.
+Policy and history operations accept `--scope user` to select personal common
+policies. Use `--help` for all supported arguments. Mutations return JSON plans
+by default. Add `--apply` to apply a command immediately. Existing-item changes
+require their item revision and registry changes check the expected registry
+revision. See the [policy contracts](contracts.md).
 
 ## Legacy/protected snapshot inspection
 

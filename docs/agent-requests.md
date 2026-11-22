@@ -5,58 +5,47 @@ that request against AMH's policy catalogue; AMH validates the resulting decisio
 resolves dependencies/conflicts, and renders only applicable principles. Users do
 not need to supply task tags or choose policy IDs.
 
-## Existing agent: request-based policy lookup
+## User-level agent integration
 
-After `amh init --id PROJECT --apply`, the managed block in `AGENTS.md` directs
-the current agent to:
+Run `amh agent instructions` to print guidance for your existing agent. Add it
+to your user-level instructions, such as `~/.codex/AGENTS.md`,
+`~/.claude/CLAUDE.md` or `~/.gemini/GEMINI.md`. Register each intended Git
+work tree with `amh project add --id ID --apply`.
 
-1. Identify the task from the request and available conversation. Stored work
-   alone does not select the current task. Ask when ambiguity changes the work.
-2. Run `amh policy discover --text 'VERBATIM REQUEST'`. The catalogue lists
-   conditions, activation metadata and versions for active conditional user and
-   project principles. If a condition is missing or insufficient, run
-   `amh policy read --id ID --catalog-digest DIGEST` for that policy only.
-3. Assess each candidate as `match`, `no_match` or `uncertain`. Use the
-   `response_schema` from discovery and submit the analysis object itself
-   to `amh policy resolve --input -` via stdin. The tool returns the applicable
-   instructions, including unconditional policies, as JSON on stdout. A
-   clarification response exits unsuccessfully with structured questions on stderr.
-4. Do the work with the returned instructions. During the same work, use
-   relevant instructions still in context. Discover again for a changed request
-   or catalogue, or when those instructions are missing. The next request needs
-   no earlier AMH response, conversation handle, or local state file.
+1. Identify the task from the request and available conversation. Ask when
+   ambiguity changes the work.
+2. Run `amh policy discover --text 'VERBATIM REQUEST'`. For a registered work
+   tree AMH returns `ready` and candidate conditions. Use the ordinary
+   project workflow if the result is `not_registered`.
+3. Assess each condition. If necessary, read one policy with
+   `amh policy read --id ID --catalog-digest DIGEST`. Submit the object matching
+   `response_schema` to `amh policy resolve --input -` via stdin. Resolve returns
+   applicable instructions on stdout. Clarification returns structured
+   questions on stderr with a nonzero exit status.
+4. Use the selected instructions to do the work. Rediscover when the task,
+   catalogue or available context changes. The host manages conversation
+   continuity.
 
-The agent provides its applicability decisions and exact request quotes.
-AMH verifies the policy snapshot, candidate coverage and structural guards.
-The host owns conversation continuity and decides what remains in model input.
-When the intended work is no longer clear, ask for the missing information.
-
-To upgrade a recognized managed block, rerun the original
-`amh init --id PROJECT [--user-root PATH] --apply`. Existing policy files,
-explicit Tasks and user-authored text around the managed block are preserved.
-Reload the agent's project instructions after updating the block.
-Old `.amh/sessions/` folders are left in place as historical user data and may be
-archived or removed by the user. The current commands do not consult them.
-
-`amh request` / `amh request finish` and the one-shot agents below are optional
-ways to author explicit Task contracts with completion criteria.
-Explicit Tasks can also be compiled, synced and verified directly.
+The agent interprets the request and provides exact request quotes. AMH checks
+the work-tree binding, policy snapshot and structural guards. User-level agent
+instructions are installed manually and can be used without any AMH-owned file
+in the project.
 
 ## One-shot interpretation with an explicitly selected agent
 
 An existing Codex CLI can do the interpretation in one invocation:
 
 ```sh
-amh request --text 'Fix the parser bug without breaking the existing public API.' --agent codex --apply
+amh request --text 'Fix the parser bug without breaking the existing public API.' --agent codex
 ```
 
-This interprets and deploys a task contract. It does not ask the interpreter to
-perform the underlying code change; the execution agent then uses that contract.
-Without `--apply`, it produces a reviewable deployment plan.
+This interprets a Task contract and prints its JSON. The current agent performs
+the underlying work. Use `amh request finish --packet FILE --analysis FILE` to
+produce the same Task format with a response from the current agent.
 
 The adapter invokes `codex exec` with `--sandbox read-only`, `--ephemeral`,
 `--skip-git-repo-check`, `--output-schema`, and `--output-last-message`, with a
-prompt on stdin. It runs from a private temporary directory instead of recursively
+prompt on stdin. It runs from a private temporary directory under AMH home instead of recursively
 loading the consumer project's agent workflow. It uses the existing CLI's account,
 model and provider configuration. AMH neither provisions a key nor silently starts
 or authenticates a provider. See the official [non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode)
@@ -107,8 +96,8 @@ Changed policy inputs require reinterpreting or recompiling the contract.
 
 Automated tests exercise the read-only CLI handoff, scope composition, policy
 body lookup, stale and incomplete decisions, mandatory uncertainty, dependencies,
-questions, and upgrading the managed block. The explicit Task and one-shot
-interpreter tests continue to cover deployment and verification separately.
+questions, and registered work trees. The explicit Task and one-shot interpreter
+tests cover compilation and verification separately.
 
 Use the [qualitative evaluation tools](../evals/README.md) to examine actual
 agent selection, outputs and observable execution. Earlier pilot results report

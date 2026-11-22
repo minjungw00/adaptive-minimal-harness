@@ -152,14 +152,19 @@ class RunTests(unittest.TestCase):
         self.assertEqual(qe.read_json(folder / 'routing.json')['provisional_sha256'], qe.sha((folder / 'provisional.md').read_bytes()))
         with self.assertRaises(FileExistsError): qe.reveal(folder)
 
-    def test_known_task_is_seeded_in_product_state_not_the_actor_prompt(self):
+    def test_saved_task_is_fixture_data_and_adapter_guidance_is_global(self):
         item = self.item('S03')
         initial = qe.read_json(Path(item['private']) / 'initial.json')
-        goal = initial['current_deployment']['task']['goal']
+        workspace = Path(item['workspace'])
+        files = list((workspace / 'saved-tasks').glob('*.json'))
+        self.assertEqual(len(files), 1)
+        goal = qe.read_json(files[0])['goal']
         self.assertNotIn(goal, Path(item['actor_prompt']).read_text())
-        self.assertIn(goal, (Path(item['workspace']) / '.amh/generated/AGENTS.md').read_text())
-        absent = qe.read_json(Path(self.item('S04')['private']) / 'initial.json')
-        self.assertIsNone(absent['current_deployment']['task'])
+        self.assertIn('amh policy discover', initial['agent_instructions'])
+        self.assertEqual(initial['instruction_source'], 'simulated_user_global_settings')
+        self.assertFalse((workspace / 'AGENTS.md').exists())
+        self.assertFalse((workspace / '.amh').exists())
+        self.assertFalse((Path(self.item('S04')['workspace']) / 'saved-tasks').exists())
 
     def test_collect_omits_symlinks_instead_of_following_private_data(self):
         item = self.item()

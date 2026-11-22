@@ -18,7 +18,7 @@ def snapshot():
     for p in sorted(root.rglob('*')):
         if not p.is_file() or p.is_symlink() or '__pycache__' in p.parts:continue
         rel=p.relative_to(root).as_posix()
-        if rel.startswith('.amh/') or rel=='.amh.lock':continue
+        if rel.startswith('.git/') or rel=='.git':continue
         b=p.read_bytes();out[rel]={'sha256':hashlib.sha256(b).hexdigest()}
         if len(b)<=262144:
             try:out[rel]['text']=b.decode('utf-8')

@@ -4,58 +4,47 @@ A **local-first, model-agnostic control layer** for user-defined goals, principl
 requirements, constraints, and decisions. AMH works with existing agents; it does
 not provide an LLM, agent runner, or mandatory server.
 
-**Status: pre-alpha.** An existing agent finds applicable policies for each request
-and reads only the bodies it needs. This path uses no AMH session or per-request
-files. Explicit Task contracts are available for work with defined acceptance
-criteria or checks. See [agent integration](docs/agent-requests.md) and the
-[P0 boundary](docs/p0.md).
+**Status: pre-alpha.** AMH keeps its repository registrations, policies and
+verification records in the user's home. The existing agent finds applicable
+policies for the current request and reads only the bodies it needs.
 
-## Native project workflow
+## Getting started
 
-Run these from an existing project. Writes default to a JSON change plan; use
-`--apply` for an explicitly selected local change or save the plan and review it
-before `amh apply --plan plan.json`.
+With `amh` and Git on PATH, run these commands from a Git work tree:
 
 ```sh
-amh init --id my-project > init-plan.json
-amh apply --plan init-plan.json
+amh project add --id my-project --apply
 amh pack install --name development --expected-revision 0 --reason 'Use development policies' --apply
-# In an AGENTS.md-compatible agent, now describe the desired work normally.
-# The agent discovers policy conditions and retrieves the selected instructions.
-# Alternatively, explicitly use an existing Codex CLI as the interpreter:
-amh request --text 'Fix the parser bug while preserving API compatibility.' --agent codex --apply
-amh doctor
+amh agent instructions
 ```
 
-The optional one-shot command uses the explicit Task compatibility path and prepares a contract; the execution agent performs the requested work. See [natural-language agent integration](docs/agent-requests.md). Explicit Task files remain available through `compile` and `sync`. After syncing such a file, `verify --task FILE` previews its checks and `verify --task FILE --run` executes them; verification requires that same deployed task.
+Pack installation is optional. Add the printed guidance to your agent's
+user-level instruction file, such as `~/.codex/AGENTS.md`. Then use the agent to
+request work normally. Work trees without a local registration receive
+`not_registered` from policy discovery and follow their ordinary workflow.
 
-Use [supported examples](examples/p0/), the [CLI reference](docs/cli.md), and the
-[complete walkthrough](docs/p0.md). For chat and notes, use the optional
-[zero-install contract](docs/zero-install.md).
+AMH writes under `~/.amh` by default. `AMH_HOME` can select a different absolute
+directory outside Git work trees. Project registration, policy changes and
+verification records leave shared repository instructions untouched. Personal
+common policies can be managed from any directory with `--scope user`.
 
-- **User ownership:** one project-owned TOML event log derives current policy
-  state. Optional user policies are imported from an explicitly selected registry.
-- **Adaptive selection:** the existing agent interprets the request against natural
-  policy conditions; AMH validates complete, grounded, snapshot-bound assessments
-  and applies lifecycle, scope, dependencies and declared conflicts. Uncertain
-  mandatory conditions and unresolved dependencies/conflicts block compilation.
-- **Minimal context:** discovery returns short conditions. The agent can look up
-  a specific body and receives the applicable policies after validation.
-  Lookups write no files. The host manages the conversation.
-- **Safe updates:** reviewed plans are recomputed before application; generated
-  edits and symlinks are refused. Only an identified block in an existing
-  `AGENTS.md` is managed. Interrupted updates have an explicit recovery path.
-- **Honest evidence:** delivered instructions, executed checks and actual policy
-  compliance are distinct. Successful checks do not certify semantic correctness,
-  TDD process adherence, or live-agent compliance.
+- **User ownership.** TOML registries preserve policy IDs, revisions, lifecycle
+  and change history. Each registered work tree uses the common registry and
+  the policies for its selected project ID.
+- **Adaptive selection.** Discovery yields conditions. An agent can fetch
+  individual bodies and obtain the selected instructions after AMH validates
+  applicability coverage, policy versions, dependencies and conflicts.
+- **Explicit Tasks.** `compile --task FILE` renders a contract to stdout.
+  `verify --task FILE` previews checks and `--run` executes them and records
+  evidence locally. A check result alone does not establish policy compliance.
 
-TDD, refactoring, Socratic dialogue, research and writing are editable policy pack
-entries, not privileged core modes. Packs are opt-in. AMH adds no mandatory separate model, API key, Docker,
-DB server or background process to the existing agent workflow.
+See [agent integration](docs/agent-requests.md), the [CLI reference](docs/cli.md)
+and the [walkthrough and migration](docs/p0.md). Use [zero-install guidance](docs/zero-install.md)
+for chat and notes without a CLI.
 
 ## Trust levels
 
-The project workflow edits **ordinary user-owned files under OS permissions**.
+The project workflow edits **ordinary files in the user’s AMH home under OS permissions**.
 It does not authenticate a human approver or sandbox an agent with the same write
 permissions. `--apply` is an explicit local write, not a cryptographic approval.
 
@@ -89,8 +78,7 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test -p amh-core --no-default-features --locked
 ```
 
-The executable is `target/release/amh` (`amh.exe` on Windows). Only `amh` is needed
-for the ordinary project workflow; protected-host and witness binaries are optional.
+The executable is `target/release/amh` (`amh.exe` on Windows). The ordinary workflow uses `amh` and Git. Protected-host and witness binaries are optional.
 
 See [architecture](docs/architecture.md), [data contracts](docs/contracts.md), and
 [roadmap](docs/roadmap.md). Commits follow `type: description` and are separated by

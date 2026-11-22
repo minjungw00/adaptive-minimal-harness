@@ -12,10 +12,10 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 1. **Item Store (implemented):** current authoritative items, type-specific validation, explicit changes, revision checks.
 2. **Policy Resolver (agent-assisted discovery plus deterministic guards implemented):** applicability, authority, exception and conflict diagnostics.
-3. **Conversation Context (implemented):** one versioned state per conversation, source-tagged context, request-specific policy judgments and reuse. Explicit Task contracts are optional for goals, completion criteria, scope and checks.
-4. **Context Compiler (implemented):** minimal target-neutral execution contract, with traceable references to selected items.
-5. **Agent Adapters (AGENTS.md implemented):** target-native instruction/skill files; optional integrations and no required always-on process.
-6. **Reconciler (managed files and source drift implemented):** distinguish desired, rendered, deployed, and observed states. A paused policy may remain in a deployed file or live session.
+3. **Work-tree registration:** explicit local path-to-project bindings in AMH home.
+4. **Context compiler:** selected request policies and explicit Task contracts on stdout.
+5. **Agent integration:** instructions for the host's user configuration and optional one-shot adapters.
+6. **Version guards:** bind decisions to the current registered work tree and policy catalogue.
 7. **Verification (explicit tool execution and qualitative pilots implemented):** executed checks and independent qualitative review provide different evidence; automatic semantic attestation is not implemented.
 
 ## Trust and data boundaries
@@ -30,11 +30,19 @@ Goals, principles, requirements, constraints, and decisions share identity, scop
 
 The initial `SnapshotStore` is an **implemented library feature**: replay-checked, format-tagged JSON storing current items and their change history together in one file. It uses advisory file locking, expected revisions, a synchronized temporary file, and same-directory rename. This is not authenticated, cryptographically tamper-evident, or guaranteed durable across power loss on every filesystem. See [storage contract](persistence.md).
 
-The native project path uses `amh-project`: a user-owned TOML event log, typed governance metadata, replayed state, explicit local write plans and a recoverable adapter transaction. It reuses the core item types and structural checks, but does not require the optional protected host. The legacy JSON snapshot and protected-host format remain separate trust domains; neither is silently imported into the project registry. See [P0 contracts](p0.md).
+The native workflow uses user-owned TOML registries and a separate work-tree
+registration file. Each changed file is replaced atomically under a home lock.
+A first registration writes the project registry before its binding, allowing
+a retry to reuse the registry if the binding was never written. Policy history
+is replayed from the typed event log. See [P0 contracts](p0.md).
 
 ## Scope control
 
-The P0 path provides project initialization, explicit user-registry imports, versioned policy operations, optional pinned packs, natural-language request interpretation plus explicit tag/task resolution, compilation, a shared AGENTS.md bridge, drift checks, uninstall, rollback/recovery and verification-tool evidence. It uses no agent runner or always-on process. Independent qualitative pilots cover selected natural-language and agent behaviors. Broad classification measurement, cross-model/unassisted comparisons, semantic conflict analysis, automatic host context reconciliation and authenticated local approval remain unimplemented or unmeasured.
+Registration enables policy delivery for a work tree. Team instructions and
+capabilities still come from the host and the repository. Common and
+project-specific AMH policies are both personal data. Explicit Task compilation
+and verification are available for deliberately selected files, with evidence
+stored in AMH home.
 
 ## External signer and read-only consumer bridge
 
@@ -54,7 +62,7 @@ Local `recovery-diagnose` provides read-only classification of uninitialized, un
 
 ## Natural-language agent integration
 
-The AGENTS.md bridge directs the existing agent to obtain a read-only discovery
+The user-level AMH guidance directs the existing agent to obtain a read-only discovery
 packet, interpret the user's verbatim request against custom and built-in policy
 conditions, submit a schema-conforming response, and continue the original task
 with the validated generated instructions. One-shot stdio and Codex CLI adapters
@@ -64,10 +72,10 @@ structural conflicts; it does not claim that a model judgment is semantic proof.
 
 ## Request-based delivery
 
-The default managed bridge starts with a catalogue of conditions and metadata.
+Request discovery starts with a catalogue of conditions and metadata.
 The existing agent uses its available conversation context to judge applicability
 and can retrieve an individual body when necessary. AMH validates the decisions
 against the current policy snapshot, then renders the applicable bodies.
 Lookup and resolution use stdin and stdout and need no per-request files.
-Explicit Task deployment is separately available for defined acceptance criteria
+Explicit Task compilation is available for defined acceptance criteria
 and executable verification. The host manages conversation state.
