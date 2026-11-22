@@ -17,5 +17,3 @@ Custom packs have `id`, `version`, and a `policies` array matching the `Policy`
 schema. Supply one with `amh pack install --file PACK.toml ...`. Editing installed
 content uses the same version-checked policy operations as any other user policy.
 No new method requires a core enum or dedicated runner.
-
-Pack 0.2.0 adds natural-language discovery conditions. Previously installed definitions remain pinned; they are not overwritten or silently upgraded.

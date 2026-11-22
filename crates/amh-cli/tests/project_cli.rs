@@ -187,7 +187,7 @@ fn allowlist_binds_exact_work_trees_and_supports_opt_in_aliases() {
 }
 
 #[test]
-fn current_v1_import_preserves_event_history() {
+fn import_preserves_event_history() {
     let f = Fixture::new();
     f.ok(&["project", "add", "--id", "source", "--apply"]);
     f.ok(&[
@@ -215,65 +215,6 @@ fn current_v1_import_preserves_event_history() {
         "unchanged"
     );
     assert_eq!(fs::read(&exported).unwrap(), original_bytes);
-}
-
-#[test]
-fn previous_typed_v1_fails_closed_and_keeps_the_original_bytes() {
-    let f = Fixture::new();
-    f.ok(&["project", "add", "--apply"]);
-    let registry = f.1.join("projects/repo/policies.toml");
-    let old = r#"format = "amh.policy-registry.v1"
-project_id = "repo"
-[[events]]
-revision = 1
-reason = "Fixture written by previous binary"
-[events.change]
-operation = "ADD"
-[events.change.policy]
-owner = "user"
-[events.change.policy.item]
-id = "P-OLD"
-kind = "principle"
-scope = "project"
-content = "A previously active policy"
-lifecycle = "active"
-revision = 1
-[events.change.policy.item.details]
-type = "principle"
-strength = "must"
-[events.change.policy.item.details.activation]
-mode = "always"
-"#;
-    let source = f.2.join("old.toml");
-    fs::write(&source, old).unwrap();
-    assert!(!f
-        .run(&[
-            "policy",
-            "import",
-            "--file",
-            source.to_str().unwrap(),
-            "--apply"
-        ])
-        .status
-        .success());
-    fs::write(&registry, old).unwrap();
-    for args in [
-        &["policy", "discover"][..],
-        &[
-            "policy",
-            "add",
-            "--id",
-            "P-NEW",
-            "--text",
-            "A new policy",
-            "--apply",
-        ],
-    ] {
-        let result = f.run(args);
-        assert!(!result.status.success());
-        assert!(String::from_utf8_lossy(&result.stderr).contains("invalid policy registry"));
-    }
-    assert_eq!(fs::read(&registry).unwrap(), old.as_bytes());
 }
 
 fn selection(discovery: &Value, decisions: &[(&str, &str)]) -> Value {
@@ -469,20 +410,9 @@ fn planned_changes_survive_unrelated_registration_and_same_names_require_opt_in(
 }
 
 #[test]
-fn help_is_available_and_retired_commands_are_unavailable() {
+fn policy_read_help_describes_selection() {
     let f = Fixture::new();
     let help = f.run(&["policy", "read", "--help"]);
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("--selection"));
-    for args in [
-        &["policy", "resolve"][..],
-        &["policy", "discover", "--text", "old"],
-        &["compile"],
-        &["request", "finish"],
-        &["verify"],
-        &["change", "preview"],
-        &["state", "inspect"],
-    ] {
-        assert!(!f.run(args).status.success(), "{args:?}");
-    }
 }

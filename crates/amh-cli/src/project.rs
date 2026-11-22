@@ -20,7 +20,7 @@ const USAGE: &[(&str, &str, &str)] = &[
     ("policy read", "ID --catalog-digest DIGEST [--root PATH]\n    amh policy read --selection [--root PATH]", "Read one policy for assessment or deliver a validated selection from JSON on stdin."),
     ("policy add", "(--id ID --text TEXT [--when CONDITION] [--strength must|should|may] | --file FILE) [--draft] [change options]", "Add an active policy. Use --draft to add it without activating it."),
     ("policy change", "(ID [--item-revision N] (--text TEXT | --strength must|should|may | --when CONDITION | --clear-condition | --activate | --pause | --reactivate) | --file FILE) [change options]", "Edit policy text, condition, strength, or lifecycle. Use a change file for detailed operations."),
-    ("policy import", "--file REGISTRY [--scope user|project] [--root PATH] [--apply | --plan]", "Copy history from a current-format AMH registry into an empty registry."),
+    ("policy import", "--file REGISTRY [--scope user|project] [--root PATH] [--apply | --plan]", "Copy history from an AMH registry into an empty registry."),
     ("pack list", "", "List built-in policy packs."),
     ("pack show", "NAME", "Show the policies in a built-in pack before installation."),
     ("pack install", "(NAME | --file FILE) [change options]", "Install a built-in or custom policy pack."),

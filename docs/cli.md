@@ -21,7 +21,7 @@ without `--root`. Policy mutations default to project scope.
 | `pack install NAME` or `pack install --file PACK.toml` | Install an optional pack. A custom pack's policies must match the target scope. |
 | `history [--full]` | Show the selected registry's events. `--full` exports its complete history for import. |
 | `rollback --revision N` | Restore the selected registry's policy set at revision N as a new revision. |
-| `policy import --file REGISTRY` | Copy a current-format AMH policy registry into an empty destination. Re-importing identical history is a no-op. |
+| `policy import --file REGISTRY` | Copy an AMH policy registry into an empty destination. Re-importing identical history is a no-op. |
 | `apply --plan FILE\|-` | Apply a saved JSON plan from a file or stdin. AMH recomputes the change against the same home. |
 
 Write commands show a summary of the proposed change by default. Use `--apply`
